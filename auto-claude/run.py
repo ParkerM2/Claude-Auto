@@ -859,9 +859,28 @@ def main() -> None:
         # Build is complete - proceed to follow-up workflow
         print()
         print(success(f"{icon(Icons.SUCCESS)} Build is complete. Ready for follow-up tasks."))
+
+        # Collect follow-up task from user
+        followup_task = collect_followup_task(spec_dir)
+
+        if followup_task is None:
+            # User cancelled
+            print()
+            print_status("Follow-up cancelled.", "info")
+            return
+
+        # Successfully collected follow-up task
+        # The collect_followup_task() function already saved to FOLLOWUP_REQUEST.md
+        # TODO: Chunk 5-2 will add run_followup_planner() call here
         print()
-        # TODO: Next chunk will implement collect_followup_task() and wire it up here
-        print(info("Follow-up task collection will be implemented in the next chunk."))
+        content = [
+            bold(f"{icon(Icons.INFO)} NEXT STEPS"),
+            "",
+            "Follow-up task saved. Planner integration will be added in a future update.",
+            "",
+            muted("For now, you can manually re-run the planner to add new chunks."),
+        ]
+        print(box(content, width=70, style="light"))
         return
 
     # Normal build flow
