@@ -2,7 +2,7 @@ import { app } from 'electron';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import type { Project, ProjectSettings, Task, TaskStatus, ImplementationPlan } from '../shared/types';
+import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, ImplementationPlan } from '../shared/types';
 import { DEFAULT_PROJECT_SETTINGS, AUTO_BUILD_PATHS } from '../shared/constants';
 import { getAutoBuildPath } from './project-initializer';
 
@@ -200,6 +200,18 @@ export class ProjectStore {
           }
         }
 
+        // Try to read task metadata
+        const metadataPath = path.join(specPath, 'task_metadata.json');
+        let metadata: TaskMetadata | undefined;
+        if (existsSync(metadataPath)) {
+          try {
+            const content = readFileSync(metadataPath, 'utf-8');
+            metadata = JSON.parse(content);
+          } catch {
+            // Ignore parse errors
+          }
+        }
+
         // Determine task status from plan
         const status = this.determineTaskStatus(plan, specPath);
 
@@ -223,6 +235,7 @@ export class ProjectStore {
           status,
           chunks,
           logs: [],
+          metadata,
           createdAt: new Date(plan?.created_at || Date.now()),
           updatedAt: new Date(plan?.updated_at || Date.now())
         });
@@ -241,7 +254,27 @@ export class ProjectStore {
     plan: ImplementationPlan | null,
     specPath: string
   ): TaskStatus {
-    // Check for QA report (human review needed)
+    // First, check if plan has an explicit status field (set by UI)
+    // This is the primary source of truth for persisted status
+    if (plan?.status) {
+      // Map plan status to TaskStatus
+      const statusMap: Record<string, TaskStatus> = {
+        'pending': 'backlog',
+        'in_progress': 'in_progress',
+        'review': 'ai_review',
+        'completed': 'done',
+        'done': 'done',
+        'human_review': 'human_review',
+        'ai_review': 'ai_review',
+        'backlog': 'backlog'
+      };
+      const mappedStatus = statusMap[plan.status];
+      if (mappedStatus) {
+        return mappedStatus;
+      }
+    }
+
+    // Fallback: Check for QA report (human review needed)
     const qaReportPath = path.join(specPath, AUTO_BUILD_PATHS.QA_REPORT);
     if (existsSync(qaReportPath)) {
       try {
@@ -259,8 +292,14 @@ export class ProjectStore {
 
     if (!plan) return 'backlog';
 
-    // Count chunk statuses
-    const allChunks = plan.phases.flatMap((p) => p.chunks);
+    // Fallback: Derive from chunk statuses
+    const allChunks = plan.phases?.flatMap((p) => p.chunks) || [];
+
+    // No chunks yet means task is still in planning/backlog
+    if (allChunks.length === 0) {
+      return 'backlog';
+    }
+
     const completed = allChunks.filter((c) => c.status === 'completed').length;
     const inProgress = allChunks.filter((c) => c.status === 'in_progress').length;
     const failed = allChunks.filter((c) => c.status === 'failed').length;

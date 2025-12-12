@@ -126,7 +126,7 @@ Write your findings to `{output_dir}/code_quality_ideas.json`:
 
 ```json
 {
-  "ideas": [
+  "code_quality": [
     {
       "id": "cq-001",
       "type": "code_quality",

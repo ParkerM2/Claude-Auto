@@ -30,7 +30,10 @@ import {
   Wifi,
   Box,
   HardDrive,
-  Code2
+  Code2,
+  Loader2,
+  XCircle,
+  Plus
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -58,14 +61,17 @@ import {
   loadIdeation,
   generateIdeation,
   refreshIdeation,
+  appendIdeation,
   getIdeasByType,
   getActiveIdeas,
   getIdeationSummary,
   isLowHangingFruitIdea,
   isUIUXIdea,
   isHighValueIdea,
-  setupIdeationListeners
+  setupIdeationListeners,
+  IdeationTypeState
 } from '../stores/ideation-store';
+import { loadTasks } from '../stores/task-store';
 import {
   IDEATION_TYPE_LABELS,
   IDEATION_TYPE_DESCRIPTIONS,
@@ -85,6 +91,7 @@ import type {
   Idea,
   IdeationType,
   IdeationGenerationStatus,
+  IdeationSession,
   LowHangingFruitIdea,
   UIUXImprovementIdea,
   HighValueFeatureIdea,
@@ -147,73 +154,241 @@ function isPerformanceOptimizationIdea(idea: Idea): idea is PerformanceOptimizat
   return idea.type === 'performance_optimizations';
 }
 
-// Generation Progress Screen Component - handles auto-scroll
+// Helper to get state icon for ideation type
+function TypeStateIcon({ state }: { state: IdeationTypeState }) {
+  switch (state) {
+    case 'completed':
+      return <CheckCircle2 className="h-4 w-4 text-success" />;
+    case 'failed':
+      return <XCircle className="h-4 w-4 text-destructive" />;
+    case 'generating':
+      return <Loader2 className="h-4 w-4 text-primary animate-spin" />;
+    case 'pending':
+    default:
+      return <Circle className="h-4 w-4 text-muted-foreground" />;
+  }
+}
+
+// Skeleton card for ideas being loaded
+function IdeaSkeletonCard() {
+  return (
+    <Card className="p-4 animate-pulse">
+      <div className="flex items-start justify-between">
+        <div className="flex-1 space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="h-5 w-24 bg-muted rounded" />
+            <div className="h-5 w-16 bg-muted rounded" />
+          </div>
+          <div className="h-4 w-3/4 bg-muted rounded" />
+          <div className="h-3 w-full bg-muted rounded" />
+          <div className="h-3 w-2/3 bg-muted rounded" />
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// Generation Progress Screen Component - handles auto-scroll with streaming UI
 interface GenerationProgressScreenProps {
   generationStatus: IdeationGenerationStatus;
   logs: string[];
+  typeStates: Record<IdeationType, IdeationTypeState>;
+  enabledTypes: IdeationType[];
+  session: IdeationSession | null;
+  onSelectIdea: (idea: Idea | null) => void;
+  selectedIdea: Idea | null;
+  onConvert: (idea: Idea) => void;
+  onDismiss: (idea: Idea) => void;
 }
 
-function GenerationProgressScreen({ generationStatus, logs }: GenerationProgressScreenProps) {
+function GenerationProgressScreen({
+  generationStatus,
+  logs,
+  typeStates,
+  enabledTypes,
+  session,
+  onSelectIdea,
+  selectedIdea,
+  onConvert,
+  onDismiss
+}: GenerationProgressScreenProps) {
   const logsEndRef = useRef<HTMLDivElement>(null);
+  const [showLogs, setShowLogs] = useState(false);
 
   // Auto-scroll to bottom when logs update
   useEffect(() => {
-    if (logsEndRef.current) {
+    if (logsEndRef.current && showLogs) {
       logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [logs]);
+  }, [logs, showLogs]);
+
+  // Get ideas for a specific type from the current session
+  const getStreamingIdeasByType = (type: IdeationType): Idea[] => {
+    if (!session) return [];
+    return session.ideas.filter((idea) => idea.type === type);
+  };
+
+  // Count how many types are still generating
+  const generatingCount = enabledTypes.filter((t) => typeStates[t] === 'generating').length;
+  const completedCount = enabledTypes.filter((t) => typeStates[t] === 'completed').length;
 
   return (
-    <div className="flex h-full items-center justify-center p-4">
-      <Card className="w-full max-w-2xl p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <Sparkles className="h-6 w-6 text-primary animate-pulse" />
-          <h2 className="text-lg font-semibold">Generating Ideas</h2>
-        </div>
-        <Progress value={generationStatus.progress} className="mb-3" />
-        <p className="text-sm text-muted-foreground">{generationStatus.message}</p>
-        {generationStatus.currentType && (
-          <div className="mt-2 flex items-center gap-2">
-            <TypeIcon type={generationStatus.currentType} />
-            <span className="text-sm">{IDEATION_TYPE_LABELS[generationStatus.currentType]}</span>
-          </div>
-        )}
-
-        {/* Logs Section */}
-        {logs.length > 0 && (
-          <div className="mt-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <FileCode className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Activity Log</span>
-              </div>
-              <span className="text-xs text-muted-foreground">{logs.length} lines</span>
+    <div className="h-full flex flex-col overflow-hidden">
+      {/* Header */}
+      <div className="flex-shrink-0 border-b border-border p-4 bg-card/50">
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Sparkles className="h-5 w-5 text-primary animate-pulse" />
+              <h2 className="text-lg font-semibold">Generating Ideas</h2>
+              <Badge variant="outline">
+                {completedCount}/{enabledTypes.length} complete
+              </Badge>
             </div>
-            <ScrollArea className="h-64 rounded-md border border-border bg-muted/30">
-              <div className="p-3 space-y-1 font-mono text-xs">
-                {logs.map((log, index) => (
-                  <div
-                    key={index}
-                    className="text-muted-foreground leading-relaxed"
-                  >
-                    <span className="text-muted-foreground/50 mr-2 select-none">
-                      {String(index + 1).padStart(3, '0')}
-                    </span>
-                    {log}
-                  </div>
-                ))}
-                <div ref={logsEndRef} />
-              </div>
-            </ScrollArea>
+            <p className="text-sm text-muted-foreground">{generationStatus.message}</p>
           </div>
-        )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowLogs(!showLogs)}
+          >
+            <FileCode className="h-4 w-4 mr-1" />
+            {showLogs ? 'Hide' : 'Show'} Logs
+          </Button>
+        </div>
+        <Progress value={generationStatus.progress} className="mt-3" />
 
+        {/* Type Status Indicators */}
+        <div className="mt-3 flex flex-wrap gap-2">
+          {enabledTypes.map((type) => (
+            <div
+              key={type}
+              className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs ${
+                typeStates[type] === 'completed'
+                  ? 'bg-success/10 text-success'
+                  : typeStates[type] === 'failed'
+                    ? 'bg-destructive/10 text-destructive'
+                    : typeStates[type] === 'generating'
+                      ? 'bg-primary/10 text-primary'
+                      : 'bg-muted text-muted-foreground'
+              }`}
+            >
+              <TypeStateIcon state={typeStates[type]} />
+              <TypeIcon type={type} />
+              <span>{IDEATION_TYPE_LABELS[type]}</span>
+              {typeStates[type] === 'completed' && session && (
+                <span className="ml-1 font-medium">
+                  ({getStreamingIdeasByType(type).length})
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Logs Panel (collapsible) */}
+      {showLogs && logs.length > 0 && (
+        <div className="flex-shrink-0 border-b border-border p-4 bg-muted/20">
+          <ScrollArea className="h-32 rounded-md border border-border bg-muted/30">
+            <div className="p-3 space-y-1 font-mono text-xs">
+              {logs.map((log, index) => (
+                <div key={index} className="text-muted-foreground leading-relaxed">
+                  <span className="text-muted-foreground/50 mr-2 select-none">
+                    {String(index + 1).padStart(3, '0')}
+                  </span>
+                  {log}
+                </div>
+              ))}
+              <div ref={logsEndRef} />
+            </div>
+          </ScrollArea>
+        </div>
+      )}
+
+      {/* Streaming Ideas View */}
+      <div className="flex-1 overflow-auto p-4">
         {generationStatus.error && (
-          <div className="mt-4 p-3 bg-destructive/10 rounded-md text-destructive text-sm">
+          <div className="mb-4 p-3 bg-destructive/10 rounded-md text-destructive text-sm">
             {generationStatus.error}
           </div>
         )}
-      </Card>
+
+        <div className="space-y-6">
+          {enabledTypes.map((type) => {
+            const ideas = getStreamingIdeasByType(type);
+            const state = typeStates[type];
+
+            return (
+              <div key={type}>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className={`p-1.5 rounded-md ${IDEATION_TYPE_COLORS[type]}`}>
+                    <TypeIcon type={type} />
+                  </div>
+                  <h3 className="font-medium">{IDEATION_TYPE_LABELS[type]}</h3>
+                  <TypeStateIcon state={state} />
+                  {ideas.length > 0 && (
+                    <Badge variant="outline" className="ml-auto">
+                      {ideas.length} ideas
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="grid gap-3">
+                  {/* Show actual ideas if available */}
+                  {ideas.map((idea) => (
+                    <IdeaCard
+                      key={idea.id}
+                      idea={idea}
+                      onClick={() => onSelectIdea(selectedIdea?.id === idea.id ? null : idea)}
+                      onConvert={onConvert}
+                      onDismiss={onDismiss}
+                    />
+                  ))}
+
+                  {/* Show skeleton placeholders while generating */}
+                  {state === 'generating' && (
+                    <>
+                      <IdeaSkeletonCard />
+                      <IdeaSkeletonCard />
+                    </>
+                  )}
+
+                  {/* Show pending message */}
+                  {state === 'pending' && (
+                    <div className="text-sm text-muted-foreground py-2">
+                      Waiting to start...
+                    </div>
+                  )}
+
+                  {/* Show failed message */}
+                  {state === 'failed' && ideas.length === 0 && (
+                    <div className="text-sm text-destructive py-2">
+                      Failed to generate ideas for this category
+                    </div>
+                  )}
+
+                  {/* Show empty message if completed with no ideas */}
+                  {state === 'completed' && ideas.length === 0 && (
+                    <div className="text-sm text-muted-foreground py-2">
+                      No ideas generated for this category
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Idea Detail Panel */}
+      {selectedIdea && (
+        <IdeaDetailPanel
+          idea={selectedIdea}
+          onClose={() => onSelectIdea(null)}
+          onConvert={onConvert}
+          onDismiss={onDismiss}
+        />
+      )}
     </div>
   );
 }
@@ -224,13 +399,16 @@ export function Ideation({ projectId }: IdeationProps) {
   const config = useIdeationStore((state) => state.config);
   const setConfig = useIdeationStore((state) => state.setConfig);
   const logs = useIdeationStore((state) => state.logs);
+  const typeStates = useIdeationStore((state) => state.typeStates);
 
   const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
   const [activeTab, setActiveTab] = useState<string>('all');
   const [showConfigDialog, setShowConfigDialog] = useState(false);
   const [showDismissed, setShowDismissed] = useState(false);
   const [showEnvConfigModal, setShowEnvConfigModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'generate' | 'refresh' | null>(null);
+  const [pendingAction, setPendingAction] = useState<'generate' | 'refresh' | 'append' | null>(null);
+  const [showAddMoreDialog, setShowAddMoreDialog] = useState(false);
+  const [typesToAdd, setTypesToAdd] = useState<IdeationType[]>([]);
 
   // Check if Claude token is configured
   const { hasToken, isLoading: isCheckingToken, checkToken } = useClaudeTokenCheck();
@@ -269,8 +447,41 @@ export function Ideation({ projectId }: IdeationProps) {
       generateIdeation(projectId);
     } else if (pendingAction === 'refresh') {
       refreshIdeation(projectId);
+    } else if (pendingAction === 'append' && typesToAdd.length > 0) {
+      appendIdeation(projectId, typesToAdd);
+      setTypesToAdd([]);
     }
     setPendingAction(null);
+  };
+
+  // Get which types are not yet in the session (available to add)
+  const getAvailableTypesToAdd = (): IdeationType[] => {
+    if (!session) return ALL_IDEATION_TYPES;
+    const existingTypes = new Set(session.ideas.map((idea) => idea.type));
+    return ALL_IDEATION_TYPES.filter((type) => !existingTypes.has(type));
+  };
+
+  // Handle adding more ideas
+  const handleAddMoreIdeas = () => {
+    if (typesToAdd.length === 0) return;
+
+    // Check token before generating
+    if (hasToken === false) {
+      setPendingAction('append');
+      setShowEnvConfigModal(true);
+      return;
+    }
+
+    appendIdeation(projectId, typesToAdd);
+    setTypesToAdd([]);
+    setShowAddMoreDialog(false);
+  };
+
+  // Toggle a type in the typesToAdd list
+  const toggleTypeToAdd = (type: IdeationType) => {
+    setTypesToAdd((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+    );
   };
 
   const handleConvertToTask = async (idea: Idea) => {
@@ -278,6 +489,8 @@ export function Ideation({ projectId }: IdeationProps) {
     if (result.success) {
       // Idea converted to task - update status
       useIdeationStore.getState().updateIdeaStatus(idea.id, 'converted');
+      // Reload tasks so the new task appears in the kanban board
+      loadTasks(projectId);
     }
   };
 
@@ -302,12 +515,19 @@ export function Ideation({ projectId }: IdeationProps) {
   const summary = getIdeationSummary(session);
   const activeIdeas = showDismissed ? session?.ideas || [] : getActiveIdeas(session);
 
-  // Show generation progress
-  if (generationStatus.phase !== 'idle' && generationStatus.phase !== 'complete') {
+  // Show generation progress with streaming ideas
+  if (generationStatus.phase !== 'idle' && generationStatus.phase !== 'complete' && generationStatus.phase !== 'error') {
     return (
       <GenerationProgressScreen
         generationStatus={generationStatus}
         logs={logs}
+        typeStates={typeStates}
+        enabledTypes={config.enabledTypes}
+        session={session}
+        onSelectIdea={setSelectedIdea}
+        selectedIdea={selectedIdea}
+        onConvert={handleConvertToTask}
+        onDismiss={handleDismiss}
       />
     );
   }
@@ -423,6 +643,24 @@ export function Ideation({ projectId }: IdeationProps) {
               </TooltipTrigger>
               <TooltipContent>Configure</TooltipContent>
             </Tooltip>
+            {/* Add More Ideas Button - only show if there are types not yet generated */}
+            {getAvailableTypesToAdd().length > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setTypesToAdd([]);
+                      setShowAddMoreDialog(true);
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add More
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Add more ideation types</TooltipContent>
+              </Tooltip>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="outline" size="icon" onClick={handleRefresh}>
@@ -487,7 +725,7 @@ export function Ideation({ projectId }: IdeationProps) {
                 <IdeaCard
                   key={idea.id}
                   idea={idea}
-                  onClick={() => setSelectedIdea(idea)}
+                  onClick={() => setSelectedIdea(selectedIdea?.id === idea.id ? null : idea)}
                   onConvert={handleConvertToTask}
                   onDismiss={handleDismiss}
                 />
@@ -515,7 +753,7 @@ export function Ideation({ projectId }: IdeationProps) {
                     <IdeaCard
                       key={idea.id}
                       idea={idea}
-                      onClick={() => setSelectedIdea(idea)}
+                      onClick={() => setSelectedIdea(selectedIdea?.id === idea.id ? null : idea)}
                       onConvert={handleConvertToTask}
                       onDismiss={handleDismiss}
                     />
@@ -594,6 +832,77 @@ export function Ideation({ projectId }: IdeationProps) {
             <Button variant="outline" onClick={() => setShowConfigDialog(false)}>
               Close
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add More Ideas Dialog */}
+      <Dialog open={showAddMoreDialog} onOpenChange={setShowAddMoreDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add More Ideas</DialogTitle>
+            <DialogDescription>
+              Select additional ideation types to generate. Your existing ideas will be preserved.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-3 max-h-96 overflow-y-auto">
+            {getAvailableTypesToAdd().length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground">
+                <CheckCircle2 className="h-12 w-12 mx-auto mb-2 text-success" />
+                <p>You've already generated all ideation types!</p>
+                <p className="text-sm mt-1">Use "Regenerate" to refresh existing ideas.</p>
+              </div>
+            ) : (
+              getAvailableTypesToAdd().map((type) => (
+                <div
+                  key={type}
+                  className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${
+                    typesToAdd.includes(type)
+                      ? 'bg-primary/10 border border-primary'
+                      : 'bg-muted/50 hover:bg-muted'
+                  }`}
+                  onClick={() => toggleTypeToAdd(type)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-md ${IDEATION_TYPE_COLORS[type]}`}>
+                      <TypeIcon type={type} />
+                    </div>
+                    <div>
+                      <div className="font-medium text-sm">{IDEATION_TYPE_LABELS[type]}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {IDEATION_TYPE_DESCRIPTIONS[type]}
+                      </div>
+                    </div>
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    typesToAdd.includes(type)
+                      ? 'border-primary bg-primary'
+                      : 'border-muted-foreground'
+                  }`}>
+                    {typesToAdd.includes(type) && (
+                      <CheckCircle2 className="h-4 w-4 text-primary-foreground" />
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              {typesToAdd.length > 0 && `${typesToAdd.length} selected`}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowAddMoreDialog(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAddMoreIdeas}
+                disabled={typesToAdd.length === 0}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Generate {typesToAdd.length > 0 ? `${typesToAdd.length} Types` : 'Ideas'}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -1,0 +1,297 @@
+#!/usr/bin/env python3
+"""
+Insights Runner - AI chat for codebase insights using Claude SDK
+
+This script provides an AI-powered chat interface for asking questions
+about a codebase. It can also suggest tasks based on the conversation.
+"""
+import asyncio
+import os
+import sys
+import json
+import argparse
+from pathlib import Path
+from typing import Optional
+
+# Add auto-claude to path
+sys.path.insert(0, str(Path(__file__).parent))
+
+try:
+    from claude_code_sdk import ClaudeCodeOptions, ClaudeSDKClient
+    SDK_AVAILABLE = True
+except ImportError:
+    SDK_AVAILABLE = False
+    ClaudeCodeOptions = None
+    ClaudeSDKClient = None
+
+from debug import (
+    debug,
+    debug_detailed,
+    debug_success,
+    debug_error,
+    debug_section,
+)
+
+
+def load_project_context(project_dir: str) -> str:
+    """Load project context for the AI."""
+    context_parts = []
+
+    # Load project index if available
+    index_path = Path(project_dir) / "auto-claude" / "project_index.json"
+    if index_path.exists():
+        try:
+            with open(index_path) as f:
+                index = json.load(f)
+            # Summarize the index for context
+            summary = {
+                "project_root": index.get("project_root", ""),
+                "project_type": index.get("project_type", "unknown"),
+                "services": list(index.get("services", {}).keys()),
+                "infrastructure": index.get("infrastructure", {}),
+            }
+            context_parts.append(f"## Project Structure\n```json\n{json.dumps(summary, indent=2)}\n```")
+        except Exception as e:
+            pass
+
+    # Load roadmap if available
+    roadmap_path = Path(project_dir) / "auto-claude" / "roadmap" / "roadmap.json"
+    if roadmap_path.exists():
+        try:
+            with open(roadmap_path) as f:
+                roadmap = json.load(f)
+            # Summarize roadmap
+            features = roadmap.get("features", [])
+            feature_summary = [{"title": f.get("title", ""), "status": f.get("status", "")} for f in features[:10]]
+            context_parts.append(f"## Roadmap Features\n```json\n{json.dumps(feature_summary, indent=2)}\n```")
+        except Exception as e:
+            pass
+
+    # Load existing tasks
+    tasks_path = Path(project_dir) / "auto-claude" / "specs"
+    if tasks_path.exists():
+        try:
+            task_dirs = [d for d in tasks_path.iterdir() if d.is_dir()]
+            task_names = [d.name for d in task_dirs[:10]]
+            if task_names:
+                context_parts.append(f"## Existing Tasks/Specs\n- " + "\n- ".join(task_names))
+        except Exception as e:
+            pass
+
+    return "\n\n".join(context_parts) if context_parts else "No project context available yet."
+
+
+def build_system_prompt(project_dir: str) -> str:
+    """Build the system prompt for the insights agent."""
+    context = load_project_context(project_dir)
+
+    return f"""You are an AI assistant helping developers understand and work with their codebase.
+You have access to the following project context:
+
+{context}
+
+Your capabilities:
+1. Answer questions about the codebase structure, patterns, and architecture
+2. Suggest improvements, features, or bug fixes based on the code
+3. Help plan implementation of new features
+4. Provide code examples and explanations
+
+When the user asks you to create a task, wants to turn the conversation into a task, or when you believe creating a task would be helpful, output a task suggestion in this exact format on a SINGLE LINE:
+__TASK_SUGGESTION__:{{"title": "Task title here", "description": "Detailed description of what the task involves", "metadata": {{"category": "feature", "complexity": "medium", "impact": "medium"}}}}
+
+Valid categories: feature, bug_fix, refactoring, documentation, security, performance, ui_ux, infrastructure, testing
+Valid complexity: trivial, small, medium, large, complex
+Valid impact: low, medium, high, critical
+
+Be conversational and helpful. Focus on providing actionable insights and clear explanations.
+Keep responses concise but informative."""
+
+
+async def run_with_sdk(project_dir: str, message: str, history: list) -> None:
+    """Run the chat using Claude SDK with streaming."""
+    if not SDK_AVAILABLE:
+        print("Claude SDK not available, falling back to simple mode", file=sys.stderr)
+        run_simple(project_dir, message, history)
+        return
+
+    oauth_token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")
+    if not oauth_token:
+        print("CLAUDE_CODE_OAUTH_TOKEN not set, falling back to simple mode", file=sys.stderr)
+        run_simple(project_dir, message, history)
+        return
+
+    system_prompt = build_system_prompt(project_dir)
+    project_path = Path(project_dir).resolve()
+
+    # Build conversation context from history
+    conversation_context = ""
+    for msg in history[:-1]:  # Exclude the latest message
+        role = "User" if msg.get("role") == "user" else "Assistant"
+        conversation_context += f"\n{role}: {msg['content']}\n"
+
+    # Build the full prompt with conversation history
+    full_prompt = message
+    if conversation_context.strip():
+        full_prompt = f"""Previous conversation:
+{conversation_context}
+
+Current question: {message}"""
+
+    try:
+        # Create Claude SDK client with appropriate settings for insights
+        client = ClaudeSDKClient(
+            options=ClaudeCodeOptions(
+                model="claude-sonnet-4-20250514",
+                system_prompt=system_prompt,
+                allowed_tools=[
+                    "Read",
+                    "Glob",
+                    "Grep",
+                ],
+                max_turns=10,  # Limit turns for insights chat
+                cwd=str(project_path),
+            )
+        )
+
+        # Use async context manager pattern
+        async with client:
+            # Send the query
+            await client.query(full_prompt)
+
+            # Stream the response
+            response_text = ""
+            current_tool = None
+
+            async for msg in client.receive_response():
+                msg_type = type(msg).__name__
+
+                if msg_type == "AssistantMessage" and hasattr(msg, "content"):
+                    for block in msg.content:
+                        block_type = type(block).__name__
+                        if block_type == "TextBlock" and hasattr(block, "text"):
+                            text = block.text
+                            print(text, end="", flush=True)
+                            response_text += text
+                        elif block_type == "ToolUseBlock" and hasattr(block, "name"):
+                            # Emit tool start marker for UI feedback
+                            tool_name = block.name
+                            tool_input = ""
+
+                            # Extract a brief description of what the tool is doing
+                            if hasattr(block, "input") and block.input:
+                                inp = block.input
+                                if isinstance(inp, dict):
+                                    if "pattern" in inp:
+                                        tool_input = f"pattern: {inp['pattern']}"
+                                    elif "file_path" in inp:
+                                        # Shorten path for display
+                                        fp = inp["file_path"]
+                                        if len(fp) > 50:
+                                            fp = "..." + fp[-47:]
+                                        tool_input = fp
+                                    elif "path" in inp:
+                                        tool_input = inp["path"]
+
+                            current_tool = tool_name
+                            print(f"__TOOL_START__:{json.dumps({'name': tool_name, 'input': tool_input})}", flush=True)
+
+                elif msg_type == "ToolResult":
+                    # Tool finished executing
+                    if current_tool:
+                        print(f"__TOOL_END__:{json.dumps({'name': current_tool})}", flush=True)
+                        current_tool = None
+
+            # Ensure we have a newline at the end
+            if response_text and not response_text.endswith('\n'):
+                print()
+
+    except Exception as e:
+        print(f"Error using Claude SDK: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        run_simple(project_dir, message, history)
+
+
+def run_simple(project_dir: str, message: str, history: list) -> None:
+    """Simple fallback mode without SDK - uses subprocess to call claude CLI."""
+    import subprocess
+
+    system_prompt = build_system_prompt(project_dir)
+
+    # Build conversation context
+    conversation_context = ""
+    for msg in history[:-1]:
+        role = "User" if msg.get("role") == "user" else "Assistant"
+        conversation_context += f"\n{role}: {msg['content']}\n"
+
+    # Create the full prompt
+    full_prompt = f"""{system_prompt}
+
+Previous conversation:
+{conversation_context}
+
+User: {message}
+Assistant:"""
+
+    try:
+        # Try to use claude CLI with --print for simple output
+        result = subprocess.run(
+            ['claude', '--print', '-p', full_prompt],
+            capture_output=True,
+            text=True,
+            cwd=project_dir,
+            timeout=120
+        )
+
+        if result.returncode == 0:
+            print(result.stdout)
+        else:
+            # Fallback response if claude CLI fails
+            print(f"I apologize, but I encountered an issue processing your request. "
+                  f"Please ensure Claude CLI is properly configured.\n\n"
+                  f"Your question was: {message}\n\n"
+                  f"Based on the project context available, I can help you with:\n"
+                  f"- Understanding the codebase structure\n"
+                  f"- Suggesting improvements\n"
+                  f"- Planning new features\n\n"
+                  f"Please try again or check your Claude CLI configuration.")
+
+    except subprocess.TimeoutExpired:
+        print("Request timed out. Please try a shorter query.")
+    except FileNotFoundError:
+        print("Claude CLI not found. Please ensure it is installed and in your PATH.")
+    except Exception as e:
+        print(f"Error: {e}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Insights AI Chat Runner")
+    parser.add_argument("--project-dir", required=True, help="Project directory path")
+    parser.add_argument("--message", required=True, help="User message")
+    parser.add_argument("--history", default="[]", help="JSON conversation history")
+    args = parser.parse_args()
+
+    debug_section("insights_runner", "Starting Insights Chat")
+
+    project_dir = args.project_dir
+    user_message = args.message
+
+    debug("insights_runner", "Arguments",
+          project_dir=project_dir,
+          message_length=len(user_message))
+
+    try:
+        history = json.loads(args.history)
+        debug_detailed("insights_runner", "Parsed history", history_length=len(history))
+    except json.JSONDecodeError:
+        debug_error("insights_runner", "Failed to parse history JSON")
+        history = []
+
+    # Run the async SDK function
+    debug("insights_runner", "Running SDK query")
+    asyncio.run(run_with_sdk(project_dir, user_message, history))
+    debug_success("insights_runner", "Query completed")
+
+
+if __name__ == "__main__":
+    main()

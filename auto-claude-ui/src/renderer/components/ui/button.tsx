@@ -22,6 +22,8 @@ const buttonVariants = cva(
           'text-primary underline-offset-4 hover:underline',
         success:
           'bg-[var(--success)] text-[var(--success-foreground)] hover:bg-[var(--success)]/90 active:scale-[0.98]',
+        warning:
+          'bg-warning text-warning-foreground hover:bg-warning/90 active:scale-[0.98]',
       },
       size: {
         default: 'h-10 px-4 py-2 text-sm rounded-lg',

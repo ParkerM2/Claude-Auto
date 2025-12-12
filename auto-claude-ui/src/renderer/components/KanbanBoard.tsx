@@ -24,7 +24,7 @@ import { TaskCard } from './TaskCard';
 import { SortableTaskCard } from './SortableTaskCard';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
-import { useTaskStore } from '../stores/task-store';
+import { persistTaskStatus } from '../stores/task-store';
 import type { Task, TaskStatus } from '../../shared/types';
 
 interface KanbanBoardProps {
@@ -133,7 +133,6 @@ function DroppableColumn({ status, tasks, onTaskClick, isOver, onAddClick }: Dro
 export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardProps) {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
-  const updateTaskStatus = useTaskStore((state) => state.updateTaskStatus);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -211,7 +210,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
       const task = tasks.find((t) => t.id === activeTaskId);
 
       if (task && task.status !== newStatus) {
-        updateTaskStatus(activeTaskId, newStatus);
+        // Persist status change to file and update local state
+        persistTaskStatus(activeTaskId, newStatus);
       }
       return;
     }
@@ -221,7 +221,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardP
     if (overTask) {
       const task = tasks.find((t) => t.id === activeTaskId);
       if (task && task.status !== overTask.status) {
-        updateTaskStatus(activeTaskId, overTask.status);
+        // Persist status change to file and update local state
+        persistTaskStatus(activeTaskId, overTask.status);
       }
     }
   };

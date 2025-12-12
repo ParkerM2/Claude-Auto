@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,22 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from './ui/select';
 import { createTask } from '../stores/task-store';
+import { cn } from '../lib/utils';
+import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata } from '../../shared/types';
+import {
+  TASK_CATEGORY_LABELS,
+  TASK_PRIORITY_LABELS,
+  TASK_COMPLEXITY_LABELS,
+  TASK_IMPACT_LABELS
+} from '../../shared/constants';
 
 interface TaskCreationWizardProps {
   projectId: string;
@@ -29,6 +44,13 @@ export function TaskCreationWizard({
   const [description, setDescription] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Metadata fields
+  const [category, setCategory] = useState<TaskCategory | ''>('');
+  const [priority, setPriority] = useState<TaskPriority | ''>('');
+  const [complexity, setComplexity] = useState<TaskComplexity | ''>('');
+  const [impact, setImpact] = useState<TaskImpact | ''>('');
 
   const handleCreate = async () => {
     if (!title.trim() || !description.trim()) {
@@ -40,11 +62,20 @@ export function TaskCreationWizard({
     setError(null);
 
     try {
-      const task = await createTask(projectId, title.trim(), description.trim());
+      // Build metadata from selected values
+      const metadata: TaskMetadata = {
+        sourceType: 'manual'
+      };
+
+      if (category) metadata.category = category;
+      if (priority) metadata.priority = priority;
+      if (complexity) metadata.complexity = complexity;
+      if (impact) metadata.impact = impact;
+
+      const task = await createTask(projectId, title.trim(), description.trim(), metadata);
       if (task) {
         // Reset form and close
-        setTitle('');
-        setDescription('');
+        resetForm();
         onOpenChange(false);
       } else {
         setError('Failed to create task. Please try again.');
@@ -56,18 +87,27 @@ export function TaskCreationWizard({
     }
   };
 
+  const resetForm = () => {
+    setTitle('');
+    setDescription('');
+    setCategory('');
+    setPriority('');
+    setComplexity('');
+    setImpact('');
+    setError(null);
+    setShowAdvanced(false);
+  };
+
   const handleClose = () => {
     if (!isCreating) {
-      setTitle('');
-      setDescription('');
-      setError(null);
+      resetForm();
       onOpenChange(false);
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[550px]">
         <DialogHeader>
           <DialogTitle className="text-foreground">Create New Task</DialogTitle>
           <DialogDescription>
@@ -101,7 +141,7 @@ export function TaskCreationWizard({
               placeholder="Describe the feature, bug fix, or improvement you want to implement. Be as specific as possible about requirements, constraints, and expected behavior."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={6}
+              rows={5}
               disabled={isCreating}
             />
             <p className="text-xs text-muted-foreground">
@@ -109,6 +149,127 @@ export function TaskCreationWizard({
               and any technical requirements.
             </p>
           </div>
+
+          {/* Advanced Options Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className={cn(
+              'flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors',
+              'w-full justify-between py-2 px-3 rounded-md hover:bg-muted/50'
+            )}
+            disabled={isCreating}
+          >
+            <span>Classification (optional)</span>
+            {showAdvanced ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </button>
+
+          {/* Advanced Options */}
+          {showAdvanced && (
+            <div className="space-y-4 p-4 rounded-lg border border-border bg-muted/30">
+              <div className="grid grid-cols-2 gap-4">
+                {/* Category */}
+                <div className="space-y-2">
+                  <Label htmlFor="category" className="text-xs font-medium text-muted-foreground">
+                    Category
+                  </Label>
+                  <Select
+                    value={category}
+                    onValueChange={(value) => setCategory(value as TaskCategory)}
+                    disabled={isCreating}
+                  >
+                    <SelectTrigger id="category" className="h-9">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(TASK_CATEGORY_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Priority */}
+                <div className="space-y-2">
+                  <Label htmlFor="priority" className="text-xs font-medium text-muted-foreground">
+                    Priority
+                  </Label>
+                  <Select
+                    value={priority}
+                    onValueChange={(value) => setPriority(value as TaskPriority)}
+                    disabled={isCreating}
+                  >
+                    <SelectTrigger id="priority" className="h-9">
+                      <SelectValue placeholder="Select priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(TASK_PRIORITY_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Complexity */}
+                <div className="space-y-2">
+                  <Label htmlFor="complexity" className="text-xs font-medium text-muted-foreground">
+                    Complexity
+                  </Label>
+                  <Select
+                    value={complexity}
+                    onValueChange={(value) => setComplexity(value as TaskComplexity)}
+                    disabled={isCreating}
+                  >
+                    <SelectTrigger id="complexity" className="h-9">
+                      <SelectValue placeholder="Select complexity" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(TASK_COMPLEXITY_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Impact */}
+                <div className="space-y-2">
+                  <Label htmlFor="impact" className="text-xs font-medium text-muted-foreground">
+                    Impact
+                  </Label>
+                  <Select
+                    value={impact}
+                    onValueChange={(value) => setImpact(value as TaskImpact)}
+                    disabled={isCreating}
+                  >
+                    <SelectTrigger id="impact" className="h-9">
+                      <SelectValue placeholder="Select impact" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(TASK_IMPACT_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                These labels help organize and prioritize tasks. They&apos;re optional but useful for filtering.
+              </p>
+            </div>
+          )}
 
           {/* Error */}
           {error && (

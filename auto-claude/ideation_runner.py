@@ -50,6 +50,15 @@ from ui import (
     print_key_value,
     print_section,
 )
+from debug import (
+    debug,
+    debug_detailed,
+    debug_verbose,
+    debug_success,
+    debug_error,
+    debug_warning,
+    debug_section,
+)
 
 
 # Configuration
@@ -111,6 +120,7 @@ class IdeationConfig:
     max_ideas_per_type: int = 5
     model: str = "claude-sonnet-4-20250514"
     refresh: bool = False
+    append: bool = False  # If True, preserve existing ideas when merging
 
 
 class IdeationOrchestrator:
@@ -126,10 +136,12 @@ class IdeationOrchestrator:
         max_ideas_per_type: int = 5,
         model: str = "claude-sonnet-4-20250514",
         refresh: bool = False,
+        append: bool = False,
     ):
         self.project_dir = Path(project_dir)
         self.model = model
         self.refresh = refresh
+        self.append = append  # Preserve existing ideas when merging
         self.enabled_types = enabled_types or IDEATION_TYPES.copy()
         self.include_roadmap_context = include_roadmap_context
         self.include_kanban_context = include_kanban_context
@@ -389,29 +401,37 @@ class IdeationOrchestrator:
         output_file = self.output_dir / f"{ideation_type}_ideas.json"
 
         if output_file.exists() and not self.refresh:
-            # Load and count existing ideas
+            # Load and validate existing ideas - only skip if we have valid ideas
             try:
                 with open(output_file) as f:
                     data = json.load(f)
                     count = len(data.get(ideation_type, []))
-                print_status(f"{ideation_type}_ideas.json already exists ({count} ideas)", "success")
-                return IdeationPhaseResult(
-                    phase="ideation",
-                    ideation_type=ideation_type,
-                    success=True,
-                    output_files=[str(output_file)],
-                    ideas_count=count,
-                    errors=[],
-                    retries=0,
-                )
+
+                if count >= 1:
+                    # Valid ideas exist, skip regeneration
+                    print_status(f"{ideation_type}_ideas.json already exists ({count} ideas)", "success")
+                    return IdeationPhaseResult(
+                        phase="ideation",
+                        ideation_type=ideation_type,
+                        success=True,
+                        output_files=[str(output_file)],
+                        ideas_count=count,
+                        errors=[],
+                        retries=0,
+                    )
+                else:
+                    # File exists but has no valid ideas - needs regeneration
+                    print_status(f"{ideation_type}_ideas.json exists but has 0 ideas, regenerating...", "warning")
             except (json.JSONDecodeError, KeyError):
-                pass
+                # Invalid file - will regenerate
+                print_status(f"{ideation_type}_ideas.json exists but is invalid, regenerating...", "warning")
 
         errors = []
-        for attempt in range(MAX_RETRIES):
-            print_status(f"Running {IDEATION_TYPE_LABELS[ideation_type]} agent (attempt {attempt + 1})...", "progress")
 
-            context = f"""
+        # First attempt: run the full ideation agent
+        print_status(f"Running {IDEATION_TYPE_LABELS[ideation_type]} agent...", "progress")
+
+        context = f"""
 **Ideation Context**: {self.output_dir / "ideation_context.json"}
 **Project Index**: {self.output_dir / "project_index.json"}
 **Output File**: {output_file}
@@ -421,36 +441,58 @@ Generate up to {self.max_ideas_per_type} {IDEATION_TYPE_LABELS[ideation_type]} i
 Avoid duplicating features that are already planned (see ideation_context.json).
 Output your ideas to {output_file.name}.
 """
-            success, output = await self._run_agent(
-                prompt_file,
-                additional_context=context,
+        success, output = await self._run_agent(
+            prompt_file,
+            additional_context=context,
+        )
+
+        # Validate the output
+        validation_result = self._validate_ideation_output(output_file, ideation_type)
+
+        if validation_result["success"]:
+            print_status(f"Created {output_file.name} ({validation_result['count']} ideas)", "success")
+            return IdeationPhaseResult(
+                phase="ideation",
+                ideation_type=ideation_type,
+                success=True,
+                output_files=[str(output_file)],
+                ideas_count=validation_result["count"],
+                errors=[],
+                retries=0,
             )
 
-            if success and output_file.exists():
-                # Validate
-                try:
-                    with open(output_file) as f:
-                        data = json.load(f)
+        errors.append(validation_result["error"])
 
-                    ideas = data.get(ideation_type, [])
+        # Recovery attempts: show the current state and ask AI to fix it
+        for recovery_attempt in range(MAX_RETRIES - 1):
+            print_status(f"Running recovery agent (attempt {recovery_attempt + 1})...", "warning")
 
-                    if len(ideas) >= 1:
-                        print_status(f"Created {output_file.name} ({len(ideas)} ideas)", "success")
-                        return IdeationPhaseResult(
-                            phase="ideation",
-                            ideation_type=ideation_type,
-                            success=True,
-                            output_files=[str(output_file)],
-                            ideas_count=len(ideas),
-                            errors=[],
-                            retries=attempt,
-                        )
-                    else:
-                        errors.append(f"No {ideation_type} ideas generated")
-                except json.JSONDecodeError as e:
-                    errors.append(f"Invalid JSON: {e}")
+            recovery_success = await self._run_recovery_agent(
+                output_file,
+                ideation_type,
+                validation_result["error"],
+                validation_result.get("current_content", "")
+            )
+
+            if recovery_success:
+                # Re-validate after recovery
+                validation_result = self._validate_ideation_output(output_file, ideation_type)
+
+                if validation_result["success"]:
+                    print_status(f"Recovery successful: {output_file.name} ({validation_result['count']} ideas)", "success")
+                    return IdeationPhaseResult(
+                        phase="ideation",
+                        ideation_type=ideation_type,
+                        success=True,
+                        output_files=[str(output_file)],
+                        ideas_count=validation_result["count"],
+                        errors=[],
+                        retries=recovery_attempt + 1,
+                    )
+                else:
+                    errors.append(f"Recovery {recovery_attempt + 1}: {validation_result['error']}")
             else:
-                errors.append(f"Attempt {attempt + 1}: Agent did not create output file")
+                errors.append(f"Recovery {recovery_attempt + 1}: Agent failed to run")
 
         return IdeationPhaseResult(
             phase="ideation",
@@ -462,12 +504,172 @@ Output your ideas to {output_file.name}.
             retries=MAX_RETRIES,
         )
 
+    def _validate_ideation_output(self, output_file: Path, ideation_type: str) -> dict:
+        """Validate ideation output file and return validation result."""
+        debug_detailed("ideation_runner", f"Validating output for {ideation_type}",
+                      output_file=str(output_file))
+
+        if not output_file.exists():
+            debug_warning("ideation_runner", "Output file does not exist",
+                         output_file=str(output_file))
+            return {
+                "success": False,
+                "error": "Output file does not exist",
+                "current_content": "",
+                "count": 0,
+            }
+
+        try:
+            content = output_file.read_text()
+            data = json.loads(content)
+            debug_verbose("ideation_runner", "Parsed JSON successfully",
+                         keys=list(data.keys()))
+
+            # Check for correct key
+            ideas = data.get(ideation_type, [])
+
+            # Also check for common incorrect key "ideas"
+            if not ideas and "ideas" in data:
+                debug_warning("ideation_runner", "Wrong JSON key detected",
+                             expected=ideation_type, found="ideas")
+                return {
+                    "success": False,
+                    "error": f"Wrong JSON key: found 'ideas' but expected '{ideation_type}'",
+                    "current_content": content,
+                    "count": 0,
+                }
+
+            if len(ideas) >= 1:
+                debug_success("ideation_runner", f"Validation passed for {ideation_type}",
+                             ideas_count=len(ideas))
+                return {
+                    "success": True,
+                    "error": None,
+                    "current_content": content,
+                    "count": len(ideas),
+                }
+            else:
+                debug_warning("ideation_runner", f"No ideas found for {ideation_type}")
+                return {
+                    "success": False,
+                    "error": f"No {ideation_type} ideas found in output",
+                    "current_content": content,
+                    "count": 0,
+                }
+
+        except json.JSONDecodeError as e:
+            debug_error("ideation_runner", "JSON parse error", error=str(e))
+            return {
+                "success": False,
+                "error": f"Invalid JSON: {e}",
+                "current_content": output_file.read_text() if output_file.exists() else "",
+                "count": 0,
+            }
+
+    async def _run_recovery_agent(
+        self,
+        output_file: Path,
+        ideation_type: str,
+        error: str,
+        current_content: str,
+    ) -> bool:
+        """Run a recovery agent to fix validation errors in the output file."""
+
+        # Truncate content if too long
+        max_content_length = 8000
+        if len(current_content) > max_content_length:
+            current_content = current_content[:max_content_length] + "\n... (truncated)"
+
+        recovery_prompt = f"""# Ideation Output Recovery
+
+The ideation output file failed validation. Your task is to fix it.
+
+## Error
+{error}
+
+## Expected Format
+The output file must be valid JSON with the following structure:
+
+```json
+{{
+  "{ideation_type}": [
+    {{
+      "id": "...",
+      "type": "{ideation_type}",
+      "title": "...",
+      "description": "...",
+      ... other fields ...
+    }}
+  ]
+}}
+```
+
+**CRITICAL**: The top-level key MUST be `"{ideation_type}"` (not "ideas" or anything else).
+
+## Current File Content
+File: {output_file}
+
+```json
+{current_content}
+```
+
+## Your Task
+1. Read the current file content above
+2. Identify what's wrong based on the error message
+3. Fix the JSON structure to match the expected format
+4. Write the corrected content to {output_file}
+
+Common fixes:
+- If the key is "ideas", rename it to "{ideation_type}"
+- If the JSON is invalid, fix the syntax errors
+- If there are no ideas, ensure the array has at least one idea object
+
+Write the fixed JSON to the file now.
+"""
+
+        client = create_client(self.project_dir, self.output_dir, self.model)
+
+        try:
+            async with client:
+                await client.query(recovery_prompt)
+
+                async for msg in client.receive_response():
+                    msg_type = type(msg).__name__
+
+                    if msg_type == "AssistantMessage" and hasattr(msg, "content"):
+                        for block in msg.content:
+                            block_type = type(block).__name__
+                            if block_type == "TextBlock" and hasattr(block, "text"):
+                                print(block.text, end="", flush=True)
+                            elif block_type == "ToolUseBlock" and hasattr(block, "name"):
+                                print(f"\n[Recovery Tool: {block.name}]", flush=True)
+
+                print()
+                return True
+
+        except Exception as e:
+            print_status(f"Recovery agent error: {e}", "error")
+            return False
+
     async def phase_merge(self) -> IdeationPhaseResult:
         """Merge all ideation outputs into a single ideation.json."""
 
         ideation_file = self.output_dir / "ideation.json"
 
-        all_ideas = []
+        # Load existing ideas if in append mode
+        existing_ideas = []
+        existing_session = None
+        if self.append and ideation_file.exists():
+            try:
+                with open(ideation_file) as f:
+                    existing_session = json.load(f)
+                    existing_ideas = existing_session.get("ideas", [])
+                    print_status(f"Preserving {len(existing_ideas)} existing ideas", "info")
+            except json.JSONDecodeError:
+                pass
+
+        # Collect new ideas from the enabled types
+        new_ideas = []
         output_files = []
 
         for ideation_type in self.enabled_types:
@@ -477,10 +679,23 @@ Output your ideas to {output_file.name}.
                     with open(type_file) as f:
                         data = json.load(f)
                         ideas = data.get(ideation_type, [])
-                        all_ideas.extend(ideas)
+                        new_ideas.extend(ideas)
                         output_files.append(str(type_file))
                 except (json.JSONDecodeError, KeyError):
                     pass
+
+        # In append mode, filter out ideas from types we're regenerating
+        # (to avoid duplicates) and keep ideas from other types
+        if self.append and existing_ideas:
+            # Keep existing ideas that are NOT from the types we just generated
+            preserved_ideas = [
+                idea for idea in existing_ideas
+                if idea.get("type") not in self.enabled_types
+            ]
+            all_ideas = preserved_ideas + new_ideas
+            print_status(f"Merged: {len(preserved_ideas)} preserved + {len(new_ideas)} new = {len(all_ideas)} total", "info")
+        else:
+            all_ideas = new_ideas
 
         # Load context for metadata
         context_file = self.output_dir / "ideation_context.json"
@@ -493,8 +708,12 @@ Output your ideas to {output_file.name}.
                 pass
 
         # Create merged ideation session
+        # Preserve session ID and generated_at if appending
+        session_id = existing_session.get("id") if existing_session else f"ideation-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        generated_at = existing_session.get("generated_at") if existing_session else datetime.now().isoformat()
+
         ideation_session = {
-            "id": f"ideation-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
+            "id": session_id,
             "project_id": str(self.project_dir),
             "config": context_data.get("config", {}),
             "ideas": all_ideas,
@@ -507,22 +726,26 @@ Output your ideas to {output_file.name}.
             "summary": {
                 "total_ideas": len(all_ideas),
                 "by_type": {},
-                "by_status": {"draft": len(all_ideas)},
+                "by_status": {},
             },
-            "generated_at": datetime.now().isoformat(),
+            "generated_at": generated_at,
             "updated_at": datetime.now().isoformat(),
         }
 
-        # Count by type
+        # Count by type and status
         for idea in all_ideas:
             idea_type = idea.get("type", "unknown")
+            idea_status = idea.get("status", "draft")
             ideation_session["summary"]["by_type"][idea_type] = \
                 ideation_session["summary"]["by_type"].get(idea_type, 0) + 1
+            ideation_session["summary"]["by_status"][idea_status] = \
+                ideation_session["summary"]["by_status"].get(idea_status, 0) + 1
 
         with open(ideation_file, "w") as f:
             json.dump(ideation_session, f, indent=2)
 
-        print_status(f"Created ideation.json ({len(all_ideas)} total ideas)", "success")
+        action = "Updated" if self.append else "Created"
+        print_status(f"{action} ideation.json ({len(all_ideas)} total ideas)", "success")
 
         return IdeationPhaseResult(
             phase="merge",
@@ -534,8 +757,31 @@ Output your ideas to {output_file.name}.
             retries=0,
         )
 
+    async def _run_ideation_type_with_streaming(self, ideation_type: str) -> IdeationPhaseResult:
+        """Run a single ideation type and stream results when complete."""
+        result = await self.phase_ideation_type(ideation_type)
+
+        if result.success:
+            # Signal that this type is complete - UI can now show these ideas
+            print(f"IDEATION_TYPE_COMPLETE:{ideation_type}:{result.ideas_count}")
+            sys.stdout.flush()
+        else:
+            print(f"IDEATION_TYPE_FAILED:{ideation_type}")
+            sys.stdout.flush()
+
+        return result
+
     async def run(self) -> bool:
         """Run the complete ideation generation process."""
+
+        debug_section("ideation_runner", "Starting Ideation Generation")
+        debug("ideation_runner", "Configuration",
+              project_dir=str(self.project_dir),
+              output_dir=str(self.output_dir),
+              model=self.model,
+              enabled_types=self.enabled_types,
+              refresh=self.refresh,
+              append=self.append)
 
         print(box(
             f"Project: {self.project_dir}\n"
@@ -549,6 +795,7 @@ Output your ideas to {output_file.name}.
         results = []
 
         # Phase 1: Project Index
+        debug("ideation_runner", "Starting Phase 1: Project Analysis")
         print_section("PHASE 1: PROJECT ANALYSIS", Icons.FOLDER)
         result = await self.phase_project_index()
         results.append(result)
@@ -564,26 +811,46 @@ Output your ideas to {output_file.name}.
             print_status("Context gathering failed", "error")
             return False
 
-        # Phase 3+: Run each enabled ideation type
-        phase_num = 3
-        for ideation_type in self.enabled_types:
-            print_section(
-                f"PHASE {phase_num}: {IDEATION_TYPE_LABELS[ideation_type].upper()}",
-                Icons.CHUNK
-            )
-            result = await self.phase_ideation_type(ideation_type)
-            results.append(result)
+        # Phase 3: Run all ideation types IN PARALLEL
+        debug("ideation_runner", "Starting Phase 3: Generating Ideas",
+              types=self.enabled_types, parallel=True)
+        print_section("PHASE 3: GENERATING IDEAS (PARALLEL)", Icons.CHUNK)
+        print_status(f"Starting {len(self.enabled_types)} ideation agents in parallel...", "progress")
 
-            if not result.success:
-                print_status(f"{IDEATION_TYPE_LABELS[ideation_type]} ideation failed", "warning")
-                for err in result.errors:
-                    print(f"  {muted('Error:')} {err}")
-                # Continue with other types even if one fails
+        # Create tasks for all enabled types
+        ideation_tasks = [
+            self._run_ideation_type_with_streaming(ideation_type)
+            for ideation_type in self.enabled_types
+        ]
 
-            phase_num += 1
+        # Run all ideation types concurrently
+        ideation_results = await asyncio.gather(*ideation_tasks, return_exceptions=True)
+
+        # Process results
+        for i, result in enumerate(ideation_results):
+            ideation_type = self.enabled_types[i]
+            if isinstance(result, Exception):
+                print_status(f"{IDEATION_TYPE_LABELS[ideation_type]} ideation failed with exception: {result}", "error")
+                results.append(IdeationPhaseResult(
+                    phase="ideation",
+                    ideation_type=ideation_type,
+                    success=False,
+                    output_files=[],
+                    ideas_count=0,
+                    errors=[str(result)],
+                    retries=0,
+                ))
+            else:
+                results.append(result)
+                if result.success:
+                    print_status(f"{IDEATION_TYPE_LABELS[ideation_type]}: {result.ideas_count} ideas", "success")
+                else:
+                    print_status(f"{IDEATION_TYPE_LABELS[ideation_type]} ideation failed", "warning")
+                    for err in result.errors:
+                        print(f"  {muted('Error:')} {err}")
 
         # Final Phase: Merge
-        print_section(f"PHASE {phase_num}: MERGE & FINALIZE", Icons.SUCCESS)
+        print_section("PHASE 4: MERGE & FINALIZE", Icons.SUCCESS)
         result = await self.phase_merge()
         results.append(result)
 
@@ -661,6 +928,11 @@ def main():
         action="store_true",
         help="Force regeneration even if ideation exists",
     )
+    parser.add_argument(
+        "--append",
+        action="store_true",
+        help="Append new ideas to existing session instead of replacing",
+    )
 
     args = parser.parse_args()
 
@@ -689,6 +961,7 @@ def main():
         max_ideas_per_type=args.max_ideas,
         model=args.model,
         refresh=args.refresh,
+        append=args.append,
     )
 
     try:

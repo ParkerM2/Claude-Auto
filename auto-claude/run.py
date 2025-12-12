@@ -87,6 +87,16 @@ from workspace import (
     get_existing_build_worktree,
 )
 from worktree import WorktreeManager, STAGING_WORKTREE_NAME
+from debug import (
+    debug,
+    debug_detailed,
+    debug_verbose,
+    debug_success,
+    debug_error,
+    debug_warning,
+    debug_section,
+    is_debug_enabled,
+)
 from qa_loop import (
     run_qa_validation_loop,
     should_run_qa,
@@ -98,17 +108,35 @@ from qa_loop import (
 # Configuration
 DEFAULT_MODEL = "claude-opus-4-5-20251101"
 
-# Default specs directory (production mode)
-DEFAULT_SPECS_DIR = "auto-claude/specs"
 # Dev specs directory (--dev mode) - gitignored, for developing auto-claude itself
 DEV_SPECS_DIR = "dev/auto-claude/specs"
 
 
 def get_specs_dir(project_dir: Path, dev_mode: bool = False) -> Path:
-    """Get the specs directory path based on mode."""
+    """Get the specs directory path based on project and mode.
+
+    Args:
+        project_dir: The project root directory
+        dev_mode: If True, use dev/auto-claude/specs/ for framework development
+
+    Returns:
+        Path to the specs directory within the project
+    """
     if dev_mode:
         return project_dir / DEV_SPECS_DIR
-    return project_dir / DEFAULT_SPECS_DIR
+
+    # Check for .auto-claude first (hidden folder for external projects)
+    hidden_auto_claude = project_dir / ".auto-claude"
+    if hidden_auto_claude.exists():
+        return hidden_auto_claude / "specs"
+
+    # Then check for auto-claude (visible folder)
+    visible_auto_claude = project_dir / "auto-claude"
+    if visible_auto_claude.exists():
+        return visible_auto_claude / "specs"
+
+    # Default to .auto-claude for external projects
+    return hidden_auto_claude / "specs"
 
 
 def list_specs(project_dir: Path, dev_mode: bool = False) -> list[dict]:
@@ -464,11 +492,16 @@ def main() -> None:
     """Main entry point."""
     args = parse_args()
 
+    debug_section("run.py", "Starting Auto-Build Framework")
+    debug("run.py", "Arguments parsed", args=vars(args))
+
     # Determine project directory
     if args.project_dir:
         project_dir = args.project_dir.resolve()
+        debug("run.py", "Using provided project directory", project_dir=str(project_dir))
     else:
         project_dir = Path.cwd()
+        debug("run.py", "Using current working directory", project_dir=str(project_dir))
 
         # Auto-detect if running from within auto-claude directory
         # Handle both: auto-claude/ and dev/auto-claude/
@@ -505,13 +538,17 @@ def main() -> None:
         sys.exit(1)
 
     # Find the spec
+    debug("run.py", "Finding spec", spec_identifier=args.spec, dev_mode=args.dev)
     spec_dir = find_spec(project_dir, args.spec, args.dev)
     if not spec_dir:
+        debug_error("run.py", "Spec not found", spec=args.spec)
         print_banner()
         print(f"\nError: Spec '{args.spec}' not found")
         print("\nAvailable specs:")
         print_specs_list(project_dir, args.dev)
         sys.exit(1)
+
+    debug_success("run.py", "Spec found", spec_dir=str(spec_dir))
 
     # Handle build management commands
     if args.merge:
@@ -626,9 +663,18 @@ def main() -> None:
                 spec_dir = localized_spec_dir
 
     # Run the autonomous agent (sequential or parallel)
+    debug_section("run.py", "Starting Build Execution")
+    debug("run.py", "Build configuration",
+          parallel=args.parallel,
+          model=args.model,
+          workspace_mode=str(workspace_mode),
+          working_dir=str(working_dir),
+          spec_dir=str(spec_dir))
+
     try:
         if args.parallel > 1:
             # Parallel mode with multiple workers (uses staging worktree)
+            debug("run.py", "Initializing parallel coordinator", workers=args.parallel)
             coordinator = SwarmCoordinator(
                 spec_dir=spec_dir,
                 project_dir=project_dir,
@@ -636,7 +682,9 @@ def main() -> None:
                 model=args.model,
                 verbose=args.verbose,
             )
+            debug("run.py", "Starting parallel execution")
             asyncio.run(coordinator.run_parallel())
+            debug_success("run.py", "Parallel execution completed")
 
             # After parallel completion, show staging worktree info
             staging_manager = WorktreeManager(project_dir)
@@ -646,6 +694,7 @@ def main() -> None:
                 handle_workspace_choice(choice, project_dir, spec_dir.name, staging_manager)
         else:
             # Sequential mode
+            debug("run.py", "Starting sequential execution")
             asyncio.run(
                 run_autonomous_agent(
                     project_dir=working_dir,  # Use worktree if isolated
@@ -655,6 +704,7 @@ def main() -> None:
                     verbose=args.verbose,
                 )
             )
+            debug_success("run.py", "Sequential execution completed")
 
         # Run QA validation BEFORE finalization (while worktree still exists)
         # QA must sign off before the build is considered complete

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Task, TaskStatus, ImplementationPlan, Chunk } from '../../shared/types';
+import type { Task, TaskStatus, ImplementationPlan, Chunk, TaskMetadata, ExecutionProgress, ExecutionPhase } from '../../shared/types';
 
 interface TaskState {
   tasks: Task[];
@@ -13,6 +13,7 @@ interface TaskState {
   updateTask: (taskId: string, updates: Partial<Task>) => void;
   updateTaskStatus: (taskId: string, status: TaskStatus) => void;
   updateTaskFromPlan: (taskId: string, plan: ImplementationPlan) => void;
+  updateExecutionProgress: (taskId: string, progress: Partial<ExecutionProgress>) => void;
   appendLog: (taskId: string, log: string) => void;
   selectTask: (taskId: string | null) => void;
   setLoading: (loading: boolean) => void;
@@ -94,6 +95,29 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       })
     })),
 
+  updateExecutionProgress: (taskId, progress) =>
+    set((state) => ({
+      tasks: state.tasks.map((t) => {
+        if (t.id !== taskId && t.specId !== taskId) return t;
+
+        // Merge with existing progress
+        const existingProgress = t.executionProgress || {
+          phase: 'idle' as ExecutionPhase,
+          phaseProgress: 0,
+          overallProgress: 0
+        };
+
+        return {
+          ...t,
+          executionProgress: {
+            ...existingProgress,
+            ...progress
+          },
+          updatedAt: new Date()
+        };
+      })
+    })),
+
   appendLog: (taskId, log) =>
     set((state) => ({
       tasks: state.tasks.map((t) =>
@@ -150,12 +174,13 @@ export async function loadTasks(projectId: string): Promise<void> {
 export async function createTask(
   projectId: string,
   title: string,
-  description: string
+  description: string,
+  metadata?: TaskMetadata
 ): Promise<Task | null> {
   const store = useTaskStore.getState();
 
   try {
-    const result = await window.electronAPI.createTask(projectId, title, description);
+    const result = await window.electronAPI.createTask(projectId, title, description, metadata);
     if (result.success && result.data) {
       store.addTask(result.data);
       return result.data;
@@ -202,5 +227,75 @@ export async function submitReview(
     return false;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Update task status and persist to file
+ */
+export async function persistTaskStatus(
+  taskId: string,
+  status: TaskStatus
+): Promise<boolean> {
+  const store = useTaskStore.getState();
+
+  try {
+    // Update local state first for immediate feedback
+    store.updateTaskStatus(taskId, status);
+
+    // Persist to file
+    const result = await window.electronAPI.updateTaskStatus(taskId, status);
+    if (!result.success) {
+      console.error('Failed to persist task status:', result.error);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error('Error persisting task status:', error);
+    return false;
+  }
+}
+
+/**
+ * Check if a task has an active running process
+ */
+export async function checkTaskRunning(taskId: string): Promise<boolean> {
+  try {
+    const result = await window.electronAPI.checkTaskRunning(taskId);
+    return result.success && result.data === true;
+  } catch (error) {
+    console.error('Error checking task running status:', error);
+    return false;
+  }
+}
+
+/**
+ * Recover a stuck task (status shows in_progress but no process running)
+ */
+export async function recoverStuckTask(
+  taskId: string,
+  targetStatus: TaskStatus = 'backlog'
+): Promise<{ success: boolean; message: string }> {
+  const store = useTaskStore.getState();
+
+  try {
+    const result = await window.electronAPI.recoverStuckTask(taskId, targetStatus);
+
+    if (result.success && result.data) {
+      // Update local state
+      store.updateTaskStatus(taskId, result.data.newStatus);
+      return { success: true, message: result.data.message };
+    }
+
+    return {
+      success: false,
+      message: result.error || 'Failed to recover task'
+    };
+  } catch (error) {
+    console.error('Error recovering stuck task:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Unknown error'
+    };
   }
 }

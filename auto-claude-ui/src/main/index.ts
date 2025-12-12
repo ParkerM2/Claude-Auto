@@ -24,7 +24,6 @@ function getIconPath(): string {
   }
 
   const iconPath = join(resourcesPath, iconName);
-  console.log('[Auto-Claude] Icon path:', iconPath);
   return iconPath;
 }
 

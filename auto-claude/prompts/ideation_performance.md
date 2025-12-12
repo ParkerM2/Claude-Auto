@@ -99,11 +99,11 @@ Identify performance opportunities across these categories:
 
 ## Output Format
 
-Write your findings to `{output_dir}/performance_ideas.json`:
+Write your findings to `{output_dir}/performance_optimizations_ideas.json`:
 
 ```json
 {
-  "ideas": [
+  "performance_optimizations": [
     {
       "id": "perf-001",
       "type": "performance_optimizations",

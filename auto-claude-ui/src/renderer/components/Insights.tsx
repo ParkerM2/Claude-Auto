@@ -1,0 +1,469 @@
+import { useState, useEffect, useRef } from 'react';
+import {
+  MessageSquare,
+  Send,
+  Trash2,
+  Loader2,
+  Plus,
+  Sparkles,
+  User,
+  Bot,
+  CheckCircle2,
+  AlertCircle,
+  Search,
+  FileText,
+  FolderSearch
+} from 'lucide-react';
+import { Button } from './ui/button';
+import { Textarea } from './ui/textarea';
+import { ScrollArea } from './ui/scroll-area';
+import { Card, CardContent } from './ui/card';
+import { Badge } from './ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from './ui/alert-dialog';
+import { cn } from '../lib/utils';
+import {
+  useInsightsStore,
+  loadInsightsSession,
+  sendMessage,
+  clearSession,
+  createTaskFromSuggestion,
+  setupInsightsListeners
+} from '../stores/insights-store';
+import { loadTasks } from '../stores/task-store';
+import type { InsightsChatMessage } from '../../shared/types';
+import {
+  TASK_CATEGORY_LABELS,
+  TASK_CATEGORY_COLORS,
+  TASK_COMPLEXITY_LABELS,
+  TASK_COMPLEXITY_COLORS
+} from '../../shared/constants';
+
+interface InsightsProps {
+  projectId: string;
+}
+
+export function Insights({ projectId }: InsightsProps) {
+  const session = useInsightsStore((state) => state.session);
+  const status = useInsightsStore((state) => state.status);
+  const streamingContent = useInsightsStore((state) => state.streamingContent);
+  const currentTool = useInsightsStore((state) => state.currentTool);
+  const pendingMessage = useInsightsStore((state) => state.pendingMessage);
+  const setPendingMessage = useInsightsStore((state) => state.setPendingMessage);
+
+  const [inputValue, setInputValue] = useState('');
+  const [showClearDialog, setShowClearDialog] = useState(false);
+  const [creatingTask, setCreatingTask] = useState<string | null>(null);
+  const [taskCreated, setTaskCreated] = useState<Set<string>>(new Set());
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Load session and set up listeners on mount
+  useEffect(() => {
+    loadInsightsSession(projectId);
+    const cleanup = setupInsightsListeners();
+    return cleanup;
+  }, [projectId]);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [session?.messages, streamingContent]);
+
+  // Focus textarea on mount
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
+
+  const handleSend = () => {
+    const message = inputValue.trim();
+    if (!message || status.phase === 'thinking' || status.phase === 'streaming') return;
+
+    setInputValue('');
+    sendMessage(projectId, message);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleClear = async () => {
+    await clearSession(projectId);
+    setShowClearDialog(false);
+    setTaskCreated(new Set());
+  };
+
+  const handleCreateTask = async (message: InsightsChatMessage) => {
+    if (!message.suggestedTask) return;
+
+    setCreatingTask(message.id);
+    try {
+      const task = await createTaskFromSuggestion(
+        projectId,
+        message.suggestedTask.title,
+        message.suggestedTask.description,
+        message.suggestedTask.metadata
+      );
+
+      if (task) {
+        setTaskCreated(prev => new Set(prev).add(message.id));
+        // Reload tasks to show the new task in the kanban
+        loadTasks(projectId);
+      }
+    } finally {
+      setCreatingTask(null);
+    }
+  };
+
+  const isLoading = status.phase === 'thinking' || status.phase === 'streaming';
+  const messages = session?.messages || [];
+
+  return (
+    <div className="flex h-full flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-border px-6 py-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+            <Sparkles className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-foreground">Insights</h2>
+            <p className="text-sm text-muted-foreground">
+              Ask questions about your codebase
+            </p>
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowClearDialog(true)}
+          disabled={messages.length === 0}
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          Clear Chat
+        </Button>
+      </div>
+
+      {/* Messages */}
+      <ScrollArea className="flex-1 px-6 py-4">
+        {messages.length === 0 && !streamingContent ? (
+          <div className="flex h-full flex-col items-center justify-center text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+              <MessageSquare className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h3 className="mb-2 text-lg font-medium text-foreground">
+              Start a Conversation
+            </h3>
+            <p className="max-w-md text-sm text-muted-foreground">
+              Ask questions about your codebase, get suggestions for improvements,
+              or discuss features you'd like to implement.
+            </p>
+            <div className="mt-6 flex flex-wrap justify-center gap-2">
+              {[
+                'What is the architecture of this project?',
+                'Suggest improvements for code quality',
+                'What features could I add next?',
+                'Are there any security concerns?'
+              ].map((suggestion) => (
+                <Button
+                  key={suggestion}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => {
+                    setInputValue(suggestion);
+                    textareaRef.current?.focus();
+                  }}
+                >
+                  {suggestion}
+                </Button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {messages.map((message) => (
+              <MessageBubble
+                key={message.id}
+                message={message}
+                onCreateTask={() => handleCreateTask(message)}
+                isCreatingTask={creatingTask === message.id}
+                taskCreated={taskCreated.has(message.id)}
+              />
+            ))}
+
+            {/* Streaming message */}
+            {(streamingContent || currentTool) && (
+              <div className="flex gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                  <Bot className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <div className="mb-1 text-sm font-medium text-foreground">
+                    Assistant
+                  </div>
+                  {streamingContent && (
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                      <p className="whitespace-pre-wrap">{streamingContent}</p>
+                    </div>
+                  )}
+                  {/* Tool usage indicator */}
+                  {currentTool && (
+                    <ToolIndicator name={currentTool.name} input={currentTool.input} />
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Thinking indicator */}
+            {status.phase === 'thinking' && !streamingContent && !currentTool && (
+              <div className="flex gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                  <Bot className="h-4 w-4 text-primary" />
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Thinking...
+                </div>
+              </div>
+            )}
+
+            {/* Error message */}
+            {status.phase === 'error' && status.error && (
+              <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {status.error}
+              </div>
+            )}
+
+            <div ref={messagesEndRef} />
+          </div>
+        )}
+      </ScrollArea>
+
+      {/* Input */}
+      <div className="border-t border-border p-4">
+        <div className="flex gap-2">
+          <Textarea
+            ref={textareaRef}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask about your codebase..."
+            className="min-h-[80px] resize-none"
+            disabled={isLoading}
+          />
+          <Button
+            onClick={handleSend}
+            disabled={!inputValue.trim() || isLoading}
+            className="self-end"
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Press Enter to send, Shift+Enter for new line
+        </p>
+      </div>
+
+      {/* Clear confirmation dialog */}
+      <AlertDialog open={showClearDialog} onOpenChange={setShowClearDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear conversation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete all messages in this conversation.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleClear}>Clear</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+interface MessageBubbleProps {
+  message: InsightsChatMessage;
+  onCreateTask: () => void;
+  isCreatingTask: boolean;
+  taskCreated: boolean;
+}
+
+function MessageBubble({
+  message,
+  onCreateTask,
+  isCreatingTask,
+  taskCreated
+}: MessageBubbleProps) {
+  const isUser = message.role === 'user';
+
+  return (
+    <div className="flex gap-3">
+      <div
+        className={cn(
+          'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+          isUser ? 'bg-muted' : 'bg-primary/10'
+        )}
+      >
+        {isUser ? (
+          <User className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <Bot className="h-4 w-4 text-primary" />
+        )}
+      </div>
+      <div className="flex-1 space-y-2">
+        <div className="text-sm font-medium text-foreground">
+          {isUser ? 'You' : 'Assistant'}
+        </div>
+        <div className="prose prose-sm dark:prose-invert max-w-none">
+          <p className="whitespace-pre-wrap">{message.content}</p>
+        </div>
+
+        {/* Task suggestion card */}
+        {message.suggestedTask && (
+          <Card className="mt-3 border-primary/20 bg-primary/5">
+            <CardContent className="p-4">
+              <div className="mb-2 flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-primary">
+                  Suggested Task
+                </span>
+              </div>
+              <h4 className="mb-2 font-medium text-foreground">
+                {message.suggestedTask.title}
+              </h4>
+              <p className="mb-3 text-sm text-muted-foreground">
+                {message.suggestedTask.description}
+              </p>
+              {message.suggestedTask.metadata && (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {message.suggestedTask.metadata.category && (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'text-xs',
+                        TASK_CATEGORY_COLORS[message.suggestedTask.metadata.category]
+                      )}
+                    >
+                      {TASK_CATEGORY_LABELS[message.suggestedTask.metadata.category] ||
+                        message.suggestedTask.metadata.category}
+                    </Badge>
+                  )}
+                  {message.suggestedTask.metadata.complexity && (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'text-xs',
+                        TASK_COMPLEXITY_COLORS[message.suggestedTask.metadata.complexity]
+                      )}
+                    >
+                      {TASK_COMPLEXITY_LABELS[message.suggestedTask.metadata.complexity] ||
+                        message.suggestedTask.metadata.complexity}
+                    </Badge>
+                  )}
+                </div>
+              )}
+              <Button
+                size="sm"
+                onClick={onCreateTask}
+                disabled={isCreatingTask || taskCreated}
+              >
+                {isCreatingTask ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : taskCreated ? (
+                  <>
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    Task Created
+                  </>
+                ) : (
+                  <>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Task
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Tool indicator component for showing what the AI is currently doing
+interface ToolIndicatorProps {
+  name: string;
+  input?: string;
+}
+
+function ToolIndicator({ name, input }: ToolIndicatorProps) {
+  // Get friendly name and icon for each tool
+  const getToolInfo = (toolName: string) => {
+    switch (toolName) {
+      case 'Read':
+        return {
+          icon: FileText,
+          label: 'Reading file',
+          color: 'text-blue-500 bg-blue-500/10'
+        };
+      case 'Glob':
+        return {
+          icon: FolderSearch,
+          label: 'Searching files',
+          color: 'text-amber-500 bg-amber-500/10'
+        };
+      case 'Grep':
+        return {
+          icon: Search,
+          label: 'Searching code',
+          color: 'text-green-500 bg-green-500/10'
+        };
+      default:
+        return {
+          icon: Loader2,
+          label: toolName,
+          color: 'text-primary bg-primary/10'
+        };
+    }
+  };
+
+  const { icon: Icon, label, color } = getToolInfo(name);
+
+  return (
+    <div className={cn(
+      'mt-2 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm',
+      color
+    )}>
+      <Icon className="h-4 w-4 animate-pulse" />
+      <span className="font-medium">{label}</span>
+      {input && (
+        <span className="text-muted-foreground truncate max-w-[300px]">
+          {input}
+        </span>
+      )}
+    </div>
+  );
+}

@@ -8,6 +8,7 @@ import type {
   IPCResult,
   TaskStartOptions,
   TaskStatus,
+  TaskRecoveryResult,
   ImplementationPlan,
   ElectronAPI,
   TerminalCreateOptions,
@@ -38,6 +39,7 @@ import type {
   IdeationConfig,
   IdeationStatus,
   IdeationGenerationStatus,
+  Idea,
   AutoBuildSourceUpdateCheck,
   AutoBuildSourceUpdateProgress,
   SourceEnvConfig,
@@ -49,7 +51,11 @@ import type {
   ChangelogSaveRequest,
   ChangelogSaveResult,
   ChangelogGenerationProgress,
-  ExistingChangelog
+  ExistingChangelog,
+  InsightsSession,
+  InsightsChatStatus,
+  InsightsStreamChunk,
+  TaskMetadata
 } from '../shared/types';
 
 // Expose a secure API to the renderer process
@@ -92,9 +98,10 @@ const electronAPI: ElectronAPI = {
   createTask: (
     projectId: string,
     title: string,
-    description: string
+    description: string,
+    metadata?: import('../shared/types').TaskMetadata
   ): Promise<IPCResult<Task>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.TASK_CREATE, projectId, title, description),
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_CREATE, projectId, title, description, metadata),
 
   startTask: (taskId: string, options?: TaskStartOptions): void =>
     ipcRenderer.send(IPC_CHANNELS.TASK_START, taskId, options),
@@ -108,6 +115,21 @@ const electronAPI: ElectronAPI = {
     feedback?: string
   ): Promise<IPCResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_REVIEW, taskId, approved, feedback),
+
+  updateTaskStatus: (
+    taskId: string,
+    status: import('../shared/types').TaskStatus
+  ): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_UPDATE_STATUS, taskId, status),
+
+  recoverStuckTask: (
+    taskId: string,
+    targetStatus?: import('../shared/types').TaskStatus
+  ): Promise<IPCResult<import('../shared/types').TaskRecoveryResult>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_RECOVER_STUCK, taskId, targetStatus),
+
+  checkTaskRunning: (taskId: string): Promise<IPCResult<boolean>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_CHECK_RUNNING, taskId),
 
   // ============================================
   // Event Listeners (main → renderer)
@@ -175,6 +197,22 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.on(IPC_CHANNELS.TASK_STATUS_CHANGE, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.TASK_STATUS_CHANGE, handler);
+    };
+  },
+
+  onTaskExecutionProgress: (
+    callback: (taskId: string, progress: import('../shared/types').ExecutionProgress) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      taskId: string,
+      progress: import('../shared/types').ExecutionProgress
+    ): void => {
+      callback(taskId, progress);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TASK_EXECUTION_PROGRESS, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TASK_EXECUTION_PROGRESS, handler);
     };
   },
 
@@ -569,6 +607,39 @@ const electronAPI: ElectronAPI = {
     };
   },
 
+  onIdeationTypeComplete: (
+    callback: (projectId: string, ideationType: string, ideas: Idea[]) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      projectId: string,
+      ideationType: string,
+      ideas: Idea[]
+    ): void => {
+      callback(projectId, ideationType, ideas);
+    };
+    ipcRenderer.on(IPC_CHANNELS.IDEATION_TYPE_COMPLETE, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.IDEATION_TYPE_COMPLETE, handler);
+    };
+  },
+
+  onIdeationTypeFailed: (
+    callback: (projectId: string, ideationType: string) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      projectId: string,
+      ideationType: string
+    ): void => {
+      callback(projectId, ideationType);
+    };
+    ipcRenderer.on(IPC_CHANNELS.IDEATION_TYPE_FAILED, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.IDEATION_TYPE_FAILED, handler);
+    };
+  },
+
   // ============================================
   // Auto-Build Source Update Operations
   // ============================================
@@ -614,8 +685,8 @@ const electronAPI: ElectronAPI = {
   // Changelog Operations
   // ============================================
 
-  getChangelogDoneTasks: (projectId: string): Promise<IPCResult<ChangelogTask[]>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.CHANGELOG_GET_DONE_TASKS, projectId),
+  getChangelogDoneTasks: (projectId: string, tasks?: Task[]): Promise<IPCResult<ChangelogTask[]>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CHANGELOG_GET_DONE_TASKS, projectId, tasks),
 
   loadTaskSpecs: (projectId: string, taskIds: string[]): Promise<IPCResult<TaskSpecContent[]>> =>
     ipcRenderer.invoke(IPC_CHANNELS.CHANGELOG_LOAD_TASK_SPECS, projectId, taskIds),
@@ -678,6 +749,79 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.on(IPC_CHANNELS.CHANGELOG_GENERATION_ERROR, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.CHANGELOG_GENERATION_ERROR, handler);
+    };
+  },
+
+  // ============================================
+  // Insights Operations
+  // ============================================
+
+  getInsightsSession: (projectId: string): Promise<IPCResult<InsightsSession | null>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.INSIGHTS_GET_SESSION, projectId),
+
+  sendInsightsMessage: (projectId: string, message: string): void =>
+    ipcRenderer.send(IPC_CHANNELS.INSIGHTS_SEND_MESSAGE, projectId, message),
+
+  clearInsightsSession: (projectId: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.INSIGHTS_CLEAR_SESSION, projectId),
+
+  createTaskFromInsights: (
+    projectId: string,
+    title: string,
+    description: string,
+    metadata?: TaskMetadata
+  ): Promise<IPCResult<Task>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.INSIGHTS_CREATE_TASK, projectId, title, description, metadata),
+
+  // ============================================
+  // Insights Event Listeners
+  // ============================================
+
+  onInsightsStreamChunk: (
+    callback: (projectId: string, chunk: InsightsStreamChunk) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      projectId: string,
+      chunk: InsightsStreamChunk
+    ): void => {
+      callback(projectId, chunk);
+    };
+    ipcRenderer.on(IPC_CHANNELS.INSIGHTS_STREAM_CHUNK, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.INSIGHTS_STREAM_CHUNK, handler);
+    };
+  },
+
+  onInsightsStatus: (
+    callback: (projectId: string, status: InsightsChatStatus) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      projectId: string,
+      status: InsightsChatStatus
+    ): void => {
+      callback(projectId, status);
+    };
+    ipcRenderer.on(IPC_CHANNELS.INSIGHTS_STATUS, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.INSIGHTS_STATUS, handler);
+    };
+  },
+
+  onInsightsError: (
+    callback: (projectId: string, error: string) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      projectId: string,
+      error: string
+    ): void => {
+      callback(projectId, error);
+    };
+    ipcRenderer.on(IPC_CHANNELS.INSIGHTS_ERROR, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.INSIGHTS_ERROR, handler);
     };
   }
 };

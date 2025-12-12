@@ -35,6 +35,18 @@ export type TaskStatus = 'backlog' | 'in_progress' | 'ai_review' | 'human_review
 
 export type ChunkStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
 
+// Execution phases for visual progress tracking
+export type ExecutionPhase = 'idle' | 'planning' | 'coding' | 'qa_review' | 'qa_fixing' | 'complete' | 'failed';
+
+export interface ExecutionProgress {
+  phase: ExecutionPhase;
+  phaseProgress: number;  // 0-100 within current phase
+  overallProgress: number;  // 0-100 overall
+  currentChunk?: string;  // Current chunk being processed
+  message?: string;  // Current status message
+  startedAt?: Date;
+}
+
 export interface Chunk {
   id: string;
   title: string;
@@ -62,6 +74,53 @@ export interface QAIssue {
   line?: number;
 }
 
+// Task metadata from ideation or manual entry
+export type TaskComplexity = 'trivial' | 'small' | 'medium' | 'large' | 'complex';
+export type TaskImpact = 'low' | 'medium' | 'high' | 'critical';
+export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type TaskCategory =
+  | 'feature'
+  | 'bug_fix'
+  | 'refactoring'
+  | 'documentation'
+  | 'security'
+  | 'performance'
+  | 'ui_ux'
+  | 'infrastructure'
+  | 'testing';
+
+export interface TaskMetadata {
+  // Origin tracking
+  sourceType?: 'ideation' | 'manual' | 'imported' | 'insights';
+  ideationType?: string;  // e.g., 'high_value_features', 'security_hardening'
+  ideaId?: string;  // Reference to original idea if converted
+
+  // Classification
+  category?: TaskCategory;
+  complexity?: TaskComplexity;
+  impact?: TaskImpact;
+  priority?: TaskPriority;
+
+  // Context
+  rationale?: string;  // Why this task matters
+  problemSolved?: string;  // What problem this addresses
+  targetAudience?: string;  // Who benefits
+
+  // Technical details
+  affectedFiles?: string[];  // Files likely to be modified
+  dependencies?: string[];  // Other features/tasks this depends on
+  acceptanceCriteria?: string[];  // What defines "done"
+
+  // Effort estimation
+  estimatedEffort?: TaskComplexity;
+
+  // Type-specific metadata (from different idea types)
+  securitySeverity?: 'low' | 'medium' | 'high' | 'critical';
+  performanceCategory?: string;
+  uiuxCategory?: string;
+  codeQualitySeverity?: 'suggestion' | 'minor' | 'major' | 'critical';
+}
+
 export interface Task {
   id: string;
   specId: string;
@@ -72,6 +131,8 @@ export interface Task {
   chunks: Chunk[];
   qaReport?: QAReport;
   logs: string[];
+  metadata?: TaskMetadata;  // Rich metadata from ideation or manual entry
+  executionProgress?: ExecutionProgress;  // Real-time execution progress
   createdAt: Date;
   updatedAt: Date;
 }
@@ -86,6 +147,11 @@ export interface ImplementationPlan {
   created_at: string;
   updated_at: string;
   spec_file: string;
+  // Added for UI status persistence
+  status?: TaskStatus;
+  planStatus?: string;
+  recoveryNote?: string;
+  description?: string;
 }
 
 export interface Phase {
@@ -118,6 +184,23 @@ export interface TaskStartOptions {
   parallel?: boolean;
   workers?: number;
   model?: string;
+}
+
+// Stuck task recovery types
+export interface StuckTaskInfo {
+  taskId: string;
+  specId: string;
+  title: string;
+  status: TaskStatus;
+  isActuallyRunning: boolean;
+  lastUpdated: Date;
+}
+
+export interface TaskRecoveryResult {
+  taskId: string;
+  recovered: boolean;
+  newStatus: TaskStatus;
+  message: string;
 }
 
 export interface TaskProgressUpdate {
@@ -393,6 +476,7 @@ export interface IdeationConfig {
   includeRoadmapContext: boolean;
   includeKanbanContext: boolean;
   maxIdeasPerType: number;
+  append?: boolean; // If true, append to existing ideas instead of replacing
 }
 
 export interface IdeaBase {
@@ -802,6 +886,54 @@ export interface ExistingChangelog {
 }
 
 // ============================================
+// Insights Chat Types
+// ============================================
+
+export type InsightsChatRole = 'user' | 'assistant';
+
+export interface InsightsChatMessage {
+  id: string;
+  role: InsightsChatRole;
+  content: string;
+  timestamp: Date;
+  // For assistant messages that suggest task creation
+  suggestedTask?: {
+    title: string;
+    description: string;
+    metadata?: TaskMetadata;
+  };
+}
+
+export interface InsightsSession {
+  id: string;
+  projectId: string;
+  messages: InsightsChatMessage[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface InsightsChatStatus {
+  phase: 'idle' | 'thinking' | 'streaming' | 'complete' | 'error';
+  message?: string;
+  error?: string;
+}
+
+export interface InsightsStreamChunk {
+  type: 'text' | 'task_suggestion' | 'tool_start' | 'tool_end' | 'done' | 'error';
+  content?: string;
+  suggestedTask?: {
+    title: string;
+    description: string;
+    metadata?: TaskMetadata;
+  };
+  tool?: {
+    name: string;
+    input?: string;  // Brief description of what's being searched/read
+  };
+  error?: string;
+}
+
+// ============================================
 // Auto Claude Source Update Types
 // ============================================
 
@@ -838,16 +970,20 @@ export interface ElectronAPI {
 
   // Task operations
   getTasks: (projectId: string) => Promise<IPCResult<Task[]>>;
-  createTask: (projectId: string, title: string, description: string) => Promise<IPCResult<Task>>;
+  createTask: (projectId: string, title: string, description: string, metadata?: TaskMetadata) => Promise<IPCResult<Task>>;
   startTask: (taskId: string, options?: TaskStartOptions) => void;
   stopTask: (taskId: string) => void;
   submitReview: (taskId: string, approved: boolean, feedback?: string) => Promise<IPCResult>;
+  updateTaskStatus: (taskId: string, status: TaskStatus) => Promise<IPCResult>;
+  recoverStuckTask: (taskId: string, targetStatus?: TaskStatus) => Promise<IPCResult<TaskRecoveryResult>>;
+  checkTaskRunning: (taskId: string) => Promise<IPCResult<boolean>>;
 
   // Event listeners
   onTaskProgress: (callback: (taskId: string, plan: ImplementationPlan) => void) => () => void;
   onTaskError: (callback: (taskId: string, error: string) => void) => () => void;
   onTaskLog: (callback: (taskId: string, log: string) => void) => () => void;
   onTaskStatusChange: (callback: (taskId: string, status: TaskStatus) => void) => () => void;
+  onTaskExecutionProgress: (callback: (taskId: string, progress: ExecutionProgress) => void) => () => void;
 
   // Terminal operations
   createTerminal: (options: TerminalCreateOptions) => Promise<IPCResult>;
@@ -956,6 +1092,12 @@ export interface ElectronAPI {
   onIdeationError: (
     callback: (projectId: string, error: string) => void
   ) => () => void;
+  onIdeationTypeComplete: (
+    callback: (projectId: string, ideationType: string, ideas: Idea[]) => void
+  ) => () => void;
+  onIdeationTypeFailed: (
+    callback: (projectId: string, ideationType: string) => void
+  ) => () => void;
 
   // Auto Claude source update operations
   checkAutoBuildSourceUpdate: () => Promise<IPCResult<AutoBuildSourceUpdateCheck>>;
@@ -973,7 +1115,7 @@ export interface ElectronAPI {
   checkSourceToken: () => Promise<IPCResult<SourceEnvCheckResult>>;
 
   // Changelog operations
-  getChangelogDoneTasks: (projectId: string) => Promise<IPCResult<ChangelogTask[]>>;
+  getChangelogDoneTasks: (projectId: string, tasks?: Task[]) => Promise<IPCResult<ChangelogTask[]>>;
   loadTaskSpecs: (projectId: string, taskIds: string[]) => Promise<IPCResult<TaskSpecContent[]>>;
   generateChangelog: (request: ChangelogGenerationRequest) => void; // Async with progress events
   saveChangelog: (request: ChangelogSaveRequest) => Promise<IPCResult<ChangelogSaveResult>>;
@@ -987,6 +1129,28 @@ export interface ElectronAPI {
     callback: (projectId: string, result: ChangelogGenerationResult) => void
   ) => () => void;
   onChangelogGenerationError: (
+    callback: (projectId: string, error: string) => void
+  ) => () => void;
+
+  // Insights operations
+  getInsightsSession: (projectId: string) => Promise<IPCResult<InsightsSession | null>>;
+  sendInsightsMessage: (projectId: string, message: string) => void;
+  clearInsightsSession: (projectId: string) => Promise<IPCResult>;
+  createTaskFromInsights: (
+    projectId: string,
+    title: string,
+    description: string,
+    metadata?: TaskMetadata
+  ) => Promise<IPCResult<Task>>;
+
+  // Insights event listeners
+  onInsightsStreamChunk: (
+    callback: (projectId: string, chunk: InsightsStreamChunk) => void
+  ) => () => void;
+  onInsightsStatus: (
+    callback: (projectId: string, status: InsightsChatStatus) => void
+  ) => () => void;
+  onInsightsError: (
     callback: (projectId: string, error: string) => void
   ) => () => void;
 }

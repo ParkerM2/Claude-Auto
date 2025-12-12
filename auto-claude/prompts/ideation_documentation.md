@@ -77,11 +77,11 @@ Identify documentation gaps across these categories:
 
 ## Output Format
 
-Write your findings to `{output_dir}/documentation_ideas.json`:
+Write your findings to `{output_dir}/documentation_gaps_ideas.json`:
 
 ```json
 {
-  "ideas": [
+  "documentation_gaps": [
     {
       "id": "doc-001",
       "type": "documentation_gaps",

@@ -8,12 +8,24 @@ interface AgentProcess {
   taskId: string;
   process: ChildProcess;
   startedAt: Date;
+  projectPath?: string; // For ideation processes to load session on completion
 }
+
+export interface ExecutionProgressData {
+  phase: 'idle' | 'planning' | 'coding' | 'qa_review' | 'qa_fixing' | 'complete' | 'failed';
+  phaseProgress: number;
+  overallProgress: number;
+  currentChunk?: string;
+  message?: string;
+}
+
+export type ProcessType = 'spec-creation' | 'task-execution' | 'qa-process';
 
 export interface AgentManagerEvents {
   log: (taskId: string, log: string) => void;
   error: (taskId: string, error: string) => void;
-  exit: (taskId: string, code: number | null) => void;
+  exit: (taskId: string, code: number | null, processType: ProcessType) => void;
+  'execution-progress': (taskId: string, progress: ExecutionProgressData) => void;
 }
 
 /**
@@ -124,12 +136,30 @@ export class AgentManager extends EventEmitter {
     projectPath: string,
     taskDescription: string
   ): void {
-    const autoBuildDir = path.join(projectPath, 'auto-claude');
-    const specRunnerPath = path.join(autoBuildDir, 'spec_runner.py');
+    // Use source auto-claude path (the repo), not the project's auto-claude
+    const autoBuildSource = this.getAutoBuildSourcePath();
 
-    const args = [specRunnerPath, '--task', taskDescription];
+    if (!autoBuildSource) {
+      this.emit('error', taskId, 'Auto-build source path not found. Please configure it in App Settings.');
+      return;
+    }
 
-    this.spawnProcess(taskId, projectPath, args);
+    const specRunnerPath = path.join(autoBuildSource, 'spec_runner.py');
+
+    if (!existsSync(specRunnerPath)) {
+      this.emit('error', taskId, `Spec runner not found at: ${specRunnerPath}`);
+      return;
+    }
+
+    // Load environment variables from auto-claude .env file
+    const autoBuildEnv = this.loadAutoBuildEnv();
+
+    // spec_runner.py will auto-start run.py after spec creation completes
+    const args = [specRunnerPath, '--task', taskDescription, '--project-dir', projectPath];
+
+    // Note: This is spec-creation but it chains to task-execution via run.py
+    // So we treat the whole thing as task-execution for status purposes
+    this.spawnProcess(taskId, autoBuildSource, args, autoBuildEnv, 'task-execution');
   }
 
   /**
@@ -141,16 +171,36 @@ export class AgentManager extends EventEmitter {
     specId: string,
     options: { parallel?: boolean; workers?: number } = {}
   ): void {
-    const autoBuildDir = path.join(projectPath, 'auto-claude');
-    const runPath = path.join(autoBuildDir, 'run.py');
+    console.log('[AgentManager] startTaskExecution called for:', taskId, specId);
+    // Use source auto-claude path (the repo), not the project's auto-claude
+    const autoBuildSource = this.getAutoBuildSourcePath();
 
-    const args = [runPath, '--spec', specId];
+    if (!autoBuildSource) {
+      console.log('[AgentManager] ERROR: Auto-build source path not found');
+      this.emit('error', taskId, 'Auto-build source path not found. Please configure it in App Settings.');
+      return;
+    }
+
+    const runPath = path.join(autoBuildSource, 'run.py');
+    console.log('[AgentManager] runPath:', runPath);
+
+    if (!existsSync(runPath)) {
+      console.log('[AgentManager] ERROR: Run script not found at:', runPath);
+      this.emit('error', taskId, `Run script not found at: ${runPath}`);
+      return;
+    }
+
+    // Load environment variables from auto-claude .env file
+    const autoBuildEnv = this.loadAutoBuildEnv();
+
+    const args = [runPath, '--spec', specId, '--project-dir', projectPath];
 
     if (options.parallel && options.workers) {
       args.push('--parallel', options.workers.toString());
     }
 
-    this.spawnProcess(taskId, projectPath, args);
+    console.log('[AgentManager] Spawning process with args:', args);
+    this.spawnProcess(taskId, autoBuildSource, args, autoBuildEnv, 'task-execution');
   }
 
   /**
@@ -161,12 +211,27 @@ export class AgentManager extends EventEmitter {
     projectPath: string,
     specId: string
   ): void {
-    const autoBuildDir = path.join(projectPath, 'auto-claude');
-    const runPath = path.join(autoBuildDir, 'run.py');
+    // Use source auto-claude path (the repo), not the project's auto-claude
+    const autoBuildSource = this.getAutoBuildSourcePath();
 
-    const args = [runPath, '--spec', specId, '--qa'];
+    if (!autoBuildSource) {
+      this.emit('error', taskId, 'Auto-build source path not found. Please configure it in App Settings.');
+      return;
+    }
 
-    this.spawnProcess(taskId, projectPath, args);
+    const runPath = path.join(autoBuildSource, 'run.py');
+
+    if (!existsSync(runPath)) {
+      this.emit('error', taskId, `Run script not found at: ${runPath}`);
+      return;
+    }
+
+    // Load environment variables from auto-claude .env file
+    const autoBuildEnv = this.loadAutoBuildEnv();
+
+    const args = [runPath, '--spec', specId, '--project-dir', projectPath, '--qa'];
+
+    this.spawnProcess(taskId, autoBuildSource, args, autoBuildEnv, 'qa-process');
   }
 
   /**
@@ -213,6 +278,7 @@ export class AgentManager extends EventEmitter {
       includeRoadmapContext: boolean;
       includeKanbanContext: boolean;
       maxIdeasPerType: number;
+      append?: boolean;
     },
     refresh: boolean = false
   ): void {
@@ -255,6 +321,11 @@ export class AgentManager extends EventEmitter {
       args.push('--refresh');
     }
 
+    // Add append flag to preserve existing ideas
+    if (config.append) {
+      args.push('--append');
+    }
+
     // Use projectId as taskId for ideation operations
     this.spawnIdeationProcess(projectId, projectPath, args);
   }
@@ -264,7 +335,7 @@ export class AgentManager extends EventEmitter {
    */
   private spawnIdeationProcess(
     projectId: string,
-    _projectPath: string,
+    projectPath: string,
     args: string[]
   ): void {
     // Kill existing process for this project if any
@@ -289,7 +360,8 @@ export class AgentManager extends EventEmitter {
     this.processes.set(projectId, {
       taskId: projectId,
       process: childProcess,
-      startedAt: new Date()
+      startedAt: new Date(),
+      projectPath // Store project path for loading session on completion
     });
 
     // Track progress through output
@@ -314,6 +386,10 @@ export class AgentManager extends EventEmitter {
     console.log('[Ideation] Env vars loaded:', Object.keys(autoBuildEnv));
     console.log('[Ideation] Has CLAUDE_CODE_OAUTH_TOKEN:', !!autoBuildEnv['CLAUDE_CODE_OAUTH_TOKEN']);
 
+    // Track completed types for progress calculation
+    const completedTypes = new Set<string>();
+    const totalTypes = args.filter(a => a !== '--types').length > 0 ? 7 : 7; // Default all types
+
     // Handle stdout
     childProcess.stdout?.on('data', (data: Buffer) => {
       const log = data.toString();
@@ -321,37 +397,47 @@ export class AgentManager extends EventEmitter {
       // Emit all log lines for the activity log
       emitLogs(log);
 
+      // Check for streaming type completion signals
+      const typeCompleteMatch = log.match(/IDEATION_TYPE_COMPLETE:(\w+):(\d+)/);
+      if (typeCompleteMatch) {
+        const [, ideationType, ideasCount] = typeCompleteMatch;
+        completedTypes.add(ideationType);
+        console.log(`[Ideation] Type complete: ${ideationType} with ${ideasCount} ideas`);
+
+        // Emit event for UI to load this type's ideas immediately
+        this.emit('ideation-type-complete', projectId, ideationType, parseInt(ideasCount, 10));
+      }
+
+      const typeFailedMatch = log.match(/IDEATION_TYPE_FAILED:(\w+)/);
+      if (typeFailedMatch) {
+        const [, ideationType] = typeFailedMatch;
+        completedTypes.add(ideationType);
+        console.log(`[Ideation] Type failed: ${ideationType}`);
+        this.emit('ideation-type-failed', projectId, ideationType);
+      }
+
       // Parse progress from output - track phase transitions
       if (log.includes('PROJECT INDEX') || log.includes('PROJECT ANALYSIS')) {
         progressPhase = 'analyzing';
-        progressPercent = 15;
+        progressPercent = 10;
       } else if (log.includes('CONTEXT GATHERING')) {
         progressPhase = 'discovering';
-        progressPercent = 25;
-      } else if (log.includes('LOW_HANGING_FRUIT') || log.includes('LOW-HANGING FRUIT')) {
+        progressPercent = 20;
+      } else if (log.includes('GENERATING IDEAS (PARALLEL)') || log.includes('Starting') && log.includes('ideation agents in parallel')) {
         progressPhase = 'generating';
-        progressPercent = 35;
-      } else if (log.includes('UI_UX_IMPROVEMENTS') || log.includes('UI/UX')) {
-        progressPhase = 'generating';
-        progressPercent = 45;
-      } else if (log.includes('HIGH_VALUE_FEATURES') || log.includes('HIGH VALUE') || log.includes('HIGH-VALUE')) {
-        progressPhase = 'generating';
-        progressPercent = 55;
-      } else if (log.includes('DOCUMENTATION_GAPS') || log.includes('DOCUMENTATION')) {
-        progressPhase = 'generating';
-        progressPercent = 65;
-      } else if (log.includes('SECURITY_HARDENING') || log.includes('SECURITY')) {
-        progressPhase = 'generating';
-        progressPercent = 75;
-      } else if (log.includes('PERFORMANCE_OPTIMIZATIONS') || log.includes('PERFORMANCE')) {
-        progressPhase = 'generating';
-        progressPercent = 85;
+        progressPercent = 30;
       } else if (log.includes('MERGE') || log.includes('FINALIZE')) {
-        progressPhase = 'generating';
-        progressPercent = 92;
+        progressPhase = 'finalizing';
+        progressPercent = 90;
       } else if (log.includes('IDEATION COMPLETE')) {
         progressPhase = 'complete';
         progressPercent = 100;
+      }
+
+      // Update progress based on completed types during generation phase
+      if (progressPhase === 'generating' && completedTypes.size > 0) {
+        // Progress from 30% to 90% based on completed types
+        progressPercent = 30 + Math.floor((completedTypes.size / totalTypes) * 60);
       }
 
       // Emit progress update with a clean message for the status bar
@@ -359,7 +445,8 @@ export class AgentManager extends EventEmitter {
       this.emit('ideation-progress', projectId, {
         phase: progressPhase,
         progress: progressPercent,
-        message: statusMessage
+        message: statusMessage,
+        completedTypes: Array.from(completedTypes)
       });
     });
 
@@ -378,6 +465,10 @@ export class AgentManager extends EventEmitter {
     // Handle process exit
     childProcess.on('exit', (code: number | null) => {
       console.log('[Ideation] Process exited with code:', code);
+
+      // Get the stored project path before deleting from map
+      const processInfo = this.processes.get(projectId);
+      const storedProjectPath = processInfo?.projectPath;
       this.processes.delete(projectId);
 
       if (code === 0) {
@@ -386,6 +477,28 @@ export class AgentManager extends EventEmitter {
           progress: 100,
           message: 'Ideation generation complete'
         });
+
+        // Load and emit the complete ideation session
+        if (storedProjectPath) {
+          try {
+            const ideationFilePath = path.join(
+              storedProjectPath,
+              'auto-claude',
+              'ideation',
+              'ideation.json'
+            );
+            if (existsSync(ideationFilePath)) {
+              const content = readFileSync(ideationFilePath, 'utf-8');
+              const session = JSON.parse(content);
+              console.log('[Ideation] Emitting ideation-complete with session data');
+              this.emit('ideation-complete', projectId, session);
+            } else {
+              console.warn('[Ideation] ideation.json not found at:', ideationFilePath);
+            }
+          } catch (err) {
+            console.error('[Ideation] Failed to load ideation session:', err);
+          }
+        }
       } else {
         this.emit('ideation-error', projectId, `Ideation generation failed with exit code ${code}`);
       }
@@ -496,23 +609,132 @@ export class AgentManager extends EventEmitter {
   }
 
   /**
+   * Parse log output to detect execution phase transitions
+   */
+  private parseExecutionPhase(
+    log: string,
+    currentPhase: ExecutionProgressData['phase'],
+    isSpecRunner: boolean
+  ): { phase: ExecutionProgressData['phase']; message?: string; currentChunk?: string } | null {
+    const lowerLog = log.toLowerCase();
+
+    // Spec runner phase detection (all part of "planning")
+    if (isSpecRunner) {
+      if (lowerLog.includes('discovering') || lowerLog.includes('discovery')) {
+        return { phase: 'planning', message: 'Discovering project context...' };
+      }
+      if (lowerLog.includes('requirements') || lowerLog.includes('gathering')) {
+        return { phase: 'planning', message: 'Gathering requirements...' };
+      }
+      if (lowerLog.includes('writing spec') || lowerLog.includes('spec writer')) {
+        return { phase: 'planning', message: 'Writing specification...' };
+      }
+      if (lowerLog.includes('validating') || lowerLog.includes('validation')) {
+        return { phase: 'planning', message: 'Validating specification...' };
+      }
+      if (lowerLog.includes('spec complete') || lowerLog.includes('specification complete')) {
+        return { phase: 'planning', message: 'Specification complete' };
+      }
+    }
+
+    // Run.py phase detection
+    // Planner agent running
+    if (lowerLog.includes('planner agent') || lowerLog.includes('creating implementation plan')) {
+      return { phase: 'planning', message: 'Creating implementation plan...' };
+    }
+
+    // Coder agent running
+    if (lowerLog.includes('coder agent') || lowerLog.includes('starting coder')) {
+      return { phase: 'coding', message: 'Implementing code changes...' };
+    }
+
+    // Chunk progress detection
+    const chunkMatch = log.match(/chunk[:\s]+(\d+(?:\/\d+)?|\w+[-_]\w+)/i);
+    if (chunkMatch && currentPhase === 'coding') {
+      return { phase: 'coding', currentChunk: chunkMatch[1], message: `Working on chunk ${chunkMatch[1]}...` };
+    }
+
+    // Chunk completion detection
+    if (lowerLog.includes('chunk completed') || lowerLog.includes('chunk done')) {
+      const completedChunk = log.match(/chunk[:\s]+"?([^"]+)"?\s+completed/i);
+      return {
+        phase: 'coding',
+        currentChunk: completedChunk?.[1],
+        message: `Chunk ${completedChunk?.[1] || ''} completed`
+      };
+    }
+
+    // QA Review phase
+    if (lowerLog.includes('qa reviewer') || lowerLog.includes('qa_reviewer') || lowerLog.includes('starting qa')) {
+      return { phase: 'qa_review', message: 'Running QA review...' };
+    }
+
+    // QA Fixer phase
+    if (lowerLog.includes('qa fixer') || lowerLog.includes('qa_fixer') || lowerLog.includes('fixing issues')) {
+      return { phase: 'qa_fixing', message: 'Fixing QA issues...' };
+    }
+
+    // Completion detection
+    if (lowerLog.includes('build complete') || lowerLog.includes('all chunks completed') || lowerLog.includes('qa passed')) {
+      return { phase: 'complete', message: 'Build completed successfully' };
+    }
+
+    // Error/failure detection
+    if (lowerLog.includes('build failed') || lowerLog.includes('error:') || lowerLog.includes('fatal')) {
+      return { phase: 'failed', message: log.trim().substring(0, 200) };
+    }
+
+    return null;
+  }
+
+  /**
+   * Calculate overall progress based on phase and phase progress
+   */
+  private calculateOverallProgress(phase: ExecutionProgressData['phase'], phaseProgress: number): number {
+    // Phase weight ranges (same as in constants.ts)
+    const weights: Record<string, { start: number; end: number }> = {
+      idle: { start: 0, end: 0 },
+      planning: { start: 0, end: 20 },
+      coding: { start: 20, end: 80 },
+      qa_review: { start: 80, end: 95 },
+      qa_fixing: { start: 80, end: 95 },
+      complete: { start: 100, end: 100 },
+      failed: { start: 0, end: 0 }
+    };
+
+    const phaseWeight = weights[phase] || { start: 0, end: 0 };
+    const phaseRange = phaseWeight.end - phaseWeight.start;
+    return Math.round(phaseWeight.start + (phaseRange * phaseProgress / 100));
+  }
+
+  /**
    * Spawn a Python process
    */
   private spawnProcess(
     taskId: string,
     cwd: string,
-    args: string[]
+    args: string[],
+    extraEnv: Record<string, string> = {},
+    processType: ProcessType = 'task-execution'
   ): void {
+    const isSpecRunner = processType === 'spec-creation';
     // Kill existing process for this task if any
     this.killTask(taskId);
+
+    console.log('[spawnProcess] Spawning with pythonPath:', this.pythonPath);
+    console.log('[spawnProcess] cwd:', cwd);
+    console.log('[spawnProcess] processType:', processType);
 
     const childProcess = spawn(this.pythonPath, args, {
       cwd,
       env: {
         ...process.env,
+        ...extraEnv,
         PYTHONUNBUFFERED: '1' // Ensure real-time output
       }
     });
+
+    console.log('[spawnProcess] Process spawned, pid:', childProcess.pid);
 
     this.processes.set(taskId, {
       taskId,
@@ -520,29 +742,101 @@ export class AgentManager extends EventEmitter {
       startedAt: new Date()
     });
 
+    // Track execution progress
+    let currentPhase: ExecutionProgressData['phase'] = isSpecRunner ? 'planning' : 'planning';
+    let phaseProgress = 0;
+    let currentChunk: string | undefined;
+    let lastMessage: string | undefined;
+
+    // Emit initial progress
+    this.emit('execution-progress', taskId, {
+      phase: currentPhase,
+      phaseProgress: 0,
+      overallProgress: this.calculateOverallProgress(currentPhase, 0),
+      message: isSpecRunner ? 'Starting spec creation...' : 'Starting build process...'
+    });
+
+    const processLog = (log: string) => {
+      // Parse for phase transitions
+      const phaseUpdate = this.parseExecutionPhase(log, currentPhase, isSpecRunner);
+
+      if (phaseUpdate) {
+        const phaseChanged = phaseUpdate.phase !== currentPhase;
+        currentPhase = phaseUpdate.phase;
+
+        if (phaseUpdate.currentChunk) {
+          currentChunk = phaseUpdate.currentChunk;
+        }
+        if (phaseUpdate.message) {
+          lastMessage = phaseUpdate.message;
+        }
+
+        // Reset phase progress on phase change, otherwise increment
+        if (phaseChanged) {
+          phaseProgress = 10; // Start new phase at 10%
+        } else {
+          phaseProgress = Math.min(90, phaseProgress + 5); // Increment within phase
+        }
+
+        const overallProgress = this.calculateOverallProgress(currentPhase, phaseProgress);
+
+        this.emit('execution-progress', taskId, {
+          phase: currentPhase,
+          phaseProgress,
+          overallProgress,
+          currentChunk,
+          message: lastMessage
+        });
+      }
+    };
+
     // Handle stdout
     childProcess.stdout?.on('data', (data: Buffer) => {
       const log = data.toString();
+      console.log('[spawnProcess] stdout:', log.substring(0, 200));
       this.emit('log', taskId, log);
+      processLog(log);
     });
 
     // Handle stderr
     childProcess.stderr?.on('data', (data: Buffer) => {
       const log = data.toString();
+      console.log('[spawnProcess] stderr:', log.substring(0, 200));
       // Some Python output goes to stderr (like progress bars)
       // so we treat it as log, not error
       this.emit('log', taskId, log);
+      processLog(log);
     });
 
     // Handle process exit
     childProcess.on('exit', (code: number | null) => {
+      console.log('[spawnProcess] Process exited with code:', code);
       this.processes.delete(taskId);
-      this.emit('exit', taskId, code);
+
+      // Emit final progress
+      const finalPhase = code === 0 ? 'complete' : 'failed';
+      this.emit('execution-progress', taskId, {
+        phase: finalPhase,
+        phaseProgress: 100,
+        overallProgress: code === 0 ? 100 : this.calculateOverallProgress(currentPhase, phaseProgress),
+        message: code === 0 ? 'Process completed successfully' : `Process exited with code ${code}`
+      });
+
+      this.emit('exit', taskId, code, processType);
     });
 
     // Handle process error
     childProcess.on('error', (err: Error) => {
+      console.log('[spawnProcess] Process error:', err.message);
       this.processes.delete(taskId);
+
+      this.emit('execution-progress', taskId, {
+        phase: 'failed',
+        phaseProgress: 0,
+        overallProgress: 0,
+        message: `Error: ${err.message}`
+      });
+
       this.emit('error', taskId, err.message);
     });
   }

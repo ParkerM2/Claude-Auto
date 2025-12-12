@@ -6,9 +6,22 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
+  AlertTriangle,
   Clock,
   FileCode,
-  Terminal
+  Terminal,
+  Target,
+  Bug,
+  Wrench,
+  Shield,
+  Gauge,
+  Palette,
+  Lightbulb,
+  Users,
+  GitBranch,
+  ListChecks,
+  Loader2,
+  RotateCcw
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -18,9 +31,36 @@ import { Separator } from './ui/separator';
 import { Textarea } from './ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { cn, calculateProgress, formatRelativeTime } from '../lib/utils';
-import { TASK_STATUS_LABELS } from '../../shared/constants';
-import { startTask, stopTask, submitReview } from '../stores/task-store';
-import type { Task } from '../../shared/types';
+import {
+  TASK_STATUS_LABELS,
+  TASK_CATEGORY_LABELS,
+  TASK_CATEGORY_COLORS,
+  TASK_COMPLEXITY_LABELS,
+  TASK_COMPLEXITY_COLORS,
+  TASK_IMPACT_LABELS,
+  TASK_IMPACT_COLORS,
+  TASK_PRIORITY_LABELS,
+  TASK_PRIORITY_COLORS,
+  IDEATION_TYPE_LABELS,
+  EXECUTION_PHASE_LABELS,
+  EXECUTION_PHASE_BADGE_COLORS,
+  EXECUTION_PHASE_COLORS
+} from '../../shared/constants';
+import { startTask, stopTask, submitReview, checkTaskRunning, recoverStuckTask } from '../stores/task-store';
+import type { Task, TaskCategory, ExecutionPhase } from '../../shared/types';
+
+// Category icon mapping
+const CategoryIcon: Record<TaskCategory, typeof Target> = {
+  feature: Target,
+  bug_fix: Bug,
+  refactoring: Wrench,
+  documentation: FileCode,
+  security: Shield,
+  performance: Gauge,
+  ui_ux: Palette,
+  infrastructure: Wrench,
+  testing: FileCode
+};
 
 interface TaskDetailPanelProps {
   task: Task;
@@ -31,25 +71,68 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   const [feedback, setFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
+  const [isStuck, setIsStuck] = useState(false);
+  const [isRecovering, setIsRecovering] = useState(false);
+  const [hasCheckedRunning, setHasCheckedRunning] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
+  const logsContainerRef = useRef<HTMLDivElement>(null);
 
   const progress = calculateProgress(task.chunks);
   const isRunning = task.status === 'in_progress';
   const needsReview = task.status === 'human_review';
+  const executionPhase = task.executionProgress?.phase;
+  const hasActiveExecution = executionPhase && executionPhase !== 'idle' && executionPhase !== 'complete' && executionPhase !== 'failed';
 
-  // Auto-scroll logs to bottom
+  // Check if task is stuck (status says in_progress but no actual process)
   useEffect(() => {
-    if (activeTab === 'logs' && logsEndRef.current) {
+    if (isRunning && !hasCheckedRunning) {
+      checkTaskRunning(task.id).then((actuallyRunning) => {
+        setIsStuck(!actuallyRunning);
+        setHasCheckedRunning(true);
+      });
+    } else if (!isRunning) {
+      setIsStuck(false);
+      setHasCheckedRunning(false);
+    }
+  }, [task.id, isRunning, hasCheckedRunning]);
+
+  // Handle scroll events in logs to detect if user scrolled up
+  const handleLogsScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement;
+    const isNearBottom = target.scrollHeight - target.scrollTop - target.clientHeight < 100;
+    setIsUserScrolledUp(!isNearBottom);
+  };
+
+  // Auto-scroll logs to bottom only if user hasn't scrolled up
+  useEffect(() => {
+    if (activeTab === 'logs' && logsEndRef.current && !isUserScrolledUp) {
       logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [task.logs, activeTab]);
+  }, [task.logs, activeTab, isUserScrolledUp]);
+
+  // Reset scroll state when switching to logs tab
+  useEffect(() => {
+    if (activeTab === 'logs') {
+      setIsUserScrolledUp(false);
+    }
+  }, [activeTab]);
 
   const handleStartStop = () => {
-    if (isRunning) {
+    if (isRunning && !isStuck) {
       stopTask(task.id);
     } else {
       startTask(task.id);
     }
+  };
+
+  const handleRecover = async () => {
+    setIsRecovering(true);
+    const result = await recoverStuckTask(task.id, 'backlog');
+    if (result.success) {
+      setIsStuck(false);
+    }
+    setIsRecovering(false);
   };
 
   const handleApprove = async () => {
@@ -92,9 +175,16 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
             <Badge variant="outline" className="text-xs">
               {task.specId}
             </Badge>
-            <span className="text-xs text-muted-foreground">
-              {TASK_STATUS_LABELS[task.status]}
-            </span>
+            {isStuck ? (
+              <Badge variant="warning" className="text-xs flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                Stuck
+              </Badge>
+            ) : (
+              <span className="text-xs text-muted-foreground">
+                {TASK_STATUS_LABELS[task.status]}
+              </span>
+            )}
           </div>
         </div>
         <Button variant="ghost" size="icon" onClick={onClose}>
@@ -105,7 +195,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
       <Separator />
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <TabsList className="w-full justify-start rounded-none border-b border-border bg-transparent p-0 h-auto">
           <TabsTrigger
             value="overview"
@@ -128,23 +218,285 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
         </TabsList>
 
         {/* Overview Tab */}
-        <TabsContent value="overview" className="flex-1 overflow-hidden mt-0">
+        <TabsContent value="overview" className="flex-1 min-h-0 overflow-hidden mt-0">
           <ScrollArea className="h-full">
             <div className="p-4 space-y-5">
+              {/* Stuck Task Warning */}
+              {isStuck && (
+                <div className="rounded-xl border border-warning/30 bg-warning/10 p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h3 className="font-medium text-sm text-foreground mb-1">
+                        Task Appears Stuck
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        This task is marked as running but no active process was found.
+                        This can happen if the app crashed or the process was terminated unexpectedly.
+                      </p>
+                      <Button
+                        variant="warning"
+                        size="sm"
+                        onClick={handleRecover}
+                        disabled={isRecovering}
+                        className="w-full"
+                      >
+                        {isRecovering ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Recovering...
+                          </>
+                        ) : (
+                          <>
+                            <RotateCcw className="mr-2 h-4 w-4" />
+                            Recover Task (Move to Planning)
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Execution Phase Indicator */}
+              {hasActiveExecution && executionPhase && !isStuck && (
+                <div className={cn(
+                  'rounded-xl border p-3 flex items-center gap-3',
+                  EXECUTION_PHASE_BADGE_COLORS[executionPhase]
+                )}>
+                  <Loader2 className="h-5 w-5 animate-spin shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">
+                        {EXECUTION_PHASE_LABELS[executionPhase]}
+                      </span>
+                      <span className="text-sm">
+                        {task.executionProgress?.overallProgress || 0}%
+                      </span>
+                    </div>
+                    {task.executionProgress?.message && (
+                      <p className="text-xs mt-0.5 opacity-80 truncate">
+                        {task.executionProgress.message}
+                      </p>
+                    )}
+                    {task.executionProgress?.currentChunk && (
+                      <p className="text-xs mt-0.5 opacity-70">
+                        Chunk: {task.executionProgress.currentChunk}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Progress */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-foreground">Progress</span>
-                  <span className="text-sm text-foreground">{progress}%</span>
+                  <span className="text-sm font-medium text-foreground">
+                    {hasActiveExecution ? 'Overall Progress' : 'Progress'}
+                  </span>
+                  <span className="text-sm text-foreground">
+                    {hasActiveExecution
+                      ? `${task.executionProgress?.overallProgress || 0}%`
+                      : `${progress}%`}
+                  </span>
                 </div>
-                <Progress value={progress} className="h-2" />
+                <Progress
+                  value={hasActiveExecution ? (task.executionProgress?.overallProgress || 0) : progress}
+                  className="h-2"
+                />
+                {/* Phase Progress Bar Segments */}
+                {hasActiveExecution && (
+                  <div className="mt-2 flex gap-0.5 h-1.5 rounded-full overflow-hidden bg-muted/30">
+                    <div
+                      className={cn(
+                        'transition-all duration-300',
+                        executionPhase === 'planning' ? 'bg-amber-500' : 'bg-amber-500/30'
+                      )}
+                      style={{ width: '20%' }}
+                      title="Planning (0-20%)"
+                    />
+                    <div
+                      className={cn(
+                        'transition-all duration-300',
+                        executionPhase === 'coding' ? 'bg-info' : 'bg-info/30'
+                      )}
+                      style={{ width: '60%' }}
+                      title="Coding (20-80%)"
+                    />
+                    <div
+                      className={cn(
+                        'transition-all duration-300',
+                        (executionPhase === 'qa_review' || executionPhase === 'qa_fixing') ? 'bg-purple-500' : 'bg-purple-500/30'
+                      )}
+                      style={{ width: '15%' }}
+                      title="AI Review (80-95%)"
+                    />
+                    <div
+                      className={cn(
+                        'transition-all duration-300',
+                        executionPhase === 'complete' ? 'bg-success' : 'bg-success/30'
+                      )}
+                      style={{ width: '5%' }}
+                      title="Complete (95-100%)"
+                    />
+                  </div>
+                )}
               </div>
+
+              {/* Classification Badges */}
+              {task.metadata && (
+                <div className="flex flex-wrap gap-1.5">
+                  {/* Category */}
+                  {task.metadata.category && (
+                    <Badge
+                      variant="outline"
+                      className={cn('text-xs', TASK_CATEGORY_COLORS[task.metadata.category])}
+                    >
+                      {CategoryIcon[task.metadata.category] && (() => {
+                        const Icon = CategoryIcon[task.metadata.category!];
+                        return <Icon className="h-3 w-3 mr-1" />;
+                      })()}
+                      {TASK_CATEGORY_LABELS[task.metadata.category]}
+                    </Badge>
+                  )}
+                  {/* Priority */}
+                  {task.metadata.priority && (
+                    <Badge
+                      variant="outline"
+                      className={cn('text-xs', TASK_PRIORITY_COLORS[task.metadata.priority])}
+                    >
+                      {TASK_PRIORITY_LABELS[task.metadata.priority]}
+                    </Badge>
+                  )}
+                  {/* Complexity */}
+                  {task.metadata.complexity && (
+                    <Badge
+                      variant="outline"
+                      className={cn('text-xs', TASK_COMPLEXITY_COLORS[task.metadata.complexity])}
+                    >
+                      {TASK_COMPLEXITY_LABELS[task.metadata.complexity]}
+                    </Badge>
+                  )}
+                  {/* Impact */}
+                  {task.metadata.impact && (
+                    <Badge
+                      variant="outline"
+                      className={cn('text-xs', TASK_IMPACT_COLORS[task.metadata.impact])}
+                    >
+                      {TASK_IMPACT_LABELS[task.metadata.impact]}
+                    </Badge>
+                  )}
+                  {/* Security Severity */}
+                  {task.metadata.securitySeverity && (
+                    <Badge
+                      variant="outline"
+                      className={cn('text-xs', TASK_IMPACT_COLORS[task.metadata.securitySeverity])}
+                    >
+                      <Shield className="h-3 w-3 mr-1" />
+                      {task.metadata.securitySeverity} severity
+                    </Badge>
+                  )}
+                  {/* Source Type */}
+                  {task.metadata.sourceType && (
+                    <Badge variant="secondary" className="text-xs">
+                      {task.metadata.sourceType === 'ideation' && task.metadata.ideationType
+                        ? IDEATION_TYPE_LABELS[task.metadata.ideationType] || task.metadata.ideationType
+                        : task.metadata.sourceType}
+                    </Badge>
+                  )}
+                </div>
+              )}
 
               {/* Description */}
               {task.description && (
                 <div>
                   <h3 className="text-sm font-medium text-foreground mb-2">Description</h3>
                   <p className="text-sm text-muted-foreground">{task.description}</p>
+                </div>
+              )}
+
+              {/* Metadata Details */}
+              {task.metadata && (
+                <div className="space-y-4">
+                  {/* Rationale */}
+                  {task.metadata.rationale && (
+                    <div>
+                      <h3 className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-1.5">
+                        <Lightbulb className="h-3.5 w-3.5 text-warning" />
+                        Rationale
+                      </h3>
+                      <p className="text-sm text-muted-foreground">{task.metadata.rationale}</p>
+                    </div>
+                  )}
+
+                  {/* Problem Solved */}
+                  {task.metadata.problemSolved && (
+                    <div>
+                      <h3 className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-1.5">
+                        <Target className="h-3.5 w-3.5 text-success" />
+                        Problem Solved
+                      </h3>
+                      <p className="text-sm text-muted-foreground">{task.metadata.problemSolved}</p>
+                    </div>
+                  )}
+
+                  {/* Target Audience */}
+                  {task.metadata.targetAudience && (
+                    <div>
+                      <h3 className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-1.5">
+                        <Users className="h-3.5 w-3.5 text-info" />
+                        Target Audience
+                      </h3>
+                      <p className="text-sm text-muted-foreground">{task.metadata.targetAudience}</p>
+                    </div>
+                  )}
+
+                  {/* Dependencies */}
+                  {task.metadata.dependencies && task.metadata.dependencies.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-1.5">
+                        <GitBranch className="h-3.5 w-3.5 text-purple-400" />
+                        Dependencies
+                      </h3>
+                      <ul className="text-sm text-muted-foreground list-disc list-inside space-y-0.5">
+                        {task.metadata.dependencies.map((dep, idx) => (
+                          <li key={idx}>{dep}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Acceptance Criteria */}
+                  {task.metadata.acceptanceCriteria && task.metadata.acceptanceCriteria.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-1.5">
+                        <ListChecks className="h-3.5 w-3.5 text-success" />
+                        Acceptance Criteria
+                      </h3>
+                      <ul className="text-sm text-muted-foreground list-disc list-inside space-y-0.5">
+                        {task.metadata.acceptanceCriteria.map((criteria, idx) => (
+                          <li key={idx}>{criteria}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Affected Files */}
+                  {task.metadata.affectedFiles && task.metadata.affectedFiles.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-medium text-foreground mb-1.5 flex items-center gap-1.5">
+                        <FileCode className="h-3.5 w-3.5 text-muted-foreground" />
+                        Affected Files
+                      </h3>
+                      <div className="flex flex-wrap gap-1">
+                        {task.metadata.affectedFiles.map((file, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-xs font-mono">
+                            {file.split('/').pop()}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -204,7 +556,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
         </TabsContent>
 
         {/* Chunks Tab */}
-        <TabsContent value="chunks" className="flex-1 overflow-hidden mt-0">
+        <TabsContent value="chunks" className="flex-1 min-h-0 overflow-hidden mt-0">
           <ScrollArea className="h-full">
             <div className="p-4 space-y-3">
               {task.chunks.length === 0 ? (
@@ -260,8 +612,12 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
         </TabsContent>
 
         {/* Logs Tab */}
-        <TabsContent value="logs" className="flex-1 overflow-hidden mt-0">
-          <ScrollArea className="h-full">
+        <TabsContent value="logs" className="flex-1 min-h-0 overflow-hidden mt-0">
+          <div
+            ref={logsContainerRef}
+            className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
+            onScroll={handleLogsScroll}
+          >
             <div className="p-4">
               {task.logs && task.logs.length > 0 ? (
                 <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap break-all">
@@ -276,7 +632,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                 </div>
               )}
             </div>
-          </ScrollArea>
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -284,7 +640,26 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
 
       {/* Actions */}
       <div className="p-4">
-        {(task.status === 'backlog' || task.status === 'in_progress') && (
+        {isStuck ? (
+          <Button
+            className="w-full"
+            variant="warning"
+            onClick={handleRecover}
+            disabled={isRecovering}
+          >
+            {isRecovering ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Recovering...
+              </>
+            ) : (
+              <>
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Recover Task
+              </>
+            )}
+          </Button>
+        ) : (task.status === 'backlog' || task.status === 'in_progress') && (
           <Button
             className="w-full"
             variant={isRunning ? 'destructive' : 'default'}

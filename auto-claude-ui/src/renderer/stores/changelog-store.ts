@@ -6,8 +6,10 @@ import type {
   ChangelogAudience,
   ChangelogGenerationProgress,
   ChangelogGenerationResult,
-  ExistingChangelog
+  ExistingChangelog,
+  Task
 } from '../../shared/types';
+import { useTaskStore } from './task-store';
 
 interface ChangelogState {
   // Data
@@ -138,8 +140,14 @@ export async function loadChangelogData(projectId: string): Promise<void> {
   const store = useChangelogStore.getState();
 
   try {
-    // Load done tasks
-    const tasksResult = await window.electronAPI.getChangelogDoneTasks(projectId);
+    // Get tasks from the task store (which has the correct UI status)
+    // This is necessary because the Kanban board updates task status in the Zustand store,
+    // but the backend reads from the filesystem which doesn't reflect UI-only changes
+    const taskStore = useTaskStore.getState();
+    const tasks = taskStore.tasks;
+
+    // Load done tasks - pass the renderer's task list to get correct status
+    const tasksResult = await window.electronAPI.getChangelogDoneTasks(projectId, tasks);
     if (tasksResult.success && tasksResult.data) {
       store.setDoneTasks(tasksResult.data);
     }

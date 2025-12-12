@@ -92,11 +92,11 @@ Identify security issues across these categories:
 
 ## Output Format
 
-Write your findings to `{output_dir}/security_ideas.json`:
+Write your findings to `{output_dir}/security_hardening_ideas.json`:
 
 ```json
 {
-  "ideas": [
+  "security_hardening": [
     {
       "id": "sec-001",
       "type": "security_hardening",

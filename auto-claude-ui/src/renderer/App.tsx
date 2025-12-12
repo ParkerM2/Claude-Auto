@@ -25,6 +25,7 @@ import { TerminalGrid } from './components/TerminalGrid';
 import { Roadmap } from './components/Roadmap';
 import { Context } from './components/Context';
 import { Ideation } from './components/Ideation';
+import { Insights } from './components/Insights';
 import { GitHubIssues } from './components/GitHubIssues';
 import { Changelog } from './components/Changelog';
 import { WelcomeScreen } from './components/WelcomeScreen';
@@ -240,6 +241,9 @@ export function App() {
                 )}
                 {activeView === 'ideation' && selectedProjectId && (
                   <Ideation projectId={selectedProjectId} />
+                )}
+                {activeView === 'insights' && selectedProjectId && (
+                  <Insights projectId={selectedProjectId} />
                 )}
                 {activeView === 'github-issues' && selectedProjectId && (
                   <GitHubIssues onOpenSettings={() => setIsProjectSettingsOpen(true)} />

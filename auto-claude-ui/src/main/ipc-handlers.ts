@@ -1,12 +1,17 @@
 import { ipcMain, dialog, BrowserWindow, app } from 'electron';
 import path from 'path';
-import { existsSync, readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, mkdirSync } from 'fs';
 import { spawn } from 'child_process';
 import { IPC_CHANNELS, DEFAULT_APP_SETTINGS, AUTO_BUILD_PATHS } from '../shared/constants';
 import type {
   Project,
   ProjectSettings,
   Task,
+  TaskMetadata,
+  TaskCategory,
+  TaskComplexity,
+  TaskImpact,
+  TaskStatus,
   AppSettings,
   IPCResult,
   TaskStartOptions,
@@ -62,7 +67,8 @@ import {
   getEffectiveSourcePath
 } from './auto-claude-updater';
 import { changelogService } from './changelog-service';
-import type { AutoBuildSourceUpdateProgress } from '../shared/types';
+import { insightsService } from './insights-service';
+import type { AutoBuildSourceUpdateProgress, InsightsSession, InsightsChatStatus, InsightsStreamChunk } from '../shared/types';
 
 /**
  * Setup all IPC handlers
@@ -152,15 +158,11 @@ export function setupIpcHandlers(
       path.resolve(__dirname, '..', '..', 'auto-claude')
     ];
 
-    console.log('[Auto-Claude] Detecting source path, checking:', possiblePaths);
-
     for (const p of possiblePaths) {
       if (existsSync(p) && existsSync(path.join(p, 'VERSION'))) {
-        console.log('[Auto-Claude] Found source at:', p);
         return p;
       }
     }
-    console.log('[Auto-Claude] No source path found');
     return null;
   };
 
@@ -314,29 +316,87 @@ export function setupIpcHandlers(
       _,
       projectId: string,
       title: string,
-      description: string
+      description: string,
+      metadata?: TaskMetadata
     ): Promise<IPCResult<Task>> => {
       const project = projectStore.getProject(projectId);
       if (!project) {
         return { success: false, error: 'Project not found' };
       }
 
-      // Generate a unique task ID for tracking
-      const taskId = `task-${Date.now()}`;
+      // Generate a unique spec ID based on existing specs
+      const autoBuildDir = project.autoBuildPath || 'auto-claude';
+      const specsDir = path.join(project.path, autoBuildDir, 'specs');
 
-      // Start spec creation via agent manager
-      agentManager.startSpecCreation(taskId, project.path, description);
+      // Find next available spec number
+      let specNumber = 1;
+      if (existsSync(specsDir)) {
+        const existingDirs = readdirSync(specsDir, { withFileTypes: true })
+          .filter(d => d.isDirectory())
+          .map(d => d.name);
 
-      // Create a placeholder task
+        // Extract numbers from spec directory names (e.g., "001-feature" -> 1)
+        const existingNumbers = existingDirs
+          .map(name => {
+            const match = name.match(/^(\d+)/);
+            return match ? parseInt(match[1], 10) : 0;
+          })
+          .filter(n => n > 0);
+
+        if (existingNumbers.length > 0) {
+          specNumber = Math.max(...existingNumbers) + 1;
+        }
+      }
+
+      // Create spec ID with zero-padded number and slugified title
+      const slugifiedTitle = title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .substring(0, 50);
+      const specId = `${String(specNumber).padStart(3, '0')}-${slugifiedTitle}`;
+
+      // Create spec directory
+      const specDir = path.join(specsDir, specId);
+      mkdirSync(specDir, { recursive: true });
+
+      // Build metadata with source type
+      const taskMetadata: TaskMetadata = {
+        sourceType: 'manual',
+        ...metadata
+      };
+
+      // Create initial implementation_plan.json (task is created but not started)
+      const now = new Date().toISOString();
+      const implementationPlan = {
+        feature: title,
+        description: description,
+        created_at: now,
+        updated_at: now,
+        status: 'pending',
+        phases: []
+      };
+
+      const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+      writeFileSync(planPath, JSON.stringify(implementationPlan, null, 2));
+
+      // Save task metadata if provided
+      if (taskMetadata) {
+        const metadataPath = path.join(specDir, 'task_metadata.json');
+        writeFileSync(metadataPath, JSON.stringify(taskMetadata, null, 2));
+      }
+
+      // Create the task object
       const task: Task = {
-        id: taskId,
-        specId: '', // Will be assigned after spec creation
+        id: specId,
+        specId: specId,
         projectId,
         title,
         description,
         status: 'backlog',
         chunks: [],
         logs: [],
+        metadata: taskMetadata,
         createdAt: new Date(),
         updatedAt: new Date()
       };
@@ -348,8 +408,12 @@ export function setupIpcHandlers(
   ipcMain.on(
     IPC_CHANNELS.TASK_START,
     (_, taskId: string, options?: TaskStartOptions) => {
+      console.log('[TASK_START] Received request for taskId:', taskId);
       const mainWindow = getMainWindow();
-      if (!mainWindow) return;
+      if (!mainWindow) {
+        console.log('[TASK_START] No main window found');
+        return;
+      }
 
       // Find task and project
       const projects = projectStore.getProjects();
@@ -366,6 +430,7 @@ export function setupIpcHandlers(
       }
 
       if (!task || !project) {
+        console.log('[TASK_START] Task or project not found for taskId:', taskId);
         mainWindow.webContents.send(
           IPC_CHANNELS.TASK_ERROR,
           taskId,
@@ -374,24 +439,70 @@ export function setupIpcHandlers(
         return;
       }
 
+      console.log('[TASK_START] Found task:', task.specId, 'status:', task.status, 'chunks:', task.chunks.length);
+
       // Start file watcher for this task
+      const autoBuildDir = project.autoBuildPath || 'auto-claude';
       const specDir = path.join(
         project.path,
-        AUTO_BUILD_PATHS.SPECS_DIR,
+        autoBuildDir,
+        'specs',
         task.specId
       );
       fileWatcher.watch(taskId, specDir);
 
-      // Start task execution
-      agentManager.startTaskExecution(
-        taskId,
-        project.path,
-        task.specId,
-        {
-          parallel: options?.parallel ?? project.settings.parallelEnabled,
-          workers: options?.workers ?? project.settings.maxWorkers
+      // Check if spec.md exists (indicates spec creation was already done or in progress)
+      const specFilePath = path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE);
+      const hasSpec = existsSync(specFilePath);
+
+      // Check if this task needs spec creation first (no spec file = not yet created)
+      // OR if it has a spec but no implementation plan chunks (spec created, needs planning/building)
+      const needsSpecCreation = !hasSpec;
+      const needsImplementation = hasSpec && task.chunks.length === 0;
+
+      console.log('[TASK_START] hasSpec:', hasSpec, 'needsSpecCreation:', needsSpecCreation, 'needsImplementation:', needsImplementation);
+
+      if (needsSpecCreation) {
+        // No spec file - need to run spec_runner.py to create the spec
+        const taskDescription = task.description || task.title;
+        console.log('[TASK_START] Starting spec creation for:', task.specId);
+
+        // Start spec creation process
+        agentManager.startSpecCreation(task.specId, project.path, taskDescription);
+      } else if (needsImplementation) {
+        // Spec exists but no chunks - run run.py to create implementation plan and execute
+        // Read the spec.md to get the task description
+        let taskDescription = task.description || task.title;
+        try {
+          taskDescription = readFileSync(specFilePath, 'utf-8');
+        } catch {
+          // Use default description
         }
-      );
+
+        console.log('[TASK_START] Starting task execution (no chunks) for:', task.specId);
+        // Start task execution which will create the implementation plan
+        agentManager.startTaskExecution(
+          taskId,
+          project.path,
+          task.specId,
+          {
+            parallel: options?.parallel ?? project.settings.parallelEnabled,
+            workers: options?.workers ?? project.settings.maxWorkers
+          }
+        );
+      } else {
+        // Task has chunks, start normal execution
+        console.log('[TASK_START] Starting task execution (has chunks) for:', task.specId);
+        agentManager.startTaskExecution(
+          taskId,
+          project.path,
+          task.specId,
+          {
+            parallel: options?.parallel ?? project.settings.parallelEnabled,
+            workers: options?.workers ?? project.settings.maxWorkers
+          }
+        );
+      }
 
       // Notify status change
       mainWindow.webContents.send(
@@ -486,6 +597,233 @@ export function setupIpcHandlers(
       }
 
       return { success: true };
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_UPDATE_STATUS,
+    async (
+      _,
+      taskId: string,
+      status: TaskStatus
+    ): Promise<IPCResult> => {
+      // Find task and project
+      const projects = projectStore.getProjects();
+      let task: Task | undefined;
+      let project: Project | undefined;
+
+      for (const p of projects) {
+        const tasks = projectStore.getTasks(p.id);
+        task = tasks.find((t) => t.id === taskId || t.specId === taskId);
+        if (task) {
+          project = p;
+          break;
+        }
+      }
+
+      if (!task || !project) {
+        return { success: false, error: 'Task not found' };
+      }
+
+      // Get the spec directory - check both .auto-claude and auto-claude
+      const autoBuildDir = project.autoBuildPath || 'auto-claude';
+      const specDir = path.join(
+        project.path,
+        autoBuildDir,
+        'specs',
+        task.specId
+      );
+
+      // Update implementation_plan.json if it exists
+      const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+
+      try {
+        if (existsSync(planPath)) {
+          const planContent = readFileSync(planPath, 'utf-8');
+          const plan = JSON.parse(planContent);
+
+          // Store the exact UI status - project-store.ts will map it back
+          plan.status = status;
+          // Also store mapped version for Python compatibility
+          plan.planStatus = status === 'done' ? 'completed'
+            : status === 'in_progress' ? 'in_progress'
+            : status === 'ai_review' ? 'review'
+            : status === 'human_review' ? 'review'
+            : 'pending';
+          plan.updated_at = new Date().toISOString();
+
+          writeFileSync(planPath, JSON.stringify(plan, null, 2));
+        } else {
+          // If no implementation plan exists yet, create a basic one
+          const plan = {
+            feature: task.title,
+            description: task.description || '',
+            created_at: task.createdAt.toISOString(),
+            updated_at: new Date().toISOString(),
+            status: status, // Store exact UI status for persistence
+            planStatus: status === 'done' ? 'completed'
+              : status === 'in_progress' ? 'in_progress'
+              : status === 'ai_review' ? 'review'
+              : status === 'human_review' ? 'review'
+              : 'pending',
+            phases: []
+          };
+
+          // Ensure spec directory exists
+          if (!existsSync(specDir)) {
+            mkdirSync(specDir, { recursive: true });
+          }
+
+          writeFileSync(planPath, JSON.stringify(plan, null, 2));
+        }
+
+        return { success: true };
+      } catch (error) {
+        console.error('Failed to update task status:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to update task status'
+        };
+      }
+    }
+  );
+
+  // Handler to check if a task is actually running (has active process)
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_CHECK_RUNNING,
+    async (_, taskId: string): Promise<IPCResult<boolean>> => {
+      const isRunning = agentManager.isRunning(taskId);
+      return { success: true, data: isRunning };
+    }
+  );
+
+  // Handler to recover a stuck task (status says in_progress but no process running)
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_RECOVER_STUCK,
+    async (
+      _,
+      taskId: string,
+      targetStatus?: TaskStatus
+    ): Promise<IPCResult<{ taskId: string; recovered: boolean; newStatus: TaskStatus; message: string }>> => {
+      // Check if task is actually running
+      const isActuallyRunning = agentManager.isRunning(taskId);
+
+      if (isActuallyRunning) {
+        return {
+          success: false,
+          error: 'Task is still running. Stop it first before recovering.',
+          data: {
+            taskId,
+            recovered: false,
+            newStatus: 'in_progress' as TaskStatus,
+            message: 'Task is still running'
+          }
+        };
+      }
+
+      // Find task and project
+      const projects = projectStore.getProjects();
+      let task: Task | undefined;
+      let project: Project | undefined;
+
+      for (const p of projects) {
+        const tasks = projectStore.getTasks(p.id);
+        task = tasks.find((t) => t.id === taskId || t.specId === taskId);
+        if (task) {
+          project = p;
+          break;
+        }
+      }
+
+      if (!task || !project) {
+        return { success: false, error: 'Task not found' };
+      }
+
+      // Determine the target status - default to 'backlog' if not specified
+      // If task had some chunks completed, maybe we should go to 'human_review'
+      const newStatus: TaskStatus = targetStatus || 'backlog';
+
+      // Get the spec directory
+      const autoBuildDir = project.autoBuildPath || 'auto-claude';
+      const specDir = path.join(
+        project.path,
+        autoBuildDir,
+        'specs',
+        task.specId
+      );
+
+      // Update implementation_plan.json
+      const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+
+      try {
+        if (existsSync(planPath)) {
+          const planContent = readFileSync(planPath, 'utf-8');
+          const plan = JSON.parse(planContent);
+
+          // Update status
+          plan.status = newStatus;
+          plan.planStatus = newStatus === 'done' ? 'completed'
+            : newStatus === 'in_progress' ? 'in_progress'
+            : newStatus === 'ai_review' ? 'review'
+            : newStatus === 'human_review' ? 'review'
+            : 'pending';
+          plan.updated_at = new Date().toISOString();
+
+          // Add recovery note
+          plan.recoveryNote = `Task recovered from stuck state at ${new Date().toISOString()}`;
+
+          // Reset all chunk statuses to 'pending' so the task can be restarted
+          // This allows run.py to pick up from where it left off or restart
+          if (plan.phases && Array.isArray(plan.phases)) {
+            for (const phase of plan.phases) {
+              if (phase.chunks && Array.isArray(phase.chunks)) {
+                for (const chunk of phase.chunks) {
+                  // Reset in_progress chunks to pending (they were interrupted)
+                  // Keep completed chunks as-is so run.py can resume
+                  if (chunk.status === 'in_progress') {
+                    chunk.status = 'pending';
+                  }
+                  // Also reset failed chunks so they can be retried
+                  if (chunk.status === 'failed') {
+                    chunk.status = 'pending';
+                  }
+                }
+              }
+            }
+          }
+
+          writeFileSync(planPath, JSON.stringify(plan, null, 2));
+        }
+
+        // Stop file watcher if it was watching this task
+        fileWatcher.unwatch(taskId);
+
+        // Notify renderer of status change
+        const mainWindow = getMainWindow();
+        if (mainWindow) {
+          mainWindow.webContents.send(
+            IPC_CHANNELS.TASK_STATUS_CHANGE,
+            taskId,
+            newStatus
+          );
+        }
+
+        return {
+          success: true,
+          data: {
+            taskId,
+            recovered: true,
+            newStatus,
+            message: `Task recovered successfully and moved to ${newStatus}`
+          }
+        };
+      } catch (error) {
+        console.error('Failed to recover stuck task:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to recover task'
+        };
+      }
     }
   );
 
@@ -635,19 +973,55 @@ export function setupIpcHandlers(
     }
   });
 
-  agentManager.on('exit', (taskId: string, code: number | null) => {
+  agentManager.on('exit', (taskId: string, code: number | null, processType: import('./agent-manager').ProcessType) => {
     const mainWindow = getMainWindow();
     if (mainWindow) {
       // Stop file watcher
       fileWatcher.unwatch(taskId);
 
-      // Determine new status based on exit code
-      const newStatus = code === 0 ? 'ai_review' : 'human_review';
+      // Determine new status based on process type and exit code
+      // Flow: Planning → In Progress → AI Review (QA agent) → Human Review (QA passed)
+      let newStatus: TaskStatus;
+
+      if (processType === 'task-execution') {
+        // Task execution completed (includes spec_runner → run.py chain)
+        // Success (code 0) = QA agent signed off → Human Review
+        // Failure = needs human attention → Human Review
+        newStatus = 'human_review';
+      } else if (processType === 'qa-process') {
+        // QA retry process completed
+        newStatus = 'human_review';
+      } else if (processType === 'spec-creation') {
+        // Pure spec creation (shouldn't happen with current flow, but handle it)
+        // Stay in backlog/planning
+        console.log(`[Task ${taskId}] Spec creation completed with code ${code}`);
+        return;
+      } else {
+        // Unknown process type
+        newStatus = 'human_review';
+      }
+
       mainWindow.webContents.send(
         IPC_CHANNELS.TASK_STATUS_CHANGE,
         taskId,
         newStatus
       );
+    }
+  });
+
+  agentManager.on('execution-progress', (taskId: string, progress: import('./agent-manager').ExecutionProgressData) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.TASK_EXECUTION_PROGRESS, taskId, progress);
+
+      // Auto-move task to AI Review when entering qa_review phase
+      if (progress.phase === 'qa_review') {
+        mainWindow.webContents.send(
+          IPC_CHANNELS.TASK_STATUS_CHANGE,
+          taskId,
+          'ai_review'
+        );
+      }
     }
   });
 
@@ -1037,16 +1411,69 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join('\n'
 
         // Check environment for Graphiti config if not found in specs
         if (!memoryState) {
-          const graphitiEnabled = process.env.GRAPHITI_ENABLED?.toLowerCase() === 'true';
-          const hasOpenAI = !!process.env.OPENAI_API_KEY;
+          // Load project .env file and global settings to check for Graphiti config
+          let projectEnvVars: Record<string, string> = {};
+          if (project.autoBuildPath) {
+            const projectEnvPath = path.join(project.path, project.autoBuildPath, '.env');
+            if (existsSync(projectEnvPath)) {
+              try {
+                const envContent = readFileSync(projectEnvPath, 'utf-8');
+                // Parse .env file inline
+                for (const line of envContent.split('\n')) {
+                  const trimmed = line.trim();
+                  if (!trimmed || trimmed.startsWith('#')) continue;
+                  const eqIndex = trimmed.indexOf('=');
+                  if (eqIndex > 0) {
+                    const key = trimmed.substring(0, eqIndex).trim();
+                    let value = trimmed.substring(eqIndex + 1).trim();
+                    if ((value.startsWith('"') && value.endsWith('"')) ||
+                        (value.startsWith("'") && value.endsWith("'"))) {
+                      value = value.slice(1, -1);
+                    }
+                    projectEnvVars[key] = value;
+                  }
+                }
+              } catch {
+                // Continue with empty vars
+              }
+            }
+          }
+
+          // Load global settings for OpenAI API key fallback
+          let globalOpenAIKey: string | undefined;
+          if (existsSync(settingsPath)) {
+            try {
+              const settingsContent = readFileSync(settingsPath, 'utf-8');
+              const globalSettings = JSON.parse(settingsContent);
+              globalOpenAIKey = globalSettings.globalOpenAIApiKey;
+            } catch {
+              // Continue without global settings
+            }
+          }
+
+          // Check for Graphiti config: project .env > process.env
+          const graphitiEnabled =
+            projectEnvVars['GRAPHITI_ENABLED']?.toLowerCase() === 'true' ||
+            process.env.GRAPHITI_ENABLED?.toLowerCase() === 'true';
+
+          // Check for OpenAI key: project .env > global settings > process.env
+          const hasOpenAI =
+            !!projectEnvVars['OPENAI_API_KEY'] ||
+            !!globalOpenAIKey ||
+            !!process.env.OPENAI_API_KEY;
+
+          // Get Graphiti connection details from project .env or process.env
+          const graphitiHost = projectEnvVars['GRAPHITI_FALKORDB_HOST'] || process.env.GRAPHITI_FALKORDB_HOST || 'localhost';
+          const graphitiPort = parseInt(projectEnvVars['GRAPHITI_FALKORDB_PORT'] || process.env.GRAPHITI_FALKORDB_PORT || '6380', 10);
+          const graphitiDatabase = projectEnvVars['GRAPHITI_DATABASE'] || process.env.GRAPHITI_DATABASE || 'auto_build_memory';
 
           if (graphitiEnabled && hasOpenAI) {
             memoryStatus = {
               enabled: true,
               available: true,
-              host: process.env.GRAPHITI_FALKORDB_HOST || 'localhost',
-              port: parseInt(process.env.GRAPHITI_FALKORDB_PORT || '6380', 10),
-              database: process.env.GRAPHITI_DATABASE || 'auto_build_memory'
+              host: graphitiHost,
+              port: graphitiPort,
+              database: graphitiDatabase
             };
           } else if (graphitiEnabled && !hasOpenAI) {
             memoryStatus = {
@@ -1189,9 +1616,61 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join('\n'
         return { success: false, error: 'Project not found' };
       }
 
-      // Check environment for Graphiti config
-      const graphitiEnabled = process.env.GRAPHITI_ENABLED?.toLowerCase() === 'true';
-      const hasOpenAI = !!process.env.OPENAI_API_KEY;
+      // Load project .env file to check for Graphiti config
+      let projectEnvVars: Record<string, string> = {};
+      if (project.autoBuildPath) {
+        const projectEnvPath = path.join(project.path, project.autoBuildPath, '.env');
+        if (existsSync(projectEnvPath)) {
+          try {
+            const envContent = readFileSync(projectEnvPath, 'utf-8');
+            // Parse .env file inline
+            for (const line of envContent.split('\n')) {
+              const trimmed = line.trim();
+              if (!trimmed || trimmed.startsWith('#')) continue;
+              const eqIndex = trimmed.indexOf('=');
+              if (eqIndex > 0) {
+                const key = trimmed.substring(0, eqIndex).trim();
+                let value = trimmed.substring(eqIndex + 1).trim();
+                if ((value.startsWith('"') && value.endsWith('"')) ||
+                    (value.startsWith("'") && value.endsWith("'"))) {
+                  value = value.slice(1, -1);
+                }
+                projectEnvVars[key] = value;
+              }
+            }
+          } catch {
+            // Continue with empty vars
+          }
+        }
+      }
+
+      // Load global settings for OpenAI API key fallback
+      let globalOpenAIKey: string | undefined;
+      if (existsSync(settingsPath)) {
+        try {
+          const settingsContent = readFileSync(settingsPath, 'utf-8');
+          const globalSettings = JSON.parse(settingsContent);
+          globalOpenAIKey = globalSettings.globalOpenAIApiKey;
+        } catch {
+          // Continue without global settings
+        }
+      }
+
+      // Check for Graphiti config: project .env > process.env
+      const graphitiEnabled =
+        projectEnvVars['GRAPHITI_ENABLED']?.toLowerCase() === 'true' ||
+        process.env.GRAPHITI_ENABLED?.toLowerCase() === 'true';
+
+      // Check for OpenAI key: project .env > global settings > process.env
+      const hasOpenAI =
+        !!projectEnvVars['OPENAI_API_KEY'] ||
+        !!globalOpenAIKey ||
+        !!process.env.OPENAI_API_KEY;
+
+      // Get Graphiti connection details from project .env or process.env
+      const graphitiHost = projectEnvVars['GRAPHITI_FALKORDB_HOST'] || process.env.GRAPHITI_FALKORDB_HOST || 'localhost';
+      const graphitiPort = parseInt(projectEnvVars['GRAPHITI_FALKORDB_PORT'] || process.env.GRAPHITI_FALKORDB_PORT || '6380', 10);
+      const graphitiDatabase = projectEnvVars['GRAPHITI_DATABASE'] || process.env.GRAPHITI_DATABASE || 'auto_build_memory';
 
       if (!graphitiEnabled) {
         return {
@@ -1220,9 +1699,9 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join('\n'
         data: {
           enabled: true,
           available: true,
-          host: process.env.GRAPHITI_FALKORDB_HOST || 'localhost',
-          port: parseInt(process.env.GRAPHITI_FALKORDB_PORT || '6380', 10),
-          database: process.env.GRAPHITI_DATABASE || 'auto_build_memory'
+          host: graphitiHost,
+          port: graphitiPort,
+          database: graphitiDatabase
         }
       };
     }
@@ -3311,8 +3790,43 @@ ${issue.body || 'No description provided.'}
           return { success: false, error: 'Idea not found' };
         }
 
-        // Generate task ID
-        const taskId = `task-${Date.now()}`;
+        // Generate spec ID by finding next available number
+        const autoBuildDir = project.autoBuildPath || 'auto-claude';
+        const specsDir = path.join(project.path, autoBuildDir, 'specs');
+
+        // Ensure specs directory exists
+        if (!existsSync(specsDir)) {
+          mkdirSync(specsDir, { recursive: true });
+        }
+
+        // Find next spec number
+        let nextNum = 1;
+        try {
+          const existingSpecs = readdirSync(specsDir, { withFileTypes: true })
+            .filter(d => d.isDirectory())
+            .map(d => {
+              const match = d.name.match(/^(\d+)-/);
+              return match ? parseInt(match[1], 10) : 0;
+            })
+            .filter(n => n > 0);
+          if (existingSpecs.length > 0) {
+            nextNum = Math.max(...existingSpecs) + 1;
+          }
+        } catch {
+          // Use default 1
+        }
+
+        // Create spec directory name from idea title
+        const slugifiedTitle = idea.title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
+          .substring(0, 50);
+        const specId = `${String(nextNum).padStart(3, '0')}-${slugifiedTitle}`;
+        const specDir = path.join(specsDir, specId);
+
+        // Create the spec directory
+        mkdirSync(specDir, { recursive: true });
 
         // Build task description based on idea type
         let taskDescription = `# ${idea.title}\n\n`;
@@ -3352,25 +3866,123 @@ ${issue.body || 'No description provided.'}
           }
         }
 
-        // Start spec creation
-        agentManager.startSpecCreation(taskId, project.path, taskDescription);
+        // Create initial implementation_plan.json so task shows in kanban immediately
+        const initialPlan: ImplementationPlan = {
+          feature: idea.title,
+          description: idea.description,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          status: 'backlog',
+          planStatus: 'pending',
+          phases: [],
+          workflow_type: 'development',
+          services_involved: [],
+          final_acceptance: [],
+          spec_file: 'spec.md'
+        };
+        writeFileSync(
+          path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN),
+          JSON.stringify(initialPlan, null, 2)
+        );
+
+        // Create initial spec.md with the task description
+        const specContent = `# ${idea.title}
+
+## Overview
+
+${idea.description}
+
+## Rationale
+
+${idea.rationale}
+
+---
+*This spec was created from ideation and is pending detailed specification.*
+`;
+        writeFileSync(path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE), specContent);
+
+        // Start spec creation to fill in the details (uses the spec directory name)
+        agentManager.startSpecCreation(specId, project.path, taskDescription);
 
         // Update idea with converted status
         idea.status = 'converted';
-        idea.linked_task_id = taskId;
+        idea.linked_task_id = specId;
         ideation.updated_at = new Date().toISOString();
         writeFileSync(ideationPath, JSON.stringify(ideation, null, 2));
 
-        // Create placeholder task
+        // Build metadata from idea type
+        const metadata: TaskMetadata = {
+          sourceType: 'ideation',
+          ideationType: idea.type,
+          ideaId: idea.id,
+          rationale: idea.rationale
+        };
+
+        // Map idea type to task category
+        const ideaTypeToCategory: Record<string, TaskCategory> = {
+          'low_hanging_fruit': 'feature',
+          'ui_ux_improvements': 'ui_ux',
+          'high_value_features': 'feature',
+          'documentation_gaps': 'documentation',
+          'security_hardening': 'security',
+          'performance_optimizations': 'performance',
+          'code_quality': 'refactoring'
+        };
+        metadata.category = ideaTypeToCategory[idea.type] || 'feature';
+
+        // Extract type-specific metadata
+        if (idea.type === 'low_hanging_fruit') {
+          metadata.estimatedEffort = idea.estimated_effort;
+          metadata.complexity = idea.estimated_effort; // trivial/small/medium
+          metadata.affectedFiles = idea.affected_files;
+        } else if (idea.type === 'ui_ux_improvements') {
+          metadata.uiuxCategory = idea.category;
+          metadata.affectedFiles = idea.affected_components;
+          metadata.problemSolved = idea.current_state;
+        } else if (idea.type === 'high_value_features') {
+          metadata.impact = idea.estimated_impact as TaskImpact;
+          metadata.complexity = idea.complexity as TaskComplexity;
+          metadata.targetAudience = idea.target_audience;
+          metadata.problemSolved = idea.problem_solved;
+          metadata.dependencies = idea.dependencies;
+          metadata.acceptanceCriteria = idea.acceptance_criteria;
+        } else if (idea.type === 'documentation_gaps') {
+          metadata.estimatedEffort = idea.estimated_effort;
+          metadata.priority = idea.priority;
+          metadata.targetAudience = idea.target_audience;
+          metadata.affectedFiles = idea.affected_areas;
+        } else if (idea.type === 'security_hardening') {
+          metadata.securitySeverity = idea.severity;
+          metadata.impact = idea.severity as TaskImpact; // Map severity to impact
+          metadata.priority = idea.severity === 'critical' ? 'urgent' : idea.severity === 'high' ? 'high' : 'medium';
+          metadata.affectedFiles = idea.affected_files;
+        } else if (idea.type === 'performance_optimizations') {
+          metadata.performanceCategory = idea.category;
+          metadata.impact = idea.impact as TaskImpact;
+          metadata.estimatedEffort = idea.estimated_effort;
+          metadata.affectedFiles = idea.affected_areas;
+        } else if (idea.type === 'code_quality') {
+          metadata.codeQualitySeverity = idea.severity;
+          metadata.estimatedEffort = idea.estimated_effort;
+          metadata.affectedFiles = idea.affected_files;
+          metadata.priority = idea.severity === 'critical' ? 'urgent' : idea.severity === 'major' ? 'high' : 'medium';
+        }
+
+        // Save metadata to a separate file for persistence
+        const metadataPath = path.join(specDir, 'task_metadata.json');
+        writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+
+        // Create task object to return
         const task: Task = {
-          id: taskId,
-          specId: '',
+          id: specId,
+          specId: specId,
           projectId,
           title: idea.title,
           description: taskDescription,
           status: 'backlog',
           chunks: [],
           logs: [],
+          metadata,
           createdAt: new Date(),
           updatedAt: new Date()
         };
@@ -3417,19 +4029,59 @@ ${issue.body || 'No description provided.'}
     }
   });
 
+  // Handle streaming ideation type completion - load ideas for this type immediately
+  agentManager.on('ideation-type-complete', (projectId: string, ideationType: string, ideasCount: number) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      // Read the type-specific ideas file and send to renderer
+      const project = projectStore.getProject(projectId);
+      if (project) {
+        const typeFile = path.join(
+          project.path,
+          AUTO_BUILD_PATHS.IDEATION_DIR,
+          `${ideationType}_ideas.json`
+        );
+        if (existsSync(typeFile)) {
+          try {
+            const content = readFileSync(typeFile, 'utf-8');
+            const data = JSON.parse(content);
+            const ideas = data[ideationType] || [];
+            mainWindow.webContents.send(
+              IPC_CHANNELS.IDEATION_TYPE_COMPLETE,
+              projectId,
+              ideationType,
+              ideas
+            );
+          } catch (err) {
+            console.error(`[Ideation] Failed to read ${ideationType} ideas:`, err);
+          }
+        }
+      }
+    }
+  });
+
+  agentManager.on('ideation-type-failed', (projectId: string, ideationType: string) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.IDEATION_TYPE_FAILED, projectId, ideationType);
+    }
+  });
+
   // ============================================
   // Changelog Operations
   // ============================================
 
   ipcMain.handle(
     IPC_CHANNELS.CHANGELOG_GET_DONE_TASKS,
-    async (_, projectId: string): Promise<IPCResult<import('../shared/types').ChangelogTask[]>> => {
+    async (_, projectId: string, rendererTasks?: import('../shared/types').Task[]): Promise<IPCResult<import('../shared/types').ChangelogTask[]>> => {
       const project = projectStore.getProject(projectId);
       if (!project) {
         return { success: false, error: 'Project not found' };
       }
 
-      const tasks = projectStore.getTasks(projectId);
+      // Use renderer tasks if provided (they have the correct UI status),
+      // otherwise fall back to reading from filesystem
+      const tasks = rendererTasks || projectStore.getTasks(projectId);
       const doneTasks = changelogService.getCompletedTasks(project.path, tasks);
 
       return { success: true, data: doneTasks };
@@ -3531,6 +4183,186 @@ ${issue.body || 'No description provided.'}
     const mainWindow = getMainWindow();
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.CHANGELOG_GENERATION_ERROR, projectId, error);
+    }
+  });
+
+  // ============================================
+  // Insights Operations
+  // ============================================
+
+  ipcMain.handle(
+    IPC_CHANNELS.INSIGHTS_GET_SESSION,
+    async (_, projectId: string): Promise<IPCResult<InsightsSession | null>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      const session = insightsService.loadSession(projectId, project.path);
+      return { success: true, data: session };
+    }
+  );
+
+  ipcMain.on(
+    IPC_CHANNELS.INSIGHTS_SEND_MESSAGE,
+    async (_, projectId: string, message: string) => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        const mainWindow = getMainWindow();
+        if (mainWindow) {
+          mainWindow.webContents.send(IPC_CHANNELS.INSIGHTS_ERROR, projectId, 'Project not found');
+        }
+        return;
+      }
+
+      // Configure insights service with paths
+      const autoBuildSource = getAutoBuildSourcePath();
+      if (autoBuildSource) {
+        insightsService.configure(undefined, autoBuildSource);
+      }
+
+      insightsService.sendMessage(projectId, project.path, message);
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.INSIGHTS_CLEAR_SESSION,
+    async (_, projectId: string): Promise<IPCResult> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      insightsService.clearSession(projectId, project.path);
+      return { success: true };
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.INSIGHTS_CREATE_TASK,
+    async (
+      _,
+      projectId: string,
+      title: string,
+      description: string,
+      metadata?: TaskMetadata
+    ): Promise<IPCResult<Task>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: 'Project not found' };
+      }
+
+      if (!project.autoBuildPath) {
+        return { success: false, error: 'Auto Claude not initialized for this project' };
+      }
+
+      try {
+        // Generate a unique spec ID based on existing specs
+        const autoBuildDir = project.autoBuildPath || 'auto-claude';
+        const specsDir = path.join(project.path, autoBuildDir, 'specs');
+
+        // Find next available spec number
+        let specNumber = 1;
+        if (existsSync(specsDir)) {
+          const existingDirs = readdirSync(specsDir, { withFileTypes: true })
+            .filter(d => d.isDirectory())
+            .map(d => d.name);
+
+          const existingNumbers = existingDirs
+            .map(name => {
+              const match = name.match(/^(\d+)/);
+              return match ? parseInt(match[1], 10) : 0;
+            })
+            .filter(n => n > 0);
+
+          if (existingNumbers.length > 0) {
+            specNumber = Math.max(...existingNumbers) + 1;
+          }
+        }
+
+        // Create spec ID with zero-padded number and slugified title
+        const slugifiedTitle = title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
+          .substring(0, 50);
+        const specId = `${String(specNumber).padStart(3, '0')}-${slugifiedTitle}`;
+
+        // Create spec directory
+        const specDir = path.join(specsDir, specId);
+        mkdirSync(specDir, { recursive: true });
+
+        // Build metadata with source type
+        const taskMetadata: TaskMetadata = {
+          sourceType: 'insights',
+          ...metadata
+        };
+
+        // Create initial implementation_plan.json
+        const now = new Date().toISOString();
+        const implementationPlan = {
+          feature: title,
+          description: description,
+          created_at: now,
+          updated_at: now,
+          status: 'pending',
+          phases: []
+        };
+
+        const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+        writeFileSync(planPath, JSON.stringify(implementationPlan, null, 2));
+
+        // Save task metadata
+        const metadataPath = path.join(specDir, 'task_metadata.json');
+        writeFileSync(metadataPath, JSON.stringify(taskMetadata, null, 2));
+
+        // Create the task object
+        const task: Task = {
+          id: specId,
+          specId: specId,
+          projectId,
+          title,
+          description,
+          status: 'backlog',
+          chunks: [],
+          logs: [],
+          metadata: taskMetadata,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+
+        return { success: true, data: task };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to create task'
+        };
+      }
+    }
+  );
+
+  // ============================================
+  // Insights Agent Events → Renderer
+  // ============================================
+
+  insightsService.on('stream-chunk', (projectId: string, chunk: InsightsStreamChunk) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.INSIGHTS_STREAM_CHUNK, projectId, chunk);
+    }
+  });
+
+  insightsService.on('status', (projectId: string, status: InsightsChatStatus) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.INSIGHTS_STATUS, projectId, status);
+    }
+  });
+
+  insightsService.on('error', (projectId: string, error: string) => {
+    const mainWindow = getMainWindow();
+    if (mainWindow) {
+      mainWindow.webContents.send(IPC_CHANNELS.INSIGHTS_ERROR, projectId, error);
     }
   });
 }

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useTaskStore } from '../stores/task-store';
 import { useRoadmapStore } from '../stores/roadmap-store';
-import type { ImplementationPlan, TaskStatus, RoadmapGenerationStatus, Roadmap } from '../../shared/types';
+import type { ImplementationPlan, TaskStatus, RoadmapGenerationStatus, Roadmap, ExecutionProgress } from '../../shared/types';
 
 /**
  * Hook to set up IPC event listeners for task updates
@@ -9,6 +9,7 @@ import type { ImplementationPlan, TaskStatus, RoadmapGenerationStatus, Roadmap }
 export function useIpcListeners(): void {
   const updateTaskFromPlan = useTaskStore((state) => state.updateTaskFromPlan);
   const updateTaskStatus = useTaskStore((state) => state.updateTaskStatus);
+  const updateExecutionProgress = useTaskStore((state) => state.updateExecutionProgress);
   const appendLog = useTaskStore((state) => state.appendLog);
   const setError = useTaskStore((state) => state.setError);
 
@@ -36,6 +37,12 @@ export function useIpcListeners(): void {
     const cleanupStatus = window.electronAPI.onTaskStatusChange(
       (taskId: string, status: TaskStatus) => {
         updateTaskStatus(taskId, status);
+      }
+    );
+
+    const cleanupExecutionProgress = window.electronAPI.onTaskExecutionProgress(
+      (taskId: string, progress: ExecutionProgress) => {
+        updateExecutionProgress(taskId, progress);
       }
     );
 
@@ -77,11 +84,12 @@ export function useIpcListeners(): void {
       cleanupError();
       cleanupLog();
       cleanupStatus();
+      cleanupExecutionProgress();
       cleanupRoadmapProgress();
       cleanupRoadmapComplete();
       cleanupRoadmapError();
     };
-  }, [updateTaskFromPlan, updateTaskStatus, appendLog, setError]);
+  }, [updateTaskFromPlan, updateTaskStatus, updateExecutionProgress, appendLog, setError]);
 }
 
 /**

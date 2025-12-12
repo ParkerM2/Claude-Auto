@@ -10,13 +10,13 @@ import {
   Terminal,
   Map,
   BookOpen,
-  Wrench,
   Lightbulb,
   AlertCircle,
   Download,
   RefreshCw,
   Github,
-  FileText
+  FileText,
+  Sparkles
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
@@ -54,7 +54,7 @@ import {
 import { useSettingsStore, saveSettings } from '../stores/settings-store';
 import type { Project, AutoBuildVersionInfo } from '../../shared/types';
 
-export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'agent-tools' | 'github-issues' | 'changelog';
+export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'changelog' | 'insights';
 
 interface SidebarProps {
   onSettingsClick: () => void;
@@ -72,16 +72,16 @@ interface NavItem {
 
 const projectNavItems: NavItem[] = [
   { id: 'kanban', label: 'Kanban Board', icon: LayoutGrid, shortcut: 'K' },
-  { id: 'terminals', label: 'Agent Terminals', icon: Terminal, shortcut: 'A' }
-];
-
-const toolsNavItems: NavItem[] = [
+  { id: 'terminals', label: 'Agent Terminals', icon: Terminal, shortcut: 'A' },
+  { id: 'insights', label: 'Insights', icon: Sparkles, shortcut: 'N' },
   { id: 'roadmap', label: 'Roadmap', icon: Map, shortcut: 'D' },
   { id: 'ideation', label: 'Ideation', icon: Lightbulb, shortcut: 'I' },
   { id: 'changelog', label: 'Changelog', icon: FileText, shortcut: 'L' },
-  { id: 'github-issues', label: 'GitHub Issues', icon: Github, shortcut: 'G' },
-  { id: 'context', label: 'Context', icon: BookOpen, shortcut: 'C' },
-  { id: 'agent-tools', label: 'Agent Tools', icon: Wrench, shortcut: 'T' }
+  { id: 'context', label: 'Context', icon: BookOpen, shortcut: 'C' }
+];
+
+const toolsNavItems: NavItem[] = [
+  { id: 'github-issues', label: 'GitHub Issues', icon: Github, shortcut: 'G' }
 ];
 
 export function Sidebar({

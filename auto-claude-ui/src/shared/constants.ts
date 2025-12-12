@@ -37,6 +37,50 @@ export const CHUNK_STATUS_COLORS: Record<string, string> = {
   failed: 'bg-destructive'
 };
 
+// Execution phase labels
+export const EXECUTION_PHASE_LABELS: Record<string, string> = {
+  idle: 'Idle',
+  planning: 'Planning',
+  coding: 'Coding',
+  qa_review: 'AI Review',
+  qa_fixing: 'Fixing Issues',
+  complete: 'Complete',
+  failed: 'Failed'
+};
+
+// Execution phase colors (for progress bars and indicators)
+export const EXECUTION_PHASE_COLORS: Record<string, string> = {
+  idle: 'bg-muted text-muted-foreground',
+  planning: 'bg-amber-500 text-amber-50',
+  coding: 'bg-info text-info-foreground',
+  qa_review: 'bg-purple-500 text-purple-50',
+  qa_fixing: 'bg-warning text-warning-foreground',
+  complete: 'bg-success text-success-foreground',
+  failed: 'bg-destructive text-destructive-foreground'
+};
+
+// Execution phase badge colors (outline style)
+export const EXECUTION_PHASE_BADGE_COLORS: Record<string, string> = {
+  idle: 'bg-muted/50 text-muted-foreground border-muted',
+  planning: 'bg-amber-500/10 text-amber-500 border-amber-500/30',
+  coding: 'bg-info/10 text-info border-info/30',
+  qa_review: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+  qa_fixing: 'bg-warning/10 text-warning border-warning/30',
+  complete: 'bg-success/10 text-success border-success/30',
+  failed: 'bg-destructive/10 text-destructive border-destructive/30'
+};
+
+// Execution phase progress weights (for overall progress calculation)
+export const EXECUTION_PHASE_WEIGHTS: Record<string, { start: number; end: number }> = {
+  idle: { start: 0, end: 0 },
+  planning: { start: 0, end: 20 },
+  coding: { start: 20, end: 80 },
+  qa_review: { start: 80, end: 95 },
+  qa_fixing: { start: 80, end: 95 },  // Same range as qa_review, cycles back
+  complete: { start: 100, end: 100 },
+  failed: { start: 0, end: 0 }
+};
+
 // Default app settings
 export const DEFAULT_APP_SETTINGS = {
   theme: 'system' as const,
@@ -88,12 +132,16 @@ export const IPC_CHANNELS = {
   TASK_START: 'task:start',
   TASK_STOP: 'task:stop',
   TASK_REVIEW: 'task:review',
+  TASK_UPDATE_STATUS: 'task:updateStatus',
+  TASK_RECOVER_STUCK: 'task:recoverStuck',
+  TASK_CHECK_RUNNING: 'task:checkRunning',
 
   // Task events (main -> renderer)
   TASK_PROGRESS: 'task:progress',
   TASK_ERROR: 'task:error',
   TASK_LOG: 'task:log',
   TASK_STATUS_CHANGE: 'task:statusChange',
+  TASK_EXECUTION_PROGRESS: 'task:executionProgress',
 
   // Terminal operations
   TERMINAL_CREATE: 'terminal:create',
@@ -155,6 +203,8 @@ export const IPC_CHANNELS = {
   IDEATION_LOG: 'ideation:log',
   IDEATION_COMPLETE: 'ideation:complete',
   IDEATION_ERROR: 'ideation:error',
+  IDEATION_TYPE_COMPLETE: 'ideation:typeComplete',
+  IDEATION_TYPE_FAILED: 'ideation:typeFailed',
 
   // Linear integration
   LINEAR_GET_TEAMS: 'linear:getTeams',
@@ -197,7 +247,18 @@ export const IPC_CHANNELS = {
   // Changelog events (main -> renderer)
   CHANGELOG_GENERATION_PROGRESS: 'changelog:generationProgress',
   CHANGELOG_GENERATION_COMPLETE: 'changelog:generationComplete',
-  CHANGELOG_GENERATION_ERROR: 'changelog:generationError'
+  CHANGELOG_GENERATION_ERROR: 'changelog:generationError',
+
+  // Insights operations
+  INSIGHTS_GET_SESSION: 'insights:getSession',
+  INSIGHTS_SEND_MESSAGE: 'insights:sendMessage',
+  INSIGHTS_CLEAR_SESSION: 'insights:clearSession',
+  INSIGHTS_CREATE_TASK: 'insights:createTask',
+
+  // Insights events (main -> renderer)
+  INSIGHTS_STREAM_CHUNK: 'insights:streamChunk',
+  INSIGHTS_STATUS: 'insights:status',
+  INSIGHTS_ERROR: 'insights:error'
 } as const;
 
 // File paths relative to project
@@ -412,6 +473,86 @@ export const DEFAULT_IDEATION_CONFIG = {
   includeRoadmapContext: true,
   includeKanbanContext: true,
   maxIdeasPerType: 5
+};
+
+// ============================================
+// Task Metadata Constants
+// ============================================
+
+// Task category labels
+export const TASK_CATEGORY_LABELS: Record<string, string> = {
+  feature: 'Feature',
+  bug_fix: 'Bug Fix',
+  refactoring: 'Refactoring',
+  documentation: 'Docs',
+  security: 'Security',
+  performance: 'Performance',
+  ui_ux: 'UI/UX',
+  infrastructure: 'Infrastructure',
+  testing: 'Testing'
+};
+
+// Task category colors
+export const TASK_CATEGORY_COLORS: Record<string, string> = {
+  feature: 'bg-primary/10 text-primary border-primary/30',
+  bug_fix: 'bg-destructive/10 text-destructive border-destructive/30',
+  refactoring: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30',
+  documentation: 'bg-amber-500/10 text-amber-500 border-amber-500/30',
+  security: 'bg-red-500/10 text-red-400 border-red-500/30',
+  performance: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+  ui_ux: 'bg-info/10 text-info border-info/30',
+  infrastructure: 'bg-slate-500/10 text-slate-400 border-slate-500/30',
+  testing: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+};
+
+// Task complexity colors
+export const TASK_COMPLEXITY_COLORS: Record<string, string> = {
+  trivial: 'bg-success/10 text-success',
+  small: 'bg-info/10 text-info',
+  medium: 'bg-warning/10 text-warning',
+  large: 'bg-orange-500/10 text-orange-400',
+  complex: 'bg-destructive/10 text-destructive'
+};
+
+// Task complexity labels
+export const TASK_COMPLEXITY_LABELS: Record<string, string> = {
+  trivial: 'Trivial',
+  small: 'Small',
+  medium: 'Medium',
+  large: 'Large',
+  complex: 'Complex'
+};
+
+// Task impact colors
+export const TASK_IMPACT_COLORS: Record<string, string> = {
+  low: 'bg-muted text-muted-foreground',
+  medium: 'bg-info/10 text-info',
+  high: 'bg-warning/10 text-warning',
+  critical: 'bg-destructive/10 text-destructive'
+};
+
+// Task impact labels
+export const TASK_IMPACT_LABELS: Record<string, string> = {
+  low: 'Low Impact',
+  medium: 'Medium Impact',
+  high: 'High Impact',
+  critical: 'Critical Impact'
+};
+
+// Task priority colors
+export const TASK_PRIORITY_COLORS: Record<string, string> = {
+  low: 'bg-muted text-muted-foreground',
+  medium: 'bg-info/10 text-info',
+  high: 'bg-warning/10 text-warning',
+  urgent: 'bg-destructive/10 text-destructive'
+};
+
+// Task priority labels
+export const TASK_PRIORITY_LABELS: Record<string, string> = {
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  urgent: 'Urgent'
 };
 
 // ============================================

@@ -77,23 +77,51 @@ from ui import (
     StatusManager,
     BuildState,
 )
+from debug import (
+    debug,
+    debug_detailed,
+    debug_verbose,
+    debug_success,
+    debug_error,
+    debug_warning,
+    debug_section,
+)
 
 
 # Configuration
 MAX_RETRIES = 3
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 
-# Default specs directory (production mode)
-DEFAULT_SPECS_DIR = Path(__file__).parent / "specs"
 # Dev specs directory (--dev mode) - gitignored, for developing auto-claude itself
 DEV_SPECS_DIR = Path(__file__).parent.parent / "dev" / "auto-claude" / "specs"
 
 
-def get_specs_dir(dev_mode: bool = False) -> Path:
-    """Get the specs directory based on mode."""
+def get_specs_dir(project_dir: Path, dev_mode: bool = False) -> Path:
+    """Get the specs directory based on project and mode.
+
+    Args:
+        project_dir: The project root directory
+        dev_mode: If True, use dev/auto-claude/specs/ for framework development
+
+    Returns:
+        Path to the specs directory within the project
+    """
     if dev_mode:
         return DEV_SPECS_DIR
-    return DEFAULT_SPECS_DIR
+
+    # Check for .auto-claude first (hidden folder for external projects)
+    hidden_auto_claude = project_dir / ".auto-claude"
+    if hidden_auto_claude.exists():
+        return hidden_auto_claude / "specs"
+
+    # Then check for auto-claude (visible folder)
+    visible_auto_claude = project_dir / "auto-claude"
+    if visible_auto_claude.exists():
+        return visible_auto_claude / "specs"
+
+    # Default to creating .auto-claude for external projects
+    # (auto-claude is typically only used when the project IS auto-claude itself)
+    return hidden_auto_claude / "specs"
 
 
 class Complexity(Enum):
@@ -368,8 +396,8 @@ class SpecOrchestrator:
         self.use_ai_assessment = use_ai_assessment
         self.dev_mode = dev_mode
 
-        # Get the appropriate specs directory
-        self.specs_dir = get_specs_dir(dev_mode)
+        # Get the appropriate specs directory (within the project)
+        self.specs_dir = get_specs_dir(self.project_dir, dev_mode)
 
         # Complexity assessment (populated during run)
         self.assessment: Optional[ComplexityAssessment] = None
@@ -1440,6 +1468,14 @@ Read the failed files, understand the errors, and fix them.
 
     async def run(self, interactive: bool = True) -> bool:
         """Run the spec creation process with dynamic phase selection."""
+        debug_section("spec_runner", "Starting Spec Creation")
+        debug("spec_runner", "Configuration",
+              spec_dir=str(self.spec_dir),
+              project_dir=str(self.project_dir),
+              task=self.task_description,
+              interactive=interactive,
+              model=self.model)
+
         print(box(
             f"Spec Directory: {self.spec_dir}\n"
             f"Project: {self.project_dir}" +
