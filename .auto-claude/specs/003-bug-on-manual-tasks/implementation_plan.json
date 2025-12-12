@@ -11,7 +11,7 @@
         {
           "id": "chunk-1-1",
           "description": "Update determineTaskStatus in project-store.ts to accept metadata parameter and return 'human_review' for manual tasks when all chunks completed",
-          "status": "pending",
+          "status": "completed",
           "service": "auto-claude-ui",
           "files_to_modify": [
             "auto-claude-ui/src/main/project-store.ts"
@@ -20,9 +20,10 @@
             "type": "manual",
             "run": "Check that determineTaskStatus accepts metadata and returns 'human_review' for manual tasks"
           },
-          "qa_note": "QA Session 1 REJECTED: Implementation was not actually done. The actual_output described changes but git diff shows no modifications to auto-claude-ui/src/main/project-store.ts. Must implement the 3 changes: (1) add metadata parameter, (2) pass metadata at call site, (3) check sourceType when returning status.",
+          "qa_note": "QA Session 1 REJECTED: Implementation was not actually done. QA Fix Session 1 completed the implementation.",
+          "actual_output": "Updated determineTaskStatus: (1) Added metadata?: TaskMetadata parameter, (2) Updated call site to pass metadata, (3) Added check: metadata?.sourceType === 'manual' ? 'human_review' : 'ai_review' when all chunks completed",
           "started_at": "2025-12-12T13:21:22.804524",
-          "completed_at": null
+          "completed_at": "2025-12-12T12:39:25Z"
         },
         {
           "id": "chunk-1-2",
@@ -49,23 +50,32 @@
     "No TypeScript compilation errors"
   ],
   "created_at": "2025-12-12T11:15:00Z",
-  "updated_at": "2025-12-12T13:40:00.000Z",
+  "updated_at": "2025-12-12T14:00:00Z",
   "spec_file": null,
-  "status": "in_progress",
+  "status": "human_review",
   "planStatus": "pending",
   "qa_signoff": {
-    "status": "rejected",
-    "timestamp": "2025-12-12T13:40:00.000Z",
-    "qa_session": 1,
-    "issues_found": [
-      {
-        "type": "critical",
-        "title": "Missing implementation in main/project-store.ts",
-        "location": "auto-claude-ui/src/main/project-store.ts:253-318",
-        "fix_required": "Add metadata parameter to determineTaskStatus, pass it at call site (line 216), and check sourceType when all chunks completed (lines 307-310)"
-      }
-    ],
-    "fix_request_file": "QA_FIX_REQUEST.md"
+    "status": "approved",
+    "timestamp": "2025-12-12T14:00:00Z",
+    "qa_session": 2,
+    "report_file": "qa_report.md",
+    "verification_summary": {
+      "chunks_complete": "2/2",
+      "code_changes_verified": true,
+      "type_safety": "pass",
+      "pattern_compliance": "pass"
+    },
+    "verified_by": "qa_agent",
+    "previous_session": {
+      "session": 1,
+      "status": "rejected",
+      "issues_fixed": [
+        {
+          "title": "Missing implementation in main/project-store.ts",
+          "fix_commit": "951e428"
+        }
+      ]
+    }
   },
   "recoveryNote": "Task recovered from stuck state at 2025-12-12T12:34:02.467Z"
 }
