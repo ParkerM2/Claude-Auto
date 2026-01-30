@@ -175,6 +175,14 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     }
   }, [activeTab]);
 
+  // Auto-switch to logs tab when task starts running
+  // This provides immediate feedback to the user when they click "Start Task"
+  useEffect(() => {
+    if (task.status === 'in_progress' && activeTab !== 'logs') {
+      setActiveTab('logs');
+    }
+  }, [task.status, activeTab]);
+
   // Reset feedback images when task changes to prevent image leakage between tasks
   useEffect(() => {
     setFeedbackImages([]);

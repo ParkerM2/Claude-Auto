@@ -348,6 +348,15 @@ export function useIpcListeners(): void {
       }
     );
 
+    // Worktree created listener - handled in App.tsx for terminal creation
+    // This listener is registered here for consistency with other IPC listeners
+    const cleanupWorktreeCreated = window.electronAPI.onTaskWorktreeCreated(
+      (_taskId: string, _data: import('../../shared/types').TaskWorktreeCreatedEvent) => {
+        // Event is emitted to the window and handled by App.tsx
+        // No action needed here - terminal creation happens in App.tsx useEffect
+      }
+    );
+
     // Cleanup on unmount
     return () => {
       // Flush any pending batched updates before cleanup
@@ -368,6 +377,7 @@ export function useIpcListeners(): void {
       cleanupRateLimit();
       cleanupSDKRateLimit();
       cleanupAuthFailure();
+      cleanupWorktreeCreated();
     };
   }, [updateTaskFromPlan, updateTaskStatus, updateExecutionProgress, appendLog, batchAppendLogs, setError]);
 }

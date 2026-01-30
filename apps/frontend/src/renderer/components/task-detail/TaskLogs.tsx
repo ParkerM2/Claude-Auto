@@ -152,6 +152,13 @@ export function TaskLogs({
             {task.logs.join('')}
             <div ref={logsEndRef} />
           </pre>
+        ) : task.status === 'in_progress' || task.status === 'ai_review' ? (
+          // Task is running but no logs written yet - show "Starting..." state
+          <div className="text-center text-sm text-muted-foreground py-8">
+            <Loader2 className="mx-auto mb-2 h-8 w-8 animate-spin text-info" />
+            <p className="font-medium">Starting task...</p>
+            <p className="text-xs mt-1">Initializing agent and preparing environment</p>
+          </div>
         ) : (
           <div className="text-center text-sm text-muted-foreground py-8">
             <Terminal className="mx-auto mb-2 h-8 w-8 opacity-50" />

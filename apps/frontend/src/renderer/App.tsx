@@ -345,6 +345,49 @@ export function App() {
     };
   }, []);
 
+  // Auto-create terminal with Claude CLI when worktree is created
+  useEffect(() => {
+    const cleanup = window.electronAPI.onTaskWorktreeCreated(
+      async (taskId: string, data: import('../shared/types').TaskWorktreeCreatedEvent) => {
+        console.log('[App] Worktree created - auto-creating Claude terminal:', { taskId, ...data });
+
+        // Create terminal in background (don't switch view)
+        const terminal = useTerminalStore.getState().addTerminal(data.worktreePath, selectedProject?.path);
+
+        if (!terminal) {
+          console.error('[App] Failed to create terminal for worktree');
+          return;
+        }
+
+        // Wait a moment for terminal PTY to be created
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Auto-invoke Claude CLI in the worktree
+        // Note: Permissions are controlled by project settings
+        // For AI-driven projects, enable "Skip Permission Prompts" in Settings > Claude Profiles
+        try {
+          window.electronAPI.invokeClaudeInTerminal(terminal.id, data.worktreePath);
+          console.log('[App] Claude CLI invoked in worktree terminal');
+
+          // Inject task context as initial prompt after Claude loads
+          // Give Claude CLI time to initialize
+          await new Promise(resolve => setTimeout(resolve, 2000));
+
+          // Build context prompt with task information
+          const contextPrompt = `Task: ${data.taskTitle}${data.taskDescription ? `\n\nDescription:\n${data.taskDescription}` : ''}\n\nWorking directory: ${data.worktreePath}\nSpec ID: ${data.specId}\n\nYou are now in the task's isolated worktree. All changes here are separate from the main project until merged.`;
+
+          // Send context as initial message to Claude
+          window.electronAPI.sendTerminalInput(terminal.id, contextPrompt + '\n');
+
+        } catch (error) {
+          console.error('[App] Failed to invoke Claude in worktree terminal:', error);
+        }
+      }
+    );
+
+    return cleanup;
+  }, [selectedProject?.path]);
+
   // Reset init success flag when selected project changes
   // This allows the init dialog to show for new/different projects
   useEffect(() => {

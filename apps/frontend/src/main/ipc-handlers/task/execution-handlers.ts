@@ -262,6 +262,22 @@ export function registerTaskExecutionHandlers(
         'in_progress'
       );
 
+      // Emit worktree created event for auto-terminal creation
+      // Worktree path is deterministic: .auto-claude/worktrees/tasks/{spec-name}/
+      const worktreePath = findTaskWorktree(project.path, task.specId);
+      if (worktreePath) {
+        mainWindow.webContents.send(
+          IPC_CHANNELS.TASK_WORKTREE_CREATED,
+          taskId,
+          {
+            worktreePath,
+            taskTitle: task.title,
+            taskDescription: task.description,
+            specId: task.specId
+          }
+        );
+      }
+
       const DEBUG = process.env.DEBUG === 'true';
       if (DEBUG) {
         console.log(`[TASK_START] IPC sent immediately for task ${taskId}, deferring file persistence`);

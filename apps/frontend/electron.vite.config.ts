@@ -20,7 +20,8 @@ const sentryDefines = {
 export default defineConfig({
   main: {
     define: sentryDefines,
-    plugins: [externalizeDepsPlugin({
+    plugins: [
+      externalizeDepsPlugin({
       // Bundle these packages into the main process (they won't be in node_modules in packaged app)
       exclude: [
         'uuid',
@@ -47,12 +48,19 @@ export default defineConfig({
       ]
     })],
     build: {
+      // Use CJS format for the main process
+      // Node.js 22.21.1 (bundled with Electron 39) doesn't support ESM named imports from CJS
+      // ALSO: ELECTRON_RUN_AS_NODE must be unset for require('electron') to work
+      lib: {
+        entry: resolve(__dirname, 'src/main/index.ts'),
+        formats: ['cjs'],
+        fileName: () => 'index.cjs'
+      },
       rollupOptions: {
-        input: {
-          index: resolve(__dirname, 'src/main/index.ts')
-        },
-        // Only node-pty needs to be external (native module rebuilt by electron-builder)
-        external: ['@lydell/node-pty']
+        // External modules that should not be bundled
+        // - electron: accessed via require() in CJS format
+        // - node-pty: native module rebuilt by electron-builder
+        external: ['electron', '@lydell/node-pty']
       }
     }
   },

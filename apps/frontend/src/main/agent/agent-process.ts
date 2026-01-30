@@ -529,6 +529,15 @@ export class AgentProcessManager {
 
     // Parse Python commandto handle space-separated commands like "py -3"
     const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.getPythonPath());
+
+    // Debug logging for spawn command
+    console.warn(`[AgentProcess] Spawning process for task ${taskId}:`, {
+      command: pythonCommand,
+      args: [...pythonBaseArgs, ...args].slice(0, 5).join(' ') + '...', // First 5 args
+      cwd,
+      processType
+    });
+
     const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
       cwd,
       env: {

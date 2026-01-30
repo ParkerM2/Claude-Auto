@@ -14,7 +14,8 @@ import type {
   SupportedTerminal,
   WorktreeCreatePROptions,
   WorktreeCreatePRResult,
-  ImageAttachment
+  ImageAttachment,
+  TaskWorktreeCreatedEvent
 } from '../../shared/types';
 
 export interface TaskAPI {
@@ -73,6 +74,9 @@ export interface TaskAPI {
   onTaskStatusChange: (callback: (taskId: string, status: TaskStatus, projectId?: string) => void) => () => void;
   onTaskExecutionProgress: (
     callback: (taskId: string, progress: import('../../shared/types').ExecutionProgress, projectId?: string) => void
+  ) => () => void;
+  onTaskWorktreeCreated: (
+    callback: (taskId: string, data: TaskWorktreeCreatedEvent) => void
   ) => () => void;
 
   // Task Phase Logs
@@ -258,6 +262,22 @@ export const createTaskAPI = (): TaskAPI => ({
     ipcRenderer.on(IPC_CHANNELS.TASK_EXECUTION_PROGRESS, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.TASK_EXECUTION_PROGRESS, handler);
+    };
+  },
+
+  onTaskWorktreeCreated: (
+    callback: (taskId: string, data: TaskWorktreeCreatedEvent) => void
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      taskId: string,
+      data: TaskWorktreeCreatedEvent
+    ): void => {
+      callback(taskId, data);
+    };
+    ipcRenderer.on(IPC_CHANNELS.TASK_WORKTREE_CREATED, handler);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.TASK_WORKTREE_CREATED, handler);
     };
   },
 

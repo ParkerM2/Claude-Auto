@@ -490,3 +490,14 @@ export interface TaskStartOptions {
   model?: string;
   baseBranch?: string; // Override base branch for worktree creation
 }
+
+/**
+ * Event data for task worktree creation
+ * Emitted when a task's worktree is created and ready for terminal access
+ */
+export interface TaskWorktreeCreatedEvent {
+  worktreePath: string;  // Full path to the worktree directory
+  taskTitle: string;     // Task title for context injection
+  taskDescription?: string;  // Optional task description
+  specId: string;        // Spec identifier
+}

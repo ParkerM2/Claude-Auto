@@ -8,7 +8,7 @@
     "type": "git",
     "url": "https://github.com/AndyMik90/Auto-Claude.git"
   },
-  "main": "./out/main/index.js",
+  "main": "./out/main/index.cjs",
   "author": {
     "name": "Auto Claude Team",
     "email": "119136210+AndyMik90@users.noreply.github.com"
@@ -20,13 +20,13 @@
   },
   "scripts": {
     "postinstall": "node scripts/postinstall.cjs",
-    "dev": "electron-vite dev",
-    "dev:debug": "cross-env DEBUG=true electron-vite dev",
-    "dev:mcp": "electron-vite dev -- --remote-debugging-port=9222",
+    "dev": "node scripts/unset-electron-node.cjs electron-vite dev",
+    "dev:debug": "cross-env DEBUG=true node scripts/unset-electron-node.cjs electron-vite dev",
+    "dev:mcp": "node scripts/unset-electron-node.cjs electron-vite dev -- --remote-debugging-port=9222",
     "build": "electron-vite build",
-    "start": "electron .",
-    "start:mcp": "electron . --remote-debugging-port=9222",
-    "preview": "electron-vite preview",
+    "start": "node scripts/unset-electron-node.cjs electron .",
+    "start:mcp": "node scripts/unset-electron-node.cjs electron . --remote-debugging-port=9222",
+    "preview": "node scripts/unset-electron-node.cjs electron-vite preview",
     "rebuild": "electron-rebuild",
     "python:download": "node scripts/download-python.cjs",
     "python:download:all": "node scripts/download-python.cjs --all",
