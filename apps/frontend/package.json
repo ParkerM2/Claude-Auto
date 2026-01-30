@@ -39,6 +39,8 @@
     "start:packaged:mac": "open dist/mac-arm64/Auto-Claude.app || open dist/mac/Auto-Claude.app",
     "start:packaged:win": "start \"\" \"dist\\win-unpacked\\Auto-Claude.exe\"",
     "start:packaged:linux": "./dist/linux-unpacked/auto-claude",
+    "rebuild-install": "node scripts/rebuild-and-install.cjs",
+    "rebuild-install:silent": "node scripts/rebuild-and-install.cjs --silent",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
