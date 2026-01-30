@@ -43,7 +43,8 @@ import type {
   TaskMetadata,
   TaskLogs,
   TaskLogStreamChunk,
-  ImageAttachment
+  ImageAttachment,
+  TaskWorktreeCreatedEvent
 } from './task';
 import type {
   TerminalCreateOptions,
@@ -192,6 +193,9 @@ export interface ElectronAPI {
   onTaskLog: (callback: (taskId: string, log: string) => void) => () => void;
   onTaskStatusChange: (callback: (taskId: string, status: TaskStatus) => void) => () => void;
   onTaskExecutionProgress: (callback: (taskId: string, progress: ExecutionProgress) => void) => () => void;
+  onTaskWorktreeCreated: (
+    callback: (taskId: string, data: TaskWorktreeCreatedEvent) => void
+  ) => () => void;
 
   // Terminal operations
   createTerminal: (options: TerminalCreateOptions) => Promise<IPCResult>;
@@ -815,6 +819,9 @@ export interface ElectronAPI {
 
   // GitHub API (nested for organized access)
   github: import('../../preload/api/modules/github-api').GitHubAPI;
+
+  // Jira API (nested for organized access)
+  jira: import('../../preload/api/modules/jira-api').JiraAPI;
 
   // Claude Code CLI operations
   checkClaudeCodeVersion: () => Promise<IPCResult<import('./cli').ClaudeCodeVersionInfo>>;

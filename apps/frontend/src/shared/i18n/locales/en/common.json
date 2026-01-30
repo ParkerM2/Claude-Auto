@@ -566,5 +566,33 @@
       "technicalDetails": "Technical details",
       "goToSettings": "Go to Settings"
     }
+  },
+  "jira": {
+    "tickets": "Jira Tickets",
+    "assigned": "assigned to you",
+    "noTickets": "No tickets assigned to you",
+    "selectTicketToView": "Select a ticket to view details",
+    "searchPlaceholder": "Search tickets...",
+    "notConnected": "Jira Not Connected",
+    "connectPrompt": "Connect your Jira account to view assigned tickets.",
+    "openSettings": "Open Settings",
+    "openInJira": "Open in Jira",
+    "points": "pts",
+    "storyPoints": "Story Points",
+    "priority": "Priority",
+    "assignee": "Assignee",
+    "reporter": "Reporter",
+    "labels": "Labels",
+    "description": "Description",
+    "tabs": {
+      "jira": "Jira",
+      "github": "GitHub"
+    },
+    "linkedPRs": "Linked Pull Requests",
+    "noLinkedPRs": "No pull requests linked to {{ticketKey}}",
+    "commits": "Commits",
+    "comments": "Comments",
+    "diff": "Diff",
+    "noComments": "No comments"
   }
 }

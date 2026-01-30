@@ -543,5 +543,10 @@ export const IPC_CHANNELS = {
 
   // Screenshot capture
   SCREENSHOT_GET_SOURCES: 'screenshot:getSources',  // Get available screens/windows
-  SCREENSHOT_CAPTURE: 'screenshot:capture'          // Capture screenshot from source
+  SCREENSHOT_CAPTURE: 'screenshot:capture',         // Capture screenshot from source
+
+  // Jira integration
+  JIRA_CHECK_CONNECTION: 'jira:checkConnection',
+  JIRA_GET_MY_ISSUES: 'jira:getMyIssues',
+  JIRA_GET_ISSUE: 'jira:getIssue'
 } as const;

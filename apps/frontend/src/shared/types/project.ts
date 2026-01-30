@@ -320,6 +320,13 @@ export interface ProjectEnvConfig {
   gitlabProject?: string; // Format: group/project or numeric ID
   gitlabAutoSync?: boolean; // Auto-sync issues on project load
 
+  // Jira Integration
+  jiraEnabled: boolean;
+  jiraBaseUrl?: string; // e.g., https://company.atlassian.net
+  jiraEmail?: string; // Atlassian account email
+  jiraApiToken?: string; // API token from https://id.atlassian.com/manage-profile/security/api-tokens
+  jiraProjectKey?: string; // e.g., ES
+
   // Git/Worktree Settings
   defaultBranch?: string; // Base branch for worktree creation (e.g., 'main', 'develop')
 

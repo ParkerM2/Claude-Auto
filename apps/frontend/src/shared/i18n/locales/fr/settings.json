@@ -344,6 +344,13 @@
       "integrationDescription": "Se connecter à GitLab pour le suivi des issues",
       "syncDescription": "Synchroniser avec GitLab Issues"
     },
+    "jira": {
+      "title": "Jira",
+      "description": "Synchronisation tickets Jira",
+      "integrationTitle": "Intégration Jira",
+      "integrationDescription": "Se connecter à Jira pour le suivi des tickets",
+      "syncDescription": "Synchroniser avec Jira Tickets"
+    },
     "memory": {
       "title": "Mémoire",
       "description": "Backend mémoire Graphiti",
@@ -616,6 +623,22 @@
       "title": "Aucun projet sélectionné",
       "description": "Sélectionnez un projet dans la barre latérale pour configurer ses paramètres."
     }
+  },
+  "jira": {
+    "enable": "Activer la synchronisation Jira",
+    "enableDescription": "Voir les tickets Jira qui vous sont assignés dans la barre latérale",
+    "baseUrl": "URL de base Jira",
+    "baseUrlDescription": "L'URL de votre instance Jira Cloud",
+    "email": "Email",
+    "emailDescription": "L'email de votre compte Atlassian",
+    "apiToken": "Jeton API",
+    "apiTokenDescription": "Générez un jeton API depuis votre compte Atlassian.",
+    "createToken": "Créer un jeton API",
+    "projectKey": "Clé du projet",
+    "projectKeyDescription": "Filtrer les tickets par clé de projet (ex: ES). Laissez vide pour tous les projets.",
+    "connectionStatus": "Statut de connexion",
+    "connectedAs": "Connecté en tant que {{user}}",
+    "notConnected": "Non connecté"
   },
   "mcp": {
     "title": "Aperçu des serveurs MCP",

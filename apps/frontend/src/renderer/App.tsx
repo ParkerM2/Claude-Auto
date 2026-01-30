@@ -42,6 +42,7 @@ import { GitHubIssues } from './components/GitHubIssues';
 import { GitLabIssues } from './components/GitLabIssues';
 import { GitHubPRs } from './components/github-prs';
 import { GitLabMergeRequests } from './components/gitlab-merge-requests';
+import { JiraTickets } from './components/jira-tickets';
 import { Changelog } from './components/Changelog';
 import { Worktrees } from './components/Worktrees';
 import { AgentTools } from './components/AgentTools';
@@ -965,6 +966,15 @@ export function App() {
                       setSettingsInitialProjectSection('gitlab');
                       setIsSettingsDialogOpen(true);
                     }}
+                  />
+                )}
+                {activeView === 'jira-tickets' && (activeProjectId || selectedProjectId) && (
+                  <JiraTickets
+                    onOpenSettings={() => {
+                      setSettingsInitialProjectSection('jira');
+                      setIsSettingsDialogOpen(true);
+                    }}
+                    isActive={activeView === 'jira-tickets'}
                   />
                 )}
                 {activeView === 'changelog' && (activeProjectId || selectedProjectId) && (

@@ -90,6 +90,7 @@ export const taskMock = {
   onTaskLog: () => () => {},
   onTaskStatusChange: () => () => {},
   onTaskExecutionProgress: () => () => {},
+  onTaskWorktreeCreated: () => () => {},
   onTaskLogsChanged: () => () => {},
   onTaskLogsStream: () => () => {}
 };

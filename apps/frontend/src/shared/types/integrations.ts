@@ -1,6 +1,50 @@
 /**
- * External integrations (Linear, GitHub)
+ * External integrations (Linear, GitHub, Jira)
  */
+
+// ============================================
+// Jira Integration Types
+// ============================================
+
+export interface JiraIssue {
+  key: string; // e.g., ES-1234
+  id: string;
+  summary: string;
+  description?: string;
+  status: {
+    name: string;
+    category: 'todo' | 'in_progress' | 'done';
+  };
+  storyPoints?: number;
+  assignee?: {
+    displayName: string;
+    avatarUrl?: string;
+  };
+  reporter?: {
+    displayName: string;
+    avatarUrl?: string;
+  };
+  priority?: {
+    name: string;
+    iconUrl?: string;
+  };
+  labels: string[];
+  project: {
+    key: string;
+    name: string;
+  };
+  issueType: string;
+  url: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface JiraSyncStatus {
+  connected: boolean;
+  baseUrl?: string;
+  currentUser?: string;
+  error?: string;
+}
 
 // ============================================
 // Linear Integration Types

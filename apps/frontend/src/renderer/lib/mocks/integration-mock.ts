@@ -11,8 +11,11 @@ export const integrationMock = {
       linearEnabled: false,
       githubEnabled: false,
       gitlabEnabled: false,
+      jiraEnabled: false,
       graphitiEnabled: false,
-      enableFancyUi: true
+      enableFancyUi: true,
+      claudeTokenIsGlobal: false,
+      openaiKeyIsGlobal: false
     }
   }),
 
@@ -386,5 +389,24 @@ export const integrationMock = {
   onGitLabInvestigationError: () => () => {},
 
   // OAuth device code event listener (for streaming device code during auth)
-  onGitHubAuthDeviceCode: () => () => {}
+  onGitHubAuthDeviceCode: () => () => {},
+
+  // Jira Integration Operations
+  jira: {
+    checkConnection: async () => ({
+      success: true,
+      data: {
+        connected: false,
+        error: 'Not available in browser mock'
+      }
+    }),
+    getMyIssues: async () => ({
+      success: true,
+      data: []
+    }),
+    getIssue: async () => ({
+      success: false,
+      error: 'Not available in browser mock'
+    })
+  }
 };

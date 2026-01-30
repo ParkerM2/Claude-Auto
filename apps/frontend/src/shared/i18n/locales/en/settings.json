@@ -344,6 +344,13 @@
       "integrationDescription": "Connect to GitLab for issue tracking",
       "syncDescription": "Sync with GitLab Issues"
     },
+    "jira": {
+      "title": "Jira",
+      "description": "Jira tickets sync",
+      "integrationTitle": "Jira Integration",
+      "integrationDescription": "Connect to Jira for ticket tracking",
+      "syncDescription": "Sync with Jira Tickets"
+    },
     "memory": {
       "title": "Memory",
       "description": "Graphiti memory backend",
@@ -616,6 +623,22 @@
       "title": "No Project Selected",
       "description": "Select a project from the sidebar to configure its settings."
     }
+  },
+  "jira": {
+    "enable": "Enable Jira Sync",
+    "enableDescription": "View Jira tickets assigned to you in the sidebar",
+    "baseUrl": "Jira Base URL",
+    "baseUrlDescription": "Your Jira Cloud instance URL",
+    "email": "Email",
+    "emailDescription": "Your Atlassian account email",
+    "apiToken": "API Token",
+    "apiTokenDescription": "Generate an API token from your Atlassian account.",
+    "createToken": "Create API Token",
+    "projectKey": "Project Key",
+    "projectKeyDescription": "Filter tickets by project key (e.g., ES). Leave empty for all projects.",
+    "connectionStatus": "Connection Status",
+    "connectedAs": "Connected as {{user}}",
+    "notConnected": "Not connected"
   },
   "mcp": {
     "title": "MCP Server Overview",

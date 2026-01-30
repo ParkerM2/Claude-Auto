@@ -9,6 +9,7 @@ import type { InsightsAPI } from './modules/insights-api';
 import { AppUpdateAPI, createAppUpdateAPI } from './app-update-api';
 import { GitHubAPI, createGitHubAPI } from './modules/github-api';
 import type { GitLabAPI } from './modules/gitlab-api';
+import { JiraAPI, createJiraAPI } from './modules/jira-api';
 import { DebugAPI, createDebugAPI } from './modules/debug-api';
 import { ClaudeCodeAPI, createClaudeCodeAPI } from './modules/claude-code-api';
 import { McpAPI, createMcpAPI } from './modules/mcp-api';
@@ -32,6 +33,7 @@ export interface ElectronAPI extends
   ProfileAPI,
   ScreenshotAPI {
   github: GitHubAPI;
+  jira: JiraAPI;
 }
 
 export const createElectronAPI = (): ElectronAPI => ({
@@ -47,7 +49,8 @@ export const createElectronAPI = (): ElectronAPI => ({
   ...createMcpAPI(),
   ...createProfileAPI(),
   ...createScreenshotAPI(),
-  github: createGitHubAPI()
+  github: createGitHubAPI(),
+  jira: createJiraAPI()
 });
 
 // Export individual API creators for potential use in tests or specialized contexts
@@ -62,6 +65,7 @@ export {
   createAppUpdateAPI,
   createProfileAPI,
   createGitHubAPI,
+  createJiraAPI,
   createDebugAPI,
   createClaudeCodeAPI,
   createMcpAPI,
@@ -81,6 +85,7 @@ export type {
   ProfileAPI,
   GitHubAPI,
   GitLabAPI,
+  JiraAPI,
   DebugAPI,
   ClaudeCodeAPI,
   McpAPI,
