@@ -78,7 +78,10 @@ export const DEFAULT_PROJECT_SETTINGS = {
   },
   // Graphiti MCP server for agent-accessible knowledge graph (enabled by default)
   graphitiMcpEnabled: true,
-  graphitiMcpUrl: 'http://localhost:8000/mcp/',
+  // Environment-aware MCP URL: development mode uses mock server (port 8001), production uses real server (port 8000)
+  graphitiMcpUrl: import.meta.env.VITE_API_MODE === 'development'
+    ? 'http://localhost:8001/mcp/'
+    : 'http://localhost:8000/mcp/',
   // Include CLAUDE.md instructions in agent context (enabled by default)
   useClaudeMd: true
 };
