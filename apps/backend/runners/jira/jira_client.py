@@ -433,6 +433,50 @@ class JiraClient:
         logger.info(f"Successfully transitioned issue {issue_key} to '{target_status}'")
         return True
 
+    async def link_pr(
+        self,
+        issue_key: str,
+        pr_url: str,
+        pr_title: str,
+    ) -> dict[str, Any]:
+        """
+        Add a remote link to a Pull Request on a Jira issue.
+
+        Creates a remote link on the issue pointing to the PR URL,
+        making it easy to navigate between Jira and GitHub.
+
+        Args:
+            issue_key: Jira issue key (e.g., "ES-1234")
+            pr_url: Full URL of the pull request
+            pr_title: Title/description of the pull request
+
+        Returns:
+            Dict containing the created remote link data
+
+        Raises:
+            JiraApiError: If link creation fails
+        """
+        logger.info(f"Adding PR link to issue {issue_key}: {pr_url}")
+
+        # Build remote link payload
+        # Follows Jira Cloud REST API v3 remote link schema
+        payload = {
+            "object": {
+                "url": pr_url,
+                "title": pr_title,
+            }
+        }
+
+        # Create the remote link
+        response = await self._request(
+            "POST",
+            f"/issue/{issue_key}/remotelink",
+            data=payload,
+        )
+
+        logger.info(f"Successfully linked PR to issue {issue_key}")
+        return response
+
     async def import_issue(
         self,
         issue_key: str,
