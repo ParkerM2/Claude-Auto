@@ -20,11 +20,13 @@ import base64
 import json
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import aiohttp
 
 from .models import JiraIssue, JiraUser, JiraProject
+from .spec_importer import JiraSpecImporter
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -358,3 +360,40 @@ class JiraClient:
                 "connected": False,
                 "error": f"Connection failed: {e}",
             }
+
+    async def import_issue(
+        self,
+        issue_key: str,
+        specs_dir: Path,
+        spec_name: str | None = None,
+    ) -> Path:
+        """
+        Import a Jira issue as an Auto Claude spec.
+
+        Fetches the issue from Jira and creates a spec directory with:
+        - spec.md (formatted issue content)
+        - requirements.json (structured requirements)
+        - jira_issue.json (metadata linking spec to Jira)
+
+        Args:
+            issue_key: Jira issue key (e.g., "ES-1234")
+            specs_dir: Directory to create specs in (e.g., Path(".auto-claude/specs"))
+            spec_name: Optional spec name (e.g., "001-feature"). If None,
+                      generates from issue key
+
+        Returns:
+            Path to created spec directory
+
+        Raises:
+            JiraApiError: If issue fetch fails
+            ValueError: If spec directory already exists
+        """
+        # Fetch the issue from Jira
+        issue = await self.get_issue(issue_key)
+
+        # Use JiraSpecImporter to create the spec
+        importer = JiraSpecImporter(specs_dir)
+        spec_dir = importer.import_issue(issue, spec_name)
+
+        logger.info(f"Successfully imported Jira issue {issue_key} to {spec_dir}")
+        return spec_dir
