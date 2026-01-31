@@ -7,6 +7,7 @@ Modular analyzer system for detecting project structure, frameworks, and service
 Main exports:
 - ServiceAnalyzer: Analyzes a single service/package
 - ProjectAnalyzer: Analyzes entire projects (single or monorepo)
+- CodeQualityAnalyzer: Analyzes code quality metrics for a service
 - analyze_project: Convenience function for project analysis
 - analyze_service: Convenience function for service analysis
 """
@@ -16,6 +17,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from .code_quality_analyzer import CodeQualityAnalyzer
 from .project_analyzer_module import ProjectAnalyzer
 from .service_analyzer import ServiceAnalyzer
 
@@ -23,6 +25,7 @@ from .service_analyzer import ServiceAnalyzer
 __all__ = [
     "ServiceAnalyzer",
     "ProjectAnalyzer",
+    "CodeQualityAnalyzer",
     "analyze_project",
     "analyze_service",
 ]
