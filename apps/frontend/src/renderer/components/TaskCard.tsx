@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical, ExternalLink } from 'lucide-react';
 import { PRStatusBadge } from './PRStatusBadge';
+import { PRActionButtons } from './PRActionButtons';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -33,6 +34,7 @@ import {
   JSON_ERROR_TITLE_SUFFIX
 } from '../../shared/constants';
 import { startTask, stopTask, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks } from '../stores/task-store';
+import { useProjectStore } from '../stores/project-store';
 import type { Task, TaskCategory, ReviewReason, TaskStatus } from '../../shared/types';
 
 // Category icon mapping
@@ -109,6 +111,7 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     prevTask.metadata?.prStatus?.state === nextTask.metadata?.prStatus?.state &&
     prevTask.metadata?.prStatus?.reviewDecision === nextTask.metadata?.prStatus?.reviewDecision &&
     prevTask.metadata?.prStatus?.ciStatus === nextTask.metadata?.prStatus?.ciStatus &&
+    prevTask.metadata?.prStatus?.mergeable === nextTask.metadata?.prStatus?.mergeable &&
     // Check if any subtask statuses changed (compare all subtasks)
     prevTask.subtasks.every((s, i) => s.status === nextTask.subtasks[i]?.status)
   );
@@ -138,6 +141,7 @@ export const TaskCard = memo(function TaskCard({
   onToggleSelect
 }: TaskCardProps) {
   const { t } = useTranslation(['tasks', 'errors']);
+  const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
   const stuckCheckRef = useRef<{ timeout: NodeJS.Timeout | null; interval: NodeJS.Timeout | null }>({
@@ -311,6 +315,48 @@ export const TaskCard = memo(function TaskCard({
       window.electronAPI.openExternal(task.metadata.prUrl);
     }
   };
+
+  // PR action handlers
+  const handleApprovePR = useCallback(async () => {
+    if (!selectedProjectId || !task.metadata?.prStatus?.prNumber) return;
+
+    try {
+      await window.electronAPI.github.postPRReview(
+        selectedProjectId,
+        task.metadata.prStatus.prNumber,
+        undefined, // selectedFindingIds - approve all
+        { forceApprove: true } // Force approve without findings
+      );
+    } catch (error) {
+      console.error('[TaskCard] Failed to approve PR:', error);
+    }
+  }, [selectedProjectId, task.metadata?.prStatus?.prNumber]);
+
+  const handleRequestChangesPR = useCallback(async () => {
+    if (!selectedProjectId || !task.metadata?.prStatus?.prNumber) return;
+
+    try {
+      // For request changes, we need to post a comment or have findings
+      // For now, we'll just log - this could be enhanced to open a dialog for comment
+      console.log('[TaskCard] Request changes for PR:', task.metadata.prStatus.prNumber);
+    } catch (error) {
+      console.error('[TaskCard] Failed to request changes on PR:', error);
+    }
+  }, [selectedProjectId, task.metadata?.prStatus?.prNumber]);
+
+  const handleMergePR = useCallback(async () => {
+    if (!selectedProjectId || !task.metadata?.prStatus?.prNumber) return;
+
+    try {
+      await window.electronAPI.github.mergePR(
+        selectedProjectId,
+        task.metadata.prStatus.prNumber,
+        'squash' // Default merge method
+      );
+    } catch (error) {
+      console.error('[TaskCard] Failed to merge PR:', error);
+    }
+  }, [selectedProjectId, task.metadata?.prStatus?.prNumber]);
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -588,6 +634,32 @@ export const TaskCard = memo(function TaskCard({
                 <Play className="mr-1.5 h-3 w-3" />
                 {t('actions.resume')}
               </Button>
+            ) : task.metadata?.prStatus && task.metadata?.prUrl && selectedProjectId ? (
+              <div className="flex gap-1 items-center">
+                <PRActionButtons
+                  prNumber={task.metadata.prStatus.prNumber}
+                  prState={task.metadata.prStatus.state}
+                  prHtmlUrl={task.metadata.prUrl}
+                  projectId={selectedProjectId}
+                  isApproved={task.metadata.prStatus.reviewDecision === 'approved'}
+                  isMergeable={task.metadata.prStatus.mergeable === 'MERGEABLE'}
+                  onApprove={handleApprovePR}
+                  onRequestChanges={handleRequestChangesPR}
+                  onMerge={handleMergePR}
+                  className="text-xs"
+                />
+                {!task.metadata?.archivedAt && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 cursor-pointer"
+                    onClick={handleArchive}
+                    title={t('tooltips.archiveTask')}
+                  >
+                    <Archive className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
             ) : task.status === 'done' && task.metadata?.prUrl ? (
               <div className="flex gap-1">
                 {task.metadata?.prUrl && (
