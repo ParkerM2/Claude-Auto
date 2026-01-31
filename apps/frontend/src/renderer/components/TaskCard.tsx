@@ -361,14 +361,14 @@ export const TaskCard = memo(function TaskCard({
           { forceApprove: true } // Force approve without findings
         );
 
-        if (result.success) {
+        if (result) {
           toast({
             title: t('common:prReview.approved'),
             duration: 3000,
           });
         } else {
           toast({
-            title: result.error || t('errors:generic'),
+            title: t('errors:generic'),
             variant: 'destructive',
             duration: 3000,
           });
@@ -401,14 +401,14 @@ export const TaskCard = memo(function TaskCard({
           'squash' // Default merge method
         );
 
-        if (result.success) {
+        if (result) {
           toast({
             title: t('common:prReview.actions.merged'),
             duration: 3000,
           });
         } else {
           toast({
-            title: result.error || t('errors:generic'),
+            title: t('errors:generic'),
             variant: 'destructive',
             duration: 3000,
           });
