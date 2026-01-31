@@ -94,6 +94,66 @@ export interface QAIssue {
   line?: number;
 }
 
+// Code Review Workflow Types
+
+/**
+ * Individual checklist item for code review
+ */
+export interface ReviewChecklistItem {
+  id: string;
+  label: string;
+  completed: boolean;
+  required: boolean;
+}
+
+/**
+ * Review checklist for a spec
+ */
+export interface ReviewChecklist {
+  specId: string;
+  items: ReviewChecklistItem[];
+  allComplete: boolean;  // Computed: true if all required items are completed
+  updatedAt: Date;
+}
+
+/**
+ * Individual reviewer information
+ */
+export interface ReviewerInfo {
+  id: string;
+  name: string;
+  email?: string;
+  approved: boolean;
+  approvedAt?: Date;
+  comment?: string;  // Optional approval/rejection comment
+}
+
+/**
+ * Reviewer assignment for a spec
+ */
+export interface ReviewerAssignment {
+  specId: string;
+  required: ReviewerInfo[];  // Reviewers that must approve
+  actual: ReviewerInfo[];    // Reviewers who have been assigned
+  allApproved: boolean;      // Computed: true if all required reviewers approved
+  updatedAt: Date;
+}
+
+/**
+ * Review metrics and cycle time tracking
+ */
+export interface ReviewMetrics {
+  specId: string;
+  cycleTime?: number;             // Total review cycle time in milliseconds
+  iterationCount: number;          // Number of review iterations
+  timeToApproval?: number;         // Time from first review to approval in milliseconds
+  reviewerResponseTime?: number;   // Average reviewer response time in milliseconds
+  reviewStartedAt?: Date;          // When review process started
+  firstReviewAt?: Date;            // When first reviewer began review
+  approvedAt?: Date;               // When final approval was given
+  updatedAt: Date;
+}
+
 // Task Log Types - for persistent, phase-based logging
 export type TaskLogPhase = 'planning' | 'coding' | 'validation';
 export type TaskLogPhaseStatus = 'pending' | 'active' | 'completed' | 'failed';
