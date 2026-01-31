@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical, ExternalLink } from 'lucide-react';
 import { PRStatusBadge } from './PRStatusBadge';
 import { PRActionButtons } from './PRActionButtons';
+import { PRConfirmDialog, type PRActionType } from './PRConfirmDialog';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -16,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { cn, formatRelativeTime, sanitizeMarkdownForDisplay } from '../lib/utils';
+import { useToast } from '../hooks/use-toast';
 import { PhaseProgressIndicator } from './PhaseProgressIndicator';
 import {
   TASK_CATEGORY_LABELS,
@@ -141,6 +143,7 @@ export const TaskCard = memo(function TaskCard({
   onToggleSelect
 }: TaskCardProps) {
   const { t } = useTranslation(['tasks', 'errors']);
+  const { toast } = useToast();
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
@@ -148,6 +151,13 @@ export const TaskCard = memo(function TaskCard({
     timeout: null,
     interval: null
   });
+
+  // PR action dialog state
+  const [showPRDialog, setShowPRDialog] = useState(false);
+  const [prActionType, setPRActionType] = useState<PRActionType>('approve');
+  const [isApprovingPR, setIsApprovingPR] = useState(false);
+  const [isRequestingChanges, setIsRequestingChanges] = useState(false);
+  const [isMergingPR, setIsMergingPR] = useState(false);
 
   const isRunning = task.status === 'in_progress';
   const executionPhase = task.executionProgress?.phase;
@@ -316,47 +326,107 @@ export const TaskCard = memo(function TaskCard({
     }
   };
 
-  // PR action handlers
-  const handleApprovePR = useCallback(async () => {
+  // PR action handlers - show confirmation dialogs
+  const handleApprovePR = useCallback(() => {
     if (!selectedProjectId || !task.metadata?.prStatus?.prNumber) return;
-
-    try {
-      await window.electronAPI.github.postPRReview(
-        selectedProjectId,
-        task.metadata.prStatus.prNumber,
-        undefined, // selectedFindingIds - approve all
-        { forceApprove: true } // Force approve without findings
-      );
-    } catch (error) {
-      console.error('[TaskCard] Failed to approve PR:', error);
-    }
+    setPRActionType('approve');
+    setShowPRDialog(true);
   }, [selectedProjectId, task.metadata?.prStatus?.prNumber]);
 
-  const handleRequestChangesPR = useCallback(async () => {
+  const handleRequestChangesPR = useCallback(() => {
     if (!selectedProjectId || !task.metadata?.prStatus?.prNumber) return;
-
-    try {
-      // For request changes, we need to post a comment or have findings
-      // For now, we'll just log - this could be enhanced to open a dialog for comment
-      console.log('[TaskCard] Request changes for PR:', task.metadata.prStatus.prNumber);
-    } catch (error) {
-      console.error('[TaskCard] Failed to request changes on PR:', error);
-    }
+    setPRActionType('request_changes');
+    setShowPRDialog(true);
   }, [selectedProjectId, task.metadata?.prStatus?.prNumber]);
 
-  const handleMergePR = useCallback(async () => {
+  const handleMergePR = useCallback(() => {
+    if (!selectedProjectId || !task.metadata?.prStatus?.prNumber) return;
+    setPRActionType('merge');
+    setShowPRDialog(true);
+  }, [selectedProjectId, task.metadata?.prStatus?.prNumber]);
+
+  // Confirmed PR action handlers - actual API calls with error handling
+  const handleConfirmPRAction = useCallback(async (comment?: string) => {
     if (!selectedProjectId || !task.metadata?.prStatus?.prNumber) return;
 
+    const prNumber = task.metadata.prStatus.prNumber;
+
     try {
-      await window.electronAPI.github.mergePR(
-        selectedProjectId,
-        task.metadata.prStatus.prNumber,
-        'squash' // Default merge method
-      );
+      if (prActionType === 'approve') {
+        setIsApprovingPR(true);
+        const result = await window.electronAPI.github.postPRReview(
+          selectedProjectId,
+          prNumber,
+          undefined, // selectedFindingIds - approve all
+          { forceApprove: true } // Force approve without findings
+        );
+
+        if (result.success) {
+          toast({
+            title: t('common:prReview.approved'),
+            duration: 3000,
+          });
+        } else {
+          toast({
+            title: result.error || t('errors:generic'),
+            variant: 'destructive',
+            duration: 3000,
+          });
+        }
+      } else if (prActionType === 'request_changes') {
+        setIsRequestingChanges(true);
+        const result = await window.electronAPI.github.requestChanges(
+          selectedProjectId,
+          prNumber,
+          comment || t('common:prReview.actions.requestChanges')
+        );
+
+        if (result.success) {
+          toast({
+            title: t('common:prReview.actions.changesRequested'),
+            duration: 3000,
+          });
+        } else {
+          toast({
+            title: result.error || t('errors:generic'),
+            variant: 'destructive',
+            duration: 3000,
+          });
+        }
+      } else if (prActionType === 'merge') {
+        setIsMergingPR(true);
+        const result = await window.electronAPI.github.mergePR(
+          selectedProjectId,
+          prNumber,
+          'squash' // Default merge method
+        );
+
+        if (result.success) {
+          toast({
+            title: t('common:prReview.actions.merged'),
+            duration: 3000,
+          });
+        } else {
+          toast({
+            title: result.error || t('errors:generic'),
+            variant: 'destructive',
+            duration: 3000,
+          });
+        }
+      }
     } catch (error) {
-      console.error('[TaskCard] Failed to merge PR:', error);
+      console.error('[TaskCard] Failed to perform PR action:', prActionType, error);
+      toast({
+        title: t('errors:generic'),
+        variant: 'destructive',
+        duration: 3000,
+      });
+    } finally {
+      setIsApprovingPR(false);
+      setIsRequestingChanges(false);
+      setIsMergingPR(false);
     }
-  }, [selectedProjectId, task.metadata?.prStatus?.prNumber]);
+  }, [selectedProjectId, task.metadata?.prStatus?.prNumber, prActionType, toast, t]);
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -646,6 +716,7 @@ export const TaskCard = memo(function TaskCard({
                   onApprove={handleApprovePR}
                   onRequestChanges={handleRequestChangesPR}
                   onMerge={handleMergePR}
+                  disabled={isApprovingPR || isRequestingChanges || isMergingPR}
                   className="text-xs"
                 />
                 {!task.metadata?.archivedAt && (
@@ -745,6 +816,19 @@ export const TaskCard = memo(function TaskCard({
         {/* Close flex container for selectable mode */}
         </div>
       </CardContent>
+
+      {/* PR Confirmation Dialog */}
+      {task.metadata?.prStatus?.prNumber && (
+        <PRConfirmDialog
+          open={showPRDialog}
+          onOpenChange={setShowPRDialog}
+          actionType={prActionType}
+          prNumber={task.metadata.prStatus.prNumber}
+          prTitle={task.title}
+          onConfirm={handleConfirmPRAction}
+          mergeMethod="squash"
+        />
+      )}
     </Card>
   );
 }, taskCardPropsAreEqual);
