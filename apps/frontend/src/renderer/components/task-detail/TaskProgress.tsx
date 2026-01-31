@@ -1,5 +1,6 @@
 import { Zap, Loader2 } from 'lucide-react';
 import { Progress } from '../ui/progress';
+import { EstimatedTimeRemaining } from './EstimatedTimeRemaining';
 import { cn, calculateProgress } from '../../lib/utils';
 import { EXECUTION_PHASE_BADGE_COLORS, EXECUTION_PHASE_LABELS } from '../../../shared/constants';
 import type { Task, ExecutionPhase } from '../../../shared/types';
@@ -116,6 +117,17 @@ export function TaskProgress({ task, isRunning, hasActiveExecution, executionPha
             title="Complete (95-100%)"
           />
         </div>
+      )}
+
+      {/* Estimated Time Remaining */}
+      {hasActiveExecution && (
+        <EstimatedTimeRemaining
+          startTime={task.executionProgress?.startedAt}
+          progress={task.executionProgress?.overallProgress || 0}
+          isRunning={isRunning}
+          isCompleted={task.status === 'done'}
+          className="mt-3"
+        />
       )}
     </div>
   );
