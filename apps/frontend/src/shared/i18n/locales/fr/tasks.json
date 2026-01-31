@@ -140,35 +140,6 @@
       "plan": "Plan",
       "code": "Code",
       "qa": "QA"
-    },
-    "activity": {
-      "title": "Activité",
-      "noActivity": "Aucune activité",
-      "currentAction": "Action en cours",
-      "recentActions": "Actions récentes",
-      "showMore": "Afficher plus",
-      "showLess": "Afficher moins",
-      "actions": {
-        "readingFile": "Lecture de {{file}}",
-        "writingFile": "Écriture de {{file}}",
-        "runningTests": "Exécution des tests",
-        "analyzingCode": "Analyse du code",
-        "creatingPlan": "Création du plan",
-        "executingCommand": "Exécution de la commande",
-        "reviewingChanges": "Révision des changements",
-        "fixingIssues": "Correction des problèmes",
-        "waiting": "En attente..."
-      }
-    },
-    "estimatedTime": {
-      "label": "Temps restant estimé",
-      "calculating": "Calcul en cours...",
-      "lessThanMinute": "Moins d'une minute",
-      "minutes": "{{count}} min",
-      "hours": "{{count}} h",
-      "hoursMinutes": "{{hours}} h {{minutes}} min",
-      "unknown": "Inconnu",
-      "completed": "Terminé"
     }
   },
   "files": {

@@ -82,33 +82,3 @@ export function estimateRemainingTime(
 
   return Math.max(0, Math.round(remaining));
 }
-
-/**
- * Format remaining time in milliseconds to human-readable string
- * @param milliseconds Time in milliseconds, or null if unknown
- * @returns Human-readable string like '~5 min', '~30 sec', or null if cannot format
- */
-export function formatRemainingTime(milliseconds: number | null): string | null {
-  if (milliseconds === null || milliseconds < 0) return null;
-
-  const seconds = Math.round(milliseconds / 1000);
-
-  if (seconds < 60) {
-    return `~${Math.max(1, seconds)} sec`;
-  }
-
-  const minutes = Math.round(seconds / 60);
-
-  if (minutes < 60) {
-    return `~${minutes} min`;
-  }
-
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-
-  if (remainingMinutes === 0) {
-    return `~${hours} hr`;
-  }
-
-  return `~${hours} hr ${remainingMinutes} min`;
-}
