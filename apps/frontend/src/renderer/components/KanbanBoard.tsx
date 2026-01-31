@@ -19,7 +19,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X, Settings, ListPlus } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X, Settings, ListPlus, LayoutGrid, Rows3, Table2 } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
@@ -477,7 +477,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const { toast } = useToast();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
-  const { showArchived, toggleShowArchived } = useViewState();
+  const { showArchived, toggleShowArchived, viewMode, setViewMode } = useViewState();
 
   // Project store for queue settings
   const projects = useProjectStore((state) => state.projects);
@@ -1084,9 +1084,80 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
   return (
     <div className="flex h-full flex-col">
-      {/* Kanban header with refresh button */}
-      {onRefresh && (
-        <div className="flex items-center justify-end px-6 pt-4 pb-2">
+      {/* Kanban header with view mode toggle and refresh button */}
+      <div className="flex items-center justify-between px-6 pt-4 pb-2">
+        {/* View mode toggle buttons */}
+        <div className="flex items-center gap-1 rounded-lg border border-border/50 bg-muted/30 p-1">
+          <Tooltip delayDuration={200}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setViewMode('kanban-full')}
+                className={cn(
+                  "h-8 w-8 p-0 transition-colors",
+                  viewMode === 'kanban-full'
+                    ? "bg-primary/10 text-primary hover:bg-primary/20"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                )}
+                aria-label={t('tasks:viewMode.switchToKanban')}
+                aria-pressed={viewMode === 'kanban-full'}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {t('tasks:viewMode.kanban')}
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip delayDuration={200}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setViewMode('kanban-compact')}
+                className={cn(
+                  "h-8 w-8 p-0 transition-colors",
+                  viewMode === 'kanban-compact'
+                    ? "bg-primary/10 text-primary hover:bg-primary/20"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                )}
+                aria-label={t('tasks:viewMode.switchToKanban')}
+                aria-pressed={viewMode === 'kanban-compact'}
+              >
+                <Rows3 className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {t('tasks:viewMode.kanban')} (Compact)
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip delayDuration={200}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setViewMode('table')}
+                className={cn(
+                  "h-8 w-8 p-0 transition-colors",
+                  viewMode === 'table'
+                    ? "bg-primary/10 text-primary hover:bg-primary/20"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                )}
+                aria-label={t('tasks:viewMode.switchToTable')}
+                aria-pressed={viewMode === 'table'}
+              >
+                <Table2 className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {t('tasks:viewMode.table')}
+            </TooltipContent>
+          </Tooltip>
+        </div>
+
+        {/* Refresh button */}
+        {onRefresh && (
           <Button
             variant="ghost"
             size="sm"
@@ -1097,8 +1168,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
             <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
             {isRefreshing ? t('common:buttons.refreshing') : t('tasks:refreshTasks')}
           </Button>
-        </div>
-      )}
+        )}
+      </div>
       {/* Kanban columns */}
       <DndContext
         sensors={sensors}
