@@ -361,6 +361,78 @@ class JiraClient:
                 "error": f"Connection failed: {e}",
             }
 
+    async def update_status(
+        self,
+        issue_key: str,
+        target_status: str,
+    ) -> bool:
+        """
+        Update the status of a Jira issue by transitioning to a new status.
+
+        Finds the appropriate transition ID for the target status and executes it.
+        If multiple transitions lead to the same status, uses the first match.
+
+        Args:
+            issue_key: Jira issue key (e.g., "ES-1234")
+            target_status: Target status name (e.g., "In Progress", "Done")
+
+        Returns:
+            True if status transition was successful
+
+        Raises:
+            JiraApiError: If transition fails or target status is not available
+        """
+        # Get available transitions for this issue
+        logger.debug(f"Fetching available transitions for issue {issue_key}")
+        transitions_data = await self._request(
+            "GET",
+            f"/issue/{issue_key}/transitions",
+        )
+
+        transitions = transitions_data.get("transitions", [])
+        if not transitions:
+            raise JiraApiError(
+                f"No transitions available for issue {issue_key}. "
+                "The issue may be in a terminal state or you lack permissions."
+            )
+
+        # Find transition ID for target status
+        # Match case-insensitively for better UX
+        target_status_lower = target_status.lower()
+        transition_id = None
+
+        for transition in transitions:
+            to_status = transition.get("to", {}).get("name", "")
+            if to_status.lower() == target_status_lower:
+                transition_id = transition.get("id")
+                logger.debug(
+                    f"Found transition ID {transition_id} for status '{to_status}'"
+                )
+                break
+
+        if not transition_id:
+            available_statuses = [
+                t.get("to", {}).get("name", "Unknown") for t in transitions
+            ]
+            raise JiraApiError(
+                f"Status '{target_status}' is not available for issue {issue_key}. "
+                f"Available transitions: {', '.join(available_statuses)}"
+            )
+
+        # Execute the transition
+        logger.info(
+            f"Transitioning issue {issue_key} to status '{target_status}' "
+            f"(transition ID: {transition_id})"
+        )
+        await self._request(
+            "POST",
+            f"/issue/{issue_key}/transitions",
+            data={"transition": {"id": transition_id}},
+        )
+
+        logger.info(f"Successfully transitioned issue {issue_key} to '{target_status}'")
+        return True
+
     async def import_issue(
         self,
         issue_key: str,

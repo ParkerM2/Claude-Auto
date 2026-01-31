@@ -106,12 +106,8 @@ class JiraStatusUpdater:
                 f"(task status: {task_status.value})"
             )
 
-            # TODO: Call JiraClient.update_status() once it's implemented
-            # For now, this is a placeholder that will be wired up in subtask-2-2
-            logger.debug(
-                f"Would update {issue_key} to '{target_status}' "
-                "(JiraClient.update_status() not yet implemented)"
-            )
+            # Call JiraClient.update_status() to perform the transition
+            await self.client.update_status(issue_key, target_status)
 
             return True
 
