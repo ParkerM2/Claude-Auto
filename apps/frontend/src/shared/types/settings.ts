@@ -7,7 +7,7 @@ import type { ChangelogFormat, ChangelogAudience, ChangelogEmojiLevel } from './
 import type { SupportedLanguage } from '../constants/i18n';
 
 // Color theme types for multi-theme support
-export type ColorTheme = 'default' | 'dusk' | 'lime' | 'ocean' | 'retro' | 'neo' | 'forest';
+export type ColorTheme = 'default' | 'dusk' | 'lime' | 'ocean' | 'retro' | 'neo' | 'forest' | 'custom';
 
 // Developer tools preferences - IDE and terminal selection
 // Comprehensive list based on Stack Overflow Developer Survey 2024, JetBrains Survey, and market research
