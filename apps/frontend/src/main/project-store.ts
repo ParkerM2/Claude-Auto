@@ -2,8 +2,7 @@ import { app } from 'electron';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, Dirent } from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, ImplementationPlan, ReviewReason, PlanSubtask, ExecutionProgress } from '../shared/types';
-import type { ExecutionPhase } from '../shared/constants/phase-protocol';
+import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, ImplementationPlan, ReviewReason, PlanSubtask } from '../shared/types';
 import { DEFAULT_PROJECT_SETTINGS, AUTO_BUILD_PATHS, getSpecsDir, JSON_ERROR_PREFIX, JSON_ERROR_TITLE_SUFFIX } from '../shared/constants';
 import { getAutoBuildPath, isInitialized } from './project-initializer';
 import { getTaskWorktreeDir } from './worktree-paths';
@@ -357,113 +356,6 @@ export class ProjectStore {
   }
 
   /**
-   * Calculate executionProgress from implementation plan data.
-   * This enables progress to resume after app restart by reconstructing
-   * the execution state from persisted plan data.
-   *
-   * @param plan - The implementation plan loaded from file
-   * @param taskStatus - The determined task status
-   * @returns ExecutionProgress object or undefined if no meaningful progress
-   */
-  private calculateExecutionProgressFromPlan(
-    plan: ImplementationPlan | null,
-    taskStatus: TaskStatus
-  ): ExecutionProgress | undefined {
-    // No plan or no phases means no progress to show
-    if (!plan || !plan.phases || plan.phases.length === 0) {
-      return undefined;
-    }
-
-    // Only calculate progress for active/completed tasks
-    const activeStatuses: TaskStatus[] = ['in_progress', 'ai_review', 'human_review', 'done'];
-    if (!activeStatuses.includes(taskStatus)) {
-      return undefined;
-    }
-
-    // Flatten all subtasks from all phases
-    const allSubtasks = plan.phases.flatMap(
-      (phase) => phase.subtasks || (phase as { chunks?: PlanSubtask[] }).chunks || []
-    );
-
-    if (allSubtasks.length === 0) {
-      return undefined;
-    }
-
-    // Calculate overall progress based on completed subtasks
-    const completedCount = allSubtasks.filter((s) => s.status === 'completed').length;
-    const overallProgress = Math.round((completedCount / allSubtasks.length) * 100);
-
-    // Find the current subtask (first in_progress subtask)
-    const currentSubtaskData = allSubtasks.find((s) => s.status === 'in_progress');
-    const currentSubtask = currentSubtaskData?.description;
-
-    // Determine the current phase from plan status or subtask analysis
-    let phase: ExecutionPhase = 'planning';
-    const planStatus = plan.status as string | undefined;
-    const rawPlanStatus = (plan as unknown as { planStatus?: string }).planStatus;
-
-    // Map plan status to execution phase
-    if (planStatus === 'done' || planStatus === 'pr_created') {
-      phase = 'complete';
-    } else if (planStatus === 'ai_review') {
-      phase = 'qa_review';
-    } else if (planStatus === 'human_review') {
-      // Could be post-qa or post-coding - check if QA report exists
-      phase = completedCount === allSubtasks.length ? 'complete' : 'coding';
-    } else if (planStatus === 'in_progress') {
-      // Determine if we're planning or coding based on subtasks
-      if (completedCount > 0 || currentSubtaskData) {
-        phase = 'coding';
-      } else if (rawPlanStatus === 'in_progress') {
-        phase = 'planning';
-      } else {
-        phase = 'coding';
-      }
-    } else if (rawPlanStatus === 'review') {
-      phase = 'qa_review';
-    } else if (rawPlanStatus === 'completed' || rawPlanStatus === 'done') {
-      phase = 'complete';
-    }
-
-    // Calculate phase progress (within current phase)
-    // Find the current phase and calculate progress within it
-    let phaseProgress = 0;
-    for (const planPhase of plan.phases) {
-      const phaseSubtasks = planPhase.subtasks || (planPhase as { chunks?: PlanSubtask[] }).chunks || [];
-      if (phaseSubtasks.length === 0) continue;
-
-      const phaseCompleted = phaseSubtasks.filter((s) => s.status === 'completed').length;
-      const hasInProgress = phaseSubtasks.some((s) => s.status === 'in_progress');
-
-      // If this phase has an in_progress subtask, use its progress
-      if (hasInProgress) {
-        phaseProgress = Math.round((phaseCompleted / phaseSubtasks.length) * 100);
-        break;
-      }
-      // If this phase is complete, move to next
-      if (phaseCompleted === phaseSubtasks.length) {
-        continue;
-      }
-      // This is the current phase (some pending, none in_progress)
-      phaseProgress = Math.round((phaseCompleted / phaseSubtasks.length) * 100);
-      break;
-    }
-
-    // Use created_at as startedAt approximation for resumed tasks
-    // The actual startedAt will be updated by agent-events-handlers when running
-    const startedAt = plan.created_at ? new Date(plan.created_at) : undefined;
-
-    return {
-      phase,
-      phaseProgress,
-      overallProgress,
-      currentSubtask,
-      startedAt,
-      message: currentSubtask || `${completedCount}/${allSubtasks.length} subtasks completed`
-    };
-  }
-
-  /**
    * Load tasks from a specs directory (helper method for main project and worktrees)
    */
   private loadTasksFromSpecsDir(
@@ -616,9 +508,6 @@ export class ProjectStore {
           }
         }
 
-        // Calculate executionProgress from plan data for progress resumption after app restart
-        const executionProgress = this.calculateExecutionProgressFromPlan(plan, finalStatus);
-
         tasks.push({
           id: dir.name, // Use spec directory name as ID
           specId: dir.name,
@@ -629,7 +518,6 @@ export class ProjectStore {
           subtasks,
           logs: [],
           metadata,
-          executionProgress, // Include calculated progress for app restart resumption
           ...(finalReviewReason !== undefined && { reviewReason: finalReviewReason }),
           stagedInMainProject,
           stagedAt,

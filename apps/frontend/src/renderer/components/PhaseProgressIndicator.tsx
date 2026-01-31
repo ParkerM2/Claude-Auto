@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
 import { memo, useRef, useState, useEffect } from 'react';
 import { cn } from '../lib/utils';
-import type { ExecutionPhase, TaskLogs, Subtask, RecentAction } from '../../shared/types';
+import type { ExecutionPhase, TaskLogs, Subtask } from '../../shared/types';
 
 interface PhaseProgressIndicatorProps {
   phase?: ExecutionPhase;
@@ -13,10 +13,6 @@ interface PhaseProgressIndicatorProps {
   isStuck?: boolean;
   isRunning?: boolean;
   className?: string;
-  /** Current action to display inline (for compact TaskCard display) */
-  currentAction?: RecentAction | null;
-  /** Show current action text inline with progress bar (compact mode for TaskCard) */
-  showCurrentAction?: boolean;
 }
 
 // Phase display configuration (colors only - labels are translated)
@@ -57,8 +53,6 @@ export const PhaseProgressIndicator = memo(function PhaseProgressIndicator({
   isStuck = false,
   isRunning = false,
   className,
-  currentAction,
-  showCurrentAction = false,
 }: PhaseProgressIndicatorProps) {
   const { t } = useTranslation('tasks');
   const phase = rawPhase || 'idle';
@@ -122,31 +116,14 @@ export const PhaseProgressIndicator = memo(function PhaseProgressIndicator({
     <div ref={containerRef} className={cn('space-y-1.5', className)}>
       {/* Progress label row */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          {/* Show current action inline when enabled and action is available */}
-          {showCurrentAction && isRunning && !isStuck && currentAction ? (
-            <AnimatePresence mode="wait">
-              <motion.span
-                key={currentAction.id}
-                className="text-xs text-muted-foreground truncate max-w-[180px]"
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.15 }}
-                title={currentAction.description}
-              >
-                {currentAction.description}
-              </motion.span>
-            </AnimatePresence>
-          ) : (
-            <span className="text-xs text-muted-foreground">
-              {isStuck ? t('execution.labels.interrupted') : showSubtaskProgress ? t('execution.labels.progress') : phaseLabel}
-            </span>
-          )}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            {isStuck ? t('execution.labels.interrupted') : showSubtaskProgress ? t('execution.labels.progress') : phaseLabel}
+          </span>
           {/* Activity indicator dot for non-coding phases - only animate when visible */}
           {isRunning && !isStuck && isIndeterminatePhase && (
             <motion.div
-              className={cn('h-1.5 w-1.5 rounded-full flex-shrink-0', colors.color)}
+              className={cn('h-1.5 w-1.5 rounded-full', colors.color)}
               animate={shouldAnimate ? {
                 scale: [1, 1.5, 1],
                 opacity: [1, 0.5, 1],

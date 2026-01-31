@@ -232,42 +232,8 @@
     "light": "Clair",
     "dark": "Sombre",
     "system": "Système",
-    "appearanceMode": "Mode d'apparence",
-    "appearanceModeDescription": "Choisir entre clair, sombre ou préférence système",
     "colorTheme": "Thème de couleur",
-    "colorThemeDescription": "Choisissez votre palette de couleurs préférée",
-    "customTheme": {
-      "title": "Thème personnalisé",
-      "description": "Collez les variables CSS depuis",
-      "linkText": "tweakcn.com/editor",
-      "descriptionSuffix": "pour créer votre propre thème",
-      "expectedFormat": "Format attendu :",
-      "formatRequirement1": "Doit inclure",
-      "formatRequirement1Code": ":root",
-      "formatRequirement1Suffix": "section avec des variables CSS",
-      "formatRequirement2": "Devrait inclure",
-      "formatRequirement2Code": ".dark",
-      "formatRequirement2Suffix": "section pour le support du mode sombre",
-      "formatRequirement3": "Variables comme",
-      "formatRequirement3Variables": "--background, --foreground, --primary",
-      "formatRequirement3Suffix": ", etc.",
-      "formatRequirement4": "Prend en charge les formats de couleur hex, HSL, RGB",
-      "themeNameLabel": "Nom du thème",
-      "themeNamePlaceholder": "ex. : Mon thème personnalisé",
-      "themeCssLabel": "CSS du thème",
-      "themeCssPlaceholder": ":root {\n  --background: #ffffff;\n  --foreground: #000000;\n  --primary: #3b82f6;\n  /* ... plus de variables */\n}\n\n.dark {\n  --background: #000000;\n  --foreground: #ffffff;\n  /* ... plus de variables */\n}",
-      "validationError": "Le CSS doit inclure la section :root avec des variables CSS",
-      "successMessage": "CSS valide - le thème sera appliqué immédiatement",
-      "validationErrors": {
-        "missingRoot": "Le CSS doit inclure la section :root avec des variables CSS",
-        "missingVariables": "Le CSS doit contenir au moins une variable CSS (ex : --background: #fff)",
-        "unmatchedBraces": "Le CSS a des accolades non appariées - vérifiez votre syntaxe",
-        "emptyRoot": "La section :root semble vide ou mal formée"
-      },
-      "clearButton": "Effacer",
-      "customDefaultName": "Personnalisé",
-      "customDescription": "Créez votre propre thème avec des variables CSS"
-    }
+    "colorThemeDescription": "Choisissez votre palette de couleurs préférée"
   },
   "devtools": {
     "title": "Outils de développement",
