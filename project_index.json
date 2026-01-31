@@ -1,0 +1,36 @@
+{
+  "project_type": "monorepo",
+  "services": {
+    "backend": {
+      "path": "./apps/backend",
+      "tech_stack": ["python", "asyncio", "aiohttp"],
+      "port": null,
+      "dev_command": "python run.py --spec 001",
+      "test_command": "pytest tests/ -v"
+    },
+    "frontend": {
+      "path": "./apps/frontend",
+      "tech_stack": ["electron", "typescript", "react"],
+      "port": null,
+      "dev_command": "npm run dev",
+      "test_command": "npm test"
+    }
+  },
+  "infrastructure": {
+    "docker": false,
+    "database": null,
+    "git_worktrees": true
+  },
+  "conventions": {
+    "linter": "ruff",
+    "formatter": "black",
+    "testing": "pytest",
+    "frontend_linter": "biome"
+  },
+  "integrations": {
+    "github": true,
+    "jira": "partial",
+    "linear": "planned",
+    "graphiti": true
+  }
+}
