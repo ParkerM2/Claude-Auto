@@ -1,4 +1,4 @@
-import type { Task, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo, ImageAttachment, WorktreeCreatePRResult } from '../../../shared/types';
+import type { Task, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo, ImageAttachment, WorktreeCreatePRResult, ReviewChecklist as ReviewChecklistType, ReviewerAssignment as ReviewerAssignmentType, ReviewMetrics as ReviewMetricsType } from '../../../shared/types';
 import {
   StagedSuccessMessage,
   WorkspaceStatus,
@@ -9,7 +9,10 @@ import {
   LoadingMessage,
   NoWorkspaceMessage,
   StagedInProjectMessage,
-  CreatePRDialog
+  CreatePRDialog,
+  ReviewChecklist,
+  ReviewerAssignment,
+  ReviewMetrics
 } from './task-review';
 
 interface TaskReviewProps {
@@ -53,6 +56,20 @@ interface TaskReviewProps {
   isCreatingPR: boolean;
   onShowPRDialog: (show: boolean) => void;
   onCreatePR: (options: { targetBranch?: string; title?: string; draft?: boolean }) => Promise<WorktreeCreatePRResult | null>;
+  // Approval gate
+  approvalGate?: {
+    canMerge: boolean;
+    blockingReasons: string[];
+  };
+  // Review workflow
+  reviewChecklist?: ReviewChecklistType;
+  reviewerAssignment?: ReviewerAssignmentType;
+  reviewMetrics?: ReviewMetricsType;
+  availableReviewers?: Array<{ id: string; name: string; email?: string }>;
+  onChecklistItemChange?: (itemId: string, completed: boolean) => void;
+  onReviewerAdd?: (reviewerId: string) => void;
+  onReviewerRemove?: (reviewerId: string) => void;
+  onReviewerApprove?: (reviewerId: string) => void;
 }
 
 /**
@@ -101,7 +118,16 @@ export function TaskReview({
   showPRDialog,
   isCreatingPR,
   onShowPRDialog,
-  onCreatePR
+  onCreatePR,
+  approvalGate,
+  reviewChecklist,
+  reviewerAssignment,
+  reviewMetrics,
+  availableReviewers,
+  onChecklistItemChange,
+  onReviewerAdd,
+  onReviewerRemove,
+  onReviewerApprove
 }: TaskReviewProps) {
   return (
     <div className="space-y-4">
@@ -142,6 +168,7 @@ export function TaskReview({
           isMerging={isMerging}
           isDiscarding={isDiscarding}
           isCreatingPR={isCreatingPR}
+          approvalGate={approvalGate}
           onShowDiffDialog={onShowDiffDialog}
           onShowDiscardDialog={onShowDiscardDialog}
           onShowConflictDialog={onShowConflictDialog}
@@ -155,6 +182,37 @@ export function TaskReview({
         />
       ) : (
         <NoWorkspaceMessage task={task} onClose={onClose} />
+      )}
+
+      {/* Review Workflow Components - shown when task is in human_review */}
+      {task.status === 'human_review' && (
+        <div className="space-y-4">
+          {/* Review Checklist */}
+          {reviewChecklist && (
+            <ReviewChecklist
+              checklist={reviewChecklist}
+              onItemChange={onChecklistItemChange}
+              disabled={!worktreeStatus?.exists}
+            />
+          )}
+
+          {/* Reviewer Assignment */}
+          {reviewerAssignment && (
+            <ReviewerAssignment
+              assignment={reviewerAssignment}
+              availableReviewers={availableReviewers}
+              onAddReviewer={onReviewerAdd}
+              onRemoveReviewer={onReviewerRemove}
+              onApprove={onReviewerApprove}
+              disabled={!worktreeStatus?.exists}
+            />
+          )}
+
+          {/* Review Metrics */}
+          {reviewMetrics && (
+            <ReviewMetrics metrics={reviewMetrics} />
+          )}
+        </div>
       )}
 
       {/* QA Feedback Section */}

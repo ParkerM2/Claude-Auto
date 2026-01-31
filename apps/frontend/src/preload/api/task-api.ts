@@ -15,7 +15,10 @@ import type {
   WorktreeCreatePROptions,
   WorktreeCreatePRResult,
   ImageAttachment,
-  TaskWorktreeCreatedEvent
+  TaskWorktreeCreatedEvent,
+  ReviewChecklist,
+  ReviewerAssignment,
+  ReviewMetrics
 } from '../../shared/types';
 
 export interface TaskAPI {
@@ -85,6 +88,13 @@ export interface TaskAPI {
   unwatchTaskLogs: (specId: string) => Promise<IPCResult>;
   onTaskLogsChanged: (callback: (specId: string, logs: TaskLogs) => void) => () => void;
   onTaskLogsStream: (callback: (specId: string, chunk: TaskLogStreamChunk) => void) => () => void;
+
+  // Review Workflow
+  getReviewChecklist: (projectId: string, specId: string) => Promise<IPCResult<ReviewChecklist>>;
+  updateReviewChecklist: (projectId: string, specId: string, checklist: ReviewChecklist) => Promise<IPCResult>;
+  getReviewerAssignment: (projectId: string, specId: string) => Promise<IPCResult<ReviewerAssignment>>;
+  updateReviewerAssignment: (projectId: string, specId: string, assignment: ReviewerAssignment) => Promise<IPCResult>;
+  getReviewMetrics: (projectId: string, specId: string) => Promise<IPCResult<ReviewMetrics>>;
 }
 
 export const createTaskAPI = (): TaskAPI => ({
@@ -321,5 +331,21 @@ export const createTaskAPI = (): TaskAPI => ({
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.TASK_LOGS_STREAM, handler);
     };
-  }
+  },
+
+  // Review Workflow
+  getReviewChecklist: (projectId: string, specId: string): Promise<IPCResult<ReviewChecklist>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.REVIEW_GET_CHECKLIST, projectId, specId),
+
+  updateReviewChecklist: (projectId: string, specId: string, checklist: ReviewChecklist): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.REVIEW_UPDATE_CHECKLIST, projectId, specId, checklist),
+
+  getReviewerAssignment: (projectId: string, specId: string): Promise<IPCResult<ReviewerAssignment>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.REVIEW_GET_REVIEWER_ASSIGNMENT, projectId, specId),
+
+  updateReviewerAssignment: (projectId: string, specId: string, assignment: ReviewerAssignment): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.REVIEW_UPDATE_REVIEWER_ASSIGNMENT, projectId, specId, assignment),
+
+  getReviewMetrics: (projectId: string, specId: string): Promise<IPCResult<ReviewMetrics>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.REVIEW_GET_METRICS, projectId, specId)
 });

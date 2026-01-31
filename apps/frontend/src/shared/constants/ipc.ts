@@ -471,5 +471,12 @@ export const IPC_CHANNELS = {
   MANAGER_REMOVE_TASK: 'manager:removeTask',
   MANAGER_REFRESH_TASK: 'manager:refreshTask',
   MANAGER_PR_STATUS_UPDATE: 'manager:prStatusUpdate',  // Event: PR status changed (main -> renderer)
-  MANAGER_TASK_ACTIVITY: 'manager:taskActivity'        // Event: User activity on task (renderer -> main)
+  MANAGER_TASK_ACTIVITY: 'manager:taskActivity',       // Event: User activity on task (renderer -> main)
+
+  // Review workflow operations
+  REVIEW_GET_CHECKLIST: 'review:getChecklist',
+  REVIEW_UPDATE_CHECKLIST: 'review:updateChecklist',
+  REVIEW_GET_REVIEWER_ASSIGNMENT: 'review:getReviewerAssignment',
+  REVIEW_UPDATE_REVIEWER_ASSIGNMENT: 'review:updateReviewerAssignment',
+  REVIEW_GET_METRICS: 'review:getMetrics'
 } as const;

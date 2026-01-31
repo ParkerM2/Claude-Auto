@@ -659,5 +659,58 @@
     "comments": "Commentaires",
     "diff": "Diff",
     "noComments": "Aucun commentaire"
+  },
+  "review": {
+    "checklist": {
+      "title": "Liste de vérification",
+      "allComplete": "Tous les éléments complétés",
+      "incomplete": "{{count}} éléments restants",
+      "itemComplete": "Élément complété",
+      "itemIncomplete": "Élément incomplet",
+      "noItems": "Aucun élément de vérification"
+    },
+    "reviewers": {
+      "title": "Réviseurs",
+      "assign": "Assigner un réviseur",
+      "assignPlaceholder": "Sélectionner un réviseur...",
+      "noReviewers": "Aucun réviseur assigné",
+      "approvalStatus": "Statut d'approbation",
+      "approved": "Approuvé",
+      "pending": "En attente",
+      "allApproved": "Tous les réviseurs ont approuvé",
+      "requiresApproval": "{{count}} approbation(s) requise(s)",
+      "addReviewer": "Ajouter un réviseur",
+      "removeReviewer": "Retirer un réviseur"
+    },
+    "metrics": {
+      "title": "Métriques de révision",
+      "cycleTime": "Temps de cycle",
+      "iterations": "Itérations",
+      "timeToApproval": "Temps jusqu'à approbation",
+      "reviewerResponseTime": "Temps de réponse du réviseur",
+      "noData": "Aucune métrique disponible",
+      "inProgress": "En cours",
+      "days": "{{count}} jour(s)",
+      "hours": "{{count}} heure(s)",
+      "minutes": "{{count}} minute(s)"
+    },
+    "approvalGate": {
+      "title": "Exigences d'approbation",
+      "canMerge": "Prêt à fusionner",
+      "blocked": "Fusion bloquée",
+      "checklistIncomplete": "Liste de vérification incomplète",
+      "reviewersNotApproved": "En attente de l'approbation des réviseurs",
+      "reviewNotApproved": "Révision non approuvée",
+      "requirements": "Exigences :",
+      "checklistRequired": "Compléter tous les éléments de la liste",
+      "reviewersRequired": "Tous les réviseurs doivent approuver",
+      "reviewRequired": "La révision doit être approuvée"
+    },
+    "comments": {
+      "title": "Commentaires de révision",
+      "addComment": "Ajouter un commentaire",
+      "noComments": "Aucun commentaire pour le moment",
+      "commentPlaceholder": "Entrez votre commentaire de révision..."
+    }
   }
 }

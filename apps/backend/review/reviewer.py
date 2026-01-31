@@ -27,12 +27,78 @@ from ui import (
     warning,
 )
 
+from .checklist import ReviewChecklist
 from .formatters import (
     display_plan_summary,
     display_review_status,
     display_spec_summary,
 )
+from .reviewers import ReviewerAssignment
 from .state import ReviewState
+
+
+def can_merge(spec_dir: Path) -> tuple[bool, list[str]]:
+    """
+    Check if a spec is ready to be merged based on approval gates.
+
+    Performs three checks:
+    1. ReviewState is approved and approval is still valid (spec hasn't changed)
+    2. ReviewChecklist is complete (all required items checked)
+    3. ReviewerAssignment has all required approvals
+
+    Args:
+        spec_dir: Path to the spec directory
+
+    Returns:
+        Tuple of (can_merge, blocking_reasons):
+        - can_merge: True if all gates pass, False otherwise
+        - blocking_reasons: List of human-readable reasons blocking merge (empty if can_merge=True)
+
+    Example:
+        >>> can_merge(Path(".auto-claude/specs/001-feature"))
+        (True, [])
+
+        >>> can_merge(Path(".auto-claude/specs/002-feature"))
+        (False, ["Spec not approved", "Checklist incomplete: 2 items remaining", "Missing approvals: alice, bob"])
+    """
+    spec_dir = Path(spec_dir)
+    blocking_reasons = []
+
+    # Check 1: ReviewState is approved and valid
+    state = ReviewState.load(spec_dir)
+    if not state.is_approved():
+        blocking_reasons.append("Spec not approved")
+    elif not state.is_approval_valid(spec_dir):
+        blocking_reasons.append("Spec changed since approval - re-approval required")
+
+    # Check 2: ReviewChecklist is complete
+    checklist = ReviewChecklist.load(spec_dir)
+    if not checklist.is_complete():
+        status = checklist.get_completion_status()
+        required_count = status["total_required"]
+        completed_count = status["completed_required"]
+        remaining = required_count - completed_count
+        blocking_reasons.append(
+            f"Checklist incomplete: {remaining} required item{'s' if remaining != 1 else ''} remaining"
+        )
+
+    # Check 3: ReviewerAssignment has all required approvals
+    assignment = ReviewerAssignment.load(spec_dir)
+    if not assignment.has_required_approvals():
+        status = assignment.get_approval_status()
+        pending = status["pending_reviewers"]
+        if pending:
+            reviewers_list = ", ".join(pending)
+            blocking_reasons.append(f"Missing approvals from: {reviewers_list}")
+        else:
+            required = status["required_count"]
+            approved = status["approved_count"]
+            blocking_reasons.append(
+                f"Missing approvals: {approved}/{required} approved"
+            )
+
+    can_merge_result = len(blocking_reasons) == 0
+    return (can_merge_result, blocking_reasons)
 
 
 class ReviewChoice(Enum):
