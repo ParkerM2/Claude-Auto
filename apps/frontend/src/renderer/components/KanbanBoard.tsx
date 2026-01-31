@@ -26,6 +26,7 @@ import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { TaskCard } from './TaskCard';
 import { SortableTaskCard } from './SortableTaskCard';
+import { TaskTableView } from './TaskTableView';
 import { QueueSettingsModal } from './QueueSettingsModal';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
@@ -68,6 +69,7 @@ interface DroppableColumnProps {
   onTaskClick: (task: Task) => void;
   onStatusChange: (taskId: string, newStatus: TaskStatus) => unknown;
   isOver: boolean;
+  compact?: boolean;
   onAddClick?: () => void;
   onArchiveAll?: () => void;
   onQueueSettings?: () => void;
@@ -117,6 +119,7 @@ function droppableColumnPropsAreEqual(
   // Quick checks first
   if (prevProps.status !== nextProps.status) return false;
   if (prevProps.isOver !== nextProps.isOver) return false;
+  if (prevProps.compact !== nextProps.compact) return false;
   if (prevProps.onTaskClick !== nextProps.onTaskClick) return false;
   if (prevProps.onStatusChange !== nextProps.onStatusChange) return false;
   if (prevProps.onAddClick !== nextProps.onAddClick) return false;
@@ -200,7 +203,7 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
   }
 };
 
-const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, onArchiveAll, onQueueSettings, onQueueAll, maxParallelTasks, archivedCount, showArchived, onToggleArchived, selectedTaskIds, onSelectAll, onDeselectAll, onToggleSelect }: DroppableColumnProps) {
+const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, compact, onAddClick, onArchiveAll, onQueueSettings, onQueueAll, maxParallelTasks, archivedCount, showArchived, onToggleArchived, selectedTaskIds, onSelectAll, onDeselectAll, onToggleSelect }: DroppableColumnProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const { setNodeRef } = useDroppable({
     id: status
@@ -270,12 +273,13 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
         task={task}
         onClick={onClickHandlers.get(task.id)!}
         onStatusChange={onStatusChangeHandlers.get(task.id)}
+        compact={compact}
         isSelectable={isSelectable}
         isSelected={isSelectable ? selectedTaskIds?.has(task.id) : undefined}
         onToggleSelect={onToggleSelectHandlers?.get(task.id)}
       />
     ));
-  }, [tasks, onClickHandlers, onStatusChangeHandlers, onToggleSelectHandlers, selectedTaskIds]);
+  }, [tasks, onClickHandlers, onStatusChangeHandlers, onToggleSelectHandlers, selectedTaskIds, compact]);
 
   const getColumnBorderColor = (): string => {
     switch (status) {
@@ -1170,53 +1174,64 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           </Button>
         )}
       </div>
-      {/* Kanban columns */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="flex flex-1 gap-4 overflow-x-auto p-6">
-          {TASK_STATUS_COLUMNS.map((status) => (
-            <DroppableColumn
-              key={status}
-              status={status}
-              tasks={tasksByStatus[status]}
-              onTaskClick={onTaskClick}
-              onStatusChange={handleStatusChange}
-              isOver={overColumnId === status}
-              onAddClick={status === 'backlog' ? onNewTaskClick : undefined}
-              onQueueAll={status === 'backlog' ? handleQueueAll : undefined}
-              onQueueSettings={status === 'queue' ? () => {
-                // Only open modal if we have a valid projectId
-                if (!projectId) return;
-                queueSettingsProjectIdRef.current = projectId;
-                setShowQueueSettings(true);
-              } : undefined}
-              onArchiveAll={status === 'done' ? handleArchiveAll : undefined}
-              maxParallelTasks={status === 'in_progress' ? maxParallelTasks : undefined}
-              archivedCount={status === 'done' ? archivedCount : undefined}
-              showArchived={status === 'done' ? showArchived : undefined}
-              onToggleArchived={status === 'done' ? toggleShowArchived : undefined}
-              selectedTaskIds={status === 'human_review' ? selectedTaskIds : undefined}
-              onSelectAll={status === 'human_review' ? selectAllTasks : undefined}
-              onDeselectAll={status === 'human_review' ? deselectAllTasks : undefined}
-              onToggleSelect={status === 'human_review' ? toggleTaskSelection : undefined}
-            />
-          ))}
-        </div>
 
-        {/* Drag overlay - enhanced visual feedback */}
-        <DragOverlay>
-          {activeTask ? (
-            <div className="drag-overlay-card">
-              <TaskCard task={activeTask} onClick={() => {}} />
-            </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+      {/* Conditional rendering based on view mode */}
+      {viewMode === 'table' ? (
+        /* Table view - Jira-style list */
+        <TaskTableView
+          tasks={filteredTasks}
+          onTaskClick={onTaskClick}
+        />
+      ) : (
+        /* Kanban columns - Full or Compact mode */
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex flex-1 gap-4 overflow-x-auto p-6">
+            {TASK_STATUS_COLUMNS.map((status) => (
+              <DroppableColumn
+                key={status}
+                status={status}
+                tasks={tasksByStatus[status]}
+                onTaskClick={onTaskClick}
+                onStatusChange={handleStatusChange}
+                isOver={overColumnId === status}
+                compact={viewMode === 'kanban-compact'}
+                onAddClick={status === 'backlog' ? onNewTaskClick : undefined}
+                onQueueAll={status === 'backlog' ? handleQueueAll : undefined}
+                onQueueSettings={status === 'queue' ? () => {
+                  // Only open modal if we have a valid projectId
+                  if (!projectId) return;
+                  queueSettingsProjectIdRef.current = projectId;
+                  setShowQueueSettings(true);
+                } : undefined}
+                onArchiveAll={status === 'done' ? handleArchiveAll : undefined}
+                maxParallelTasks={status === 'in_progress' ? maxParallelTasks : undefined}
+                archivedCount={status === 'done' ? archivedCount : undefined}
+                showArchived={status === 'done' ? showArchived : undefined}
+                onToggleArchived={status === 'done' ? toggleShowArchived : undefined}
+                selectedTaskIds={status === 'human_review' ? selectedTaskIds : undefined}
+                onSelectAll={status === 'human_review' ? selectAllTasks : undefined}
+                onDeselectAll={status === 'human_review' ? deselectAllTasks : undefined}
+                onToggleSelect={status === 'human_review' ? toggleTaskSelection : undefined}
+              />
+            ))}
+          </div>
+
+          {/* Drag overlay - enhanced visual feedback */}
+          <DragOverlay>
+            {activeTask ? (
+              <div className="drag-overlay-card">
+                <TaskCard task={activeTask} onClick={() => {}} compact={viewMode === 'kanban-compact'} />
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      )}
 
       {selectedTaskIds.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
