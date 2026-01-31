@@ -22,6 +22,7 @@ def test_environment_detection():
     # Test development mode
     env = os.environ.copy()
     env['API_MODE'] = 'development'
+    env.pop('GRAPHITI_MCP_URL', None)
 
     result = subprocess.run(
         [
@@ -68,6 +69,7 @@ print("✓ PASS: API_MODE=development returns localhost:8001")
     env['API_MODE'] = 'production'
     # Remove PYTEST_CURRENT_TEST if it exists
     env.pop('PYTEST_CURRENT_TEST', None)
+    env.pop('GRAPHITI_MCP_URL', None)
 
     result = subprocess.run(
         [
@@ -114,6 +116,7 @@ print("✓ PASS: API_MODE=production returns localhost:8000")
     env['PYTEST_CURRENT_TEST'] = 'test_something.py::test_function'
     # Remove API_MODE to test pure pytest detection
     env.pop('API_MODE', None)
+    env.pop('GRAPHITI_MCP_URL', None)
 
     result = subprocess.run(
         [
