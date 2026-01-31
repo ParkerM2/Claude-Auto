@@ -4,11 +4,17 @@ Code Quality Analyzer Module
 
 Analyzes code quality metrics including cyclomatic complexity and maintainability index.
 Uses radon library for Python code analysis and supports basic metrics for other languages.
+
+Optional SonarQube Integration:
+- Set SONARQUBE_URL environment variable to enable
+- Optionally set SONARQUBE_TOKEN for authenticated access
+- Fetches additional metrics: bugs, vulnerabilities, code smells, coverage, duplications
 """
 
 from __future__ import annotations
 
 import ast
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -22,6 +28,13 @@ try:
     HAS_RADON = True
 except ImportError:
     HAS_RADON = False
+
+try:
+    import requests
+
+    HAS_REQUESTS = True
+except ImportError:
+    HAS_REQUESTS = False
 
 
 # =============================================================================
@@ -83,6 +96,7 @@ class CodeQualityMetrics:
         critical_complexity_count: Number of functions with complexity > 20
         files: List of per-file metrics
         technical_debt_score: Estimated technical debt score (0-100, higher is worse)
+        sonarqube_metrics: Optional SonarQube metrics (if integration enabled)
     """
 
     total_files: int = 0
@@ -93,6 +107,184 @@ class CodeQualityMetrics:
     critical_complexity_count: int = 0
     files: list[FileMetrics] = field(default_factory=list)
     technical_debt_score: float = 0.0
+    sonarqube_metrics: dict[str, Any] | None = None
+
+
+@dataclass
+class SonarQubeConfig:
+    """
+    Configuration for SonarQube integration.
+
+    Attributes:
+        url: SonarQube server URL
+        token: Optional authentication token
+        project_key: Optional project key (auto-detected if not provided)
+        enabled: Whether SonarQube integration is enabled
+    """
+
+    url: str = ""
+    token: str = ""
+    project_key: str = ""
+    enabled: bool = False
+
+    @classmethod
+    def from_env(cls) -> "SonarQubeConfig":
+        """Create configuration from environment variables."""
+        url = os.environ.get("SONARQUBE_URL", "").strip()
+        token = os.environ.get("SONARQUBE_TOKEN", "").strip()
+        project_key = os.environ.get("SONARQUBE_PROJECT_KEY", "").strip()
+
+        # Remove trailing slash from URL
+        if url.endswith("/"):
+            url = url[:-1]
+
+        enabled = bool(url)
+
+        return cls(
+            url=url,
+            token=token,
+            project_key=project_key,
+            enabled=enabled,
+        )
+
+    def is_valid(self) -> bool:
+        """Check if configuration is valid."""
+        return self.enabled and bool(self.url)
+
+
+# =============================================================================
+# SONARQUBE CLIENT
+# =============================================================================
+
+
+class SonarQubeClient:
+    """
+    Client for interacting with SonarQube API.
+
+    Fetches code quality metrics from a SonarQube server.
+    """
+
+    def __init__(self, config: SonarQubeConfig):
+        """
+        Initialize SonarQube client.
+
+        Args:
+            config: SonarQube configuration
+        """
+        self.config = config
+        self.session = None
+
+        if HAS_REQUESTS and config.is_valid():
+            self.session = requests.Session()
+            if config.token:
+                # SonarQube uses token as username with empty password
+                self.session.auth = (config.token, "")
+
+    def fetch_project_metrics(self, project_key: str | None = None) -> dict[str, Any]:
+        """
+        Fetch project-level metrics from SonarQube.
+
+        Args:
+            project_key: SonarQube project key (uses config default if not provided)
+
+        Returns:
+            Dictionary of metrics or error information
+        """
+        if not self.session:
+            return {"error": "SonarQube client not initialized"}
+
+        project_key = project_key or self.config.project_key
+        if not project_key:
+            return {"error": "No project key provided"}
+
+        try:
+            # Fetch project measures
+            metrics = [
+                "bugs",
+                "vulnerabilities",
+                "code_smells",
+                "coverage",
+                "duplicated_lines_density",
+                "ncloc",
+                "sqale_index",  # Technical debt
+                "reliability_rating",
+                "security_rating",
+                "sqale_rating",  # Maintainability rating
+            ]
+
+            url = f"{self.config.url}/api/measures/component"
+            params = {
+                "component": project_key,
+                "metricKeys": ",".join(metrics),
+            }
+
+            response = self.session.get(url, params=params, timeout=10)
+            response.raise_for_status()
+
+            data = response.json()
+            component = data.get("component", {})
+            measures = component.get("measures", [])
+
+            # Convert measures to dictionary
+            result = {
+                "project_key": project_key,
+                "metrics": {},
+            }
+
+            for measure in measures:
+                metric_key = measure.get("metric")
+                value = measure.get("value")
+
+                # Convert to appropriate type
+                try:
+                    # Try float first
+                    if "." in str(value):
+                        result["metrics"][metric_key] = float(value)
+                    else:
+                        result["metrics"][metric_key] = int(value)
+                except (ValueError, TypeError):
+                    result["metrics"][metric_key] = value
+
+            return result
+
+        except requests.exceptions.RequestException as e:
+            return {"error": f"Failed to fetch SonarQube metrics: {e!s}"}
+        except (ValueError, KeyError) as e:
+            return {"error": f"Failed to parse SonarQube response: {e!s}"}
+
+    def search_projects(self) -> list[dict[str, Any]]:
+        """
+        Search for projects in SonarQube.
+
+        Returns:
+            List of project information dictionaries
+        """
+        if not self.session:
+            return []
+
+        try:
+            url = f"{self.config.url}/api/components/search"
+            params = {
+                "qualifiers": "TRK",  # Projects only
+            }
+
+            response = self.session.get(url, params=params, timeout=10)
+            response.raise_for_status()
+
+            data = response.json()
+            components = data.get("components", [])
+
+            return [
+                {
+                    "key": comp.get("key"),
+                    "name": comp.get("name"),
+                    "qualifier": comp.get("qualifier"),
+                }
+                for comp in components
+            ]
+
+        except requests.exceptions.RequestException:
+            return []
 
 
 # =============================================================================
@@ -121,10 +313,18 @@ class CodeQualityAnalyzer(BaseAnalyzer):
         """
         super().__init__(path)
         self.metrics = CodeQualityMetrics()
+        self.sonarqube_config = SonarQubeConfig.from_env()
+        self.sonarqube_client = None
+
+        # Initialize SonarQube client if enabled
+        if self.sonarqube_config.is_valid() and HAS_REQUESTS:
+            self.sonarqube_client = SonarQubeClient(self.sonarqube_config)
 
     def analyze(self) -> dict[str, Any]:
         """
         Analyze code quality metrics for all supported files.
+
+        Includes optional SonarQube metrics if SONARQUBE_URL is configured.
 
         Returns:
             Dictionary containing code quality metrics
@@ -148,8 +348,18 @@ class CodeQualityAnalyzer(BaseAnalyzer):
         # Compute aggregate metrics
         self._compute_aggregate_metrics()
 
+        # Fetch SonarQube metrics if enabled
+        if self.sonarqube_client and self.sonarqube_config.project_key:
+            try:
+                sonarqube_data = self.sonarqube_client.fetch_project_metrics()
+                if "error" not in sonarqube_data:
+                    self.metrics.sonarqube_metrics = sonarqube_data
+            except Exception:
+                # SonarQube is optional - continue without it on error
+                pass
+
         # Return structured results
-        return {
+        result = {
             "total_files": self.metrics.total_files,
             "total_lines": self.metrics.total_lines,
             "average_complexity": round(self.metrics.average_complexity, 2),
@@ -181,6 +391,12 @@ class CodeQualityAnalyzer(BaseAnalyzer):
                 for f in self.metrics.files
             ],
         }
+
+        # Include SonarQube metrics if available
+        if self.metrics.sonarqube_metrics:
+            result["sonarqube"] = self.metrics.sonarqube_metrics
+
+        return result
 
     def _find_code_files(self) -> list[Path]:
         """
@@ -425,3 +641,16 @@ class CodeQualityAnalyzer(BaseAnalyzer):
             debt_score += critical_ratio * 20
 
         self.metrics.technical_debt_score = min(debt_score, 100.0)
+
+    def is_sonarqube_enabled(self) -> bool:
+        """
+        Check if SonarQube integration is enabled and available.
+
+        Returns:
+            True if SonarQube integration is configured and active
+        """
+        return (
+            self.sonarqube_config.is_valid()
+            and self.sonarqube_client is not None
+            and HAS_REQUESTS
+        )
