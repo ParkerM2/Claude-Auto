@@ -36,18 +36,35 @@ export type SubtaskStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
 // Re-exported from constants - single source of truth
 export type ExecutionPhase = ExecutionPhaseType;
 
+// Recent action types for activity feed
+export type RecentActionType = 'tool_use' | 'file_edit' | 'file_create' | 'command' | 'thinking' | 'subtask_start' | 'subtask_complete' | 'phase_change';
+
+// Recent action entry for real-time activity feed
+export interface RecentAction {
+  id: string;                    // Unique identifier for deduplication
+  timestamp: Date;               // When the action occurred
+  type: RecentActionType;        // Type of action
+  description: string;           // Human-readable description of the action
+  toolName?: string;             // Name of the tool if type is 'tool_use'
+  filePath?: string;             // File path if action involves a file
+  phase?: ExecutionPhase;        // Phase during which action occurred
+  subtaskId?: string;            // Associated subtask if any
+}
+
 export interface ExecutionProgress {
   phase: ExecutionPhase;
   phaseProgress: number;  // 0-100 within current phase
   overallProgress: number;  // 0-100 overall
   currentSubtask?: string;  // Current subtask being processed
   message?: string;  // Current status message
-  startedAt?: Date;
+  startedAt?: Date;  // When execution started
   sequenceNumber?: number;  // Monotonically increasing counter to detect stale updates
   // FIX (ACS-203): Track completed phases to prevent phase overlaps
   // When a phase completes, it's added to this array before transitioning to the next phase
   // This ensures that planning is marked complete before coding starts, etc.
   completedPhases?: CompletablePhase[];  // Phases that have successfully completed
+  // Real-time activity feed - shows recent agent actions (limited to last N actions)
+  recentActions?: RecentAction[];
 }
 
 export interface Subtask {
