@@ -659,5 +659,36 @@
     "comments": "Comments",
     "diff": "Diff",
     "noComments": "No comments"
+  },
+  "kanbanPR": {
+    "actions": {
+      "approve": "Approve PR",
+      "requestChanges": "Request Changes",
+      "merge": "Merge PR",
+      "close": "Close PR",
+      "reopen": "Reopen PR",
+      "openInGitHub": "Open in GitHub",
+      "openInGitLab": "Open in GitLab"
+    },
+    "confirm": {
+      "approveTitle": "Approve Pull Request?",
+      "approveMessage": "This will approve the pull request and allow it to be merged.",
+      "requestChangesTitle": "Request Changes?",
+      "requestChangesMessage": "This will request changes on the pull request.",
+      "mergeTitle": "Merge Pull Request?",
+      "mergeMessage": "This will merge the pull request into the base branch. This action cannot be undone.",
+      "closeTitle": "Close Pull Request?",
+      "closeMessage": "This will close the pull request without merging.",
+      "reopenTitle": "Reopen Pull Request?",
+      "reopenMessage": "This will reopen the previously closed pull request."
+    },
+    "status": {
+      "approved": "PR approved",
+      "changesRequested": "Changes requested",
+      "merged": "PR merged",
+      "closed": "PR closed",
+      "reopened": "PR reopened",
+      "actionFailed": "Action failed"
+    }
   }
 }

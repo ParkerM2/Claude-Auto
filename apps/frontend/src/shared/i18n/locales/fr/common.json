@@ -659,5 +659,36 @@
     "comments": "Commentaires",
     "diff": "Diff",
     "noComments": "Aucun commentaire"
+  },
+  "kanbanPR": {
+    "actions": {
+      "approve": "Approuver la PR",
+      "requestChanges": "Demander des modifications",
+      "merge": "Fusionner la PR",
+      "close": "Fermer la PR",
+      "reopen": "Rouvrir la PR",
+      "openInGitHub": "Ouvrir dans GitHub",
+      "openInGitLab": "Ouvrir dans GitLab"
+    },
+    "confirm": {
+      "approveTitle": "Approuver la Pull Request ?",
+      "approveMessage": "Cela approuvera la pull request et permettra sa fusion.",
+      "requestChangesTitle": "Demander des modifications ?",
+      "requestChangesMessage": "Cela demandera des modifications sur la pull request.",
+      "mergeTitle": "Fusionner la Pull Request ?",
+      "mergeMessage": "Cela fusionnera la pull request dans la branche de base. Cette action ne peut pas être annulée.",
+      "closeTitle": "Fermer la Pull Request ?",
+      "closeMessage": "Cela fermera la pull request sans la fusionner.",
+      "reopenTitle": "Rouvrir la Pull Request ?",
+      "reopenMessage": "Cela rouvrira la pull request précédemment fermée."
+    },
+    "status": {
+      "approved": "PR approuvée",
+      "changesRequested": "Modifications demandées",
+      "merged": "PR fusionnée",
+      "closed": "PR fermée",
+      "reopened": "PR rouverte",
+      "actionFailed": "Action échouée"
+    }
   }
 }
