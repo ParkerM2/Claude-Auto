@@ -13,6 +13,8 @@ interface SortableTaskCardProps {
   isSelectable?: boolean;
   isSelected?: boolean;
   onToggleSelect?: () => void;
+  // Compact mode - shows minimal info (title, status, category, progress, menu)
+  compact?: boolean;
 }
 
 // Custom comparator - only re-render when task or onClick actually changed
@@ -28,11 +30,12 @@ function sortableTaskCardPropsAreEqual(
     prevProps.onStatusChange === nextProps.onStatusChange &&
     prevProps.isSelectable === nextProps.isSelectable &&
     prevProps.isSelected === nextProps.isSelected &&
-    prevProps.onToggleSelect === nextProps.onToggleSelect
+    prevProps.onToggleSelect === nextProps.onToggleSelect &&
+    prevProps.compact === nextProps.compact
   );
 }
 
-export const SortableTaskCard = memo(function SortableTaskCard({ task, onClick, onStatusChange, isSelectable, isSelected, onToggleSelect }: SortableTaskCardProps) {
+export const SortableTaskCard = memo(function SortableTaskCard({ task, onClick, onStatusChange, isSelectable, isSelected, onToggleSelect, compact }: SortableTaskCardProps) {
   const {
     attributes,
     listeners,
@@ -74,6 +77,7 @@ export const SortableTaskCard = memo(function SortableTaskCard({ task, onClick, 
         isSelectable={isSelectable}
         isSelected={isSelected}
         onToggleSelect={onToggleSelect}
+        compact={compact}
       />
     </div>
   );

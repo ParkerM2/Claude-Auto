@@ -505,26 +505,6 @@ export function App() {
       root.setAttribute('data-theme', colorTheme);
     }
 
-    // Inject custom CSS when custom theme is active
-    const customStyleId = 'custom-theme-styles';
-    const existingCustomStyle = document.getElementById(customStyleId);
-
-    if (colorTheme === 'custom' && settings.customThemeCss) {
-      // Create or update the custom style tag
-      const styleTag = existingCustomStyle || document.createElement('style');
-      styleTag.id = customStyleId;
-      styleTag.textContent = settings.customThemeCss;
-
-      if (!existingCustomStyle) {
-        document.head.appendChild(styleTag);
-      }
-    } else {
-      // Remove custom styles when switching to predefined theme
-      if (existingCustomStyle) {
-        existingCustomStyle.remove();
-      }
-    }
-
     applyTheme();
 
     // Listen for system theme changes
@@ -539,7 +519,7 @@ export function App() {
     return () => {
       mediaQuery.removeEventListener('change', handleChange);
     };
-  }, [settings.theme, settings.colorTheme, settings.customThemeCss]);
+  }, [settings.theme, settings.colorTheme]);
 
   // Apply UI scale
   useEffect(() => {

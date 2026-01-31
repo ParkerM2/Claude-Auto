@@ -398,8 +398,38 @@ def is_graphiti_mcp_enabled() -> bool:
 
 
 def get_graphiti_mcp_url() -> str:
-    """Get the Graphiti MCP server URL."""
-    return os.environ.get("GRAPHITI_MCP_URL", "http://localhost:8000/mcp/")
+    """
+    Get the Graphiti MCP server URL.
+
+    Automatically selects between development (mock) and production MCP servers:
+    - Development/testing mode: http://localhost:8001/mcp/ (mock server)
+    - Production mode: http://localhost:8000/mcp/ (real server)
+
+    Environment variables:
+    - API_MODE: Set to 'development' to use mock server
+    - PYTEST_CURRENT_TEST: Automatically set by pytest (uses mock server)
+    - GRAPHITI_MCP_URL: Override URL (takes precedence)
+    - MOCK_MCP_PORT: Custom port for mock server (default: 8001)
+
+    Returns:
+        MCP server URL based on environment
+    """
+    # Check if explicitly overridden
+    if "GRAPHITI_MCP_URL" in os.environ:
+        return os.environ["GRAPHITI_MCP_URL"]
+
+    # Detect environment mode
+    api_mode = os.environ.get("API_MODE", "production")
+    is_development = api_mode == "development"
+    is_testing = os.environ.get("PYTEST_CURRENT_TEST") is not None
+
+    # Use mock server in development or testing mode
+    if is_development or is_testing:
+        mock_port = os.environ.get("MOCK_MCP_PORT", "8001")
+        return f"http://localhost:{mock_port}/mcp/"
+
+    # Production mode: use real server
+    return "http://localhost:8000/mcp/"
 
 
 def is_electron_mcp_enabled() -> bool:

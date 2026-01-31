@@ -36,35 +36,18 @@ export type SubtaskStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
 // Re-exported from constants - single source of truth
 export type ExecutionPhase = ExecutionPhaseType;
 
-// Recent action types for activity feed
-export type RecentActionType = 'tool_use' | 'file_edit' | 'file_create' | 'command' | 'thinking' | 'subtask_start' | 'subtask_complete' | 'phase_change';
-
-// Recent action entry for real-time activity feed
-export interface RecentAction {
-  id: string;                    // Unique identifier for deduplication
-  timestamp: Date;               // When the action occurred
-  type: RecentActionType;        // Type of action
-  description: string;           // Human-readable description of the action
-  toolName?: string;             // Name of the tool if type is 'tool_use'
-  filePath?: string;             // File path if action involves a file
-  phase?: ExecutionPhase;        // Phase during which action occurred
-  subtaskId?: string;            // Associated subtask if any
-}
-
 export interface ExecutionProgress {
   phase: ExecutionPhase;
   phaseProgress: number;  // 0-100 within current phase
   overallProgress: number;  // 0-100 overall
   currentSubtask?: string;  // Current subtask being processed
   message?: string;  // Current status message
-  startedAt?: Date;  // When execution started
+  startedAt?: Date;
   sequenceNumber?: number;  // Monotonically increasing counter to detect stale updates
   // FIX (ACS-203): Track completed phases to prevent phase overlaps
   // When a phase completes, it's added to this array before transitioning to the next phase
   // This ensures that planning is marked complete before coding starts, etc.
   completedPhases?: CompletablePhase[];  // Phases that have successfully completed
-  // Real-time activity feed - shows recent agent actions (limited to last N actions)
-  recentActions?: RecentAction[];
 }
 
 export interface Subtask {
@@ -92,6 +75,66 @@ export interface QAIssue {
   description: string;
   file?: string;
   line?: number;
+}
+
+// Code Review Workflow Types
+
+/**
+ * Individual checklist item for code review
+ */
+export interface ReviewChecklistItem {
+  id: string;
+  label: string;
+  completed: boolean;
+  required: boolean;
+}
+
+/**
+ * Review checklist for a spec
+ */
+export interface ReviewChecklist {
+  specId: string;
+  items: ReviewChecklistItem[];
+  allComplete: boolean;  // Computed: true if all required items are completed
+  updatedAt: Date;
+}
+
+/**
+ * Individual reviewer information
+ */
+export interface ReviewerInfo {
+  id: string;
+  name: string;
+  email?: string;
+  approved: boolean;
+  approvedAt?: Date;
+  comment?: string;  // Optional approval/rejection comment
+}
+
+/**
+ * Reviewer assignment for a spec
+ */
+export interface ReviewerAssignment {
+  specId: string;
+  required: ReviewerInfo[];  // Reviewers that must approve
+  actual: ReviewerInfo[];    // Reviewers who have been assigned
+  allApproved: boolean;      // Computed: true if all required reviewers approved
+  updatedAt: Date;
+}
+
+/**
+ * Review metrics and cycle time tracking
+ */
+export interface ReviewMetrics {
+  specId: string;
+  cycleTime?: number;             // Total review cycle time in milliseconds
+  iterationCount: number;          // Number of review iterations
+  timeToApproval?: number;         // Time from first review to approval in milliseconds
+  reviewerResponseTime?: number;   // Average reviewer response time in milliseconds
+  reviewStartedAt?: Date;          // When review process started
+  firstReviewAt?: Date;            // When first reviewer began review
+  approvedAt?: Date;               // When final approval was given
+  updatedAt: Date;
 }
 
 // Task Log Types - for persistent, phase-based logging

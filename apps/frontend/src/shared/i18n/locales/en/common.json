@@ -52,7 +52,10 @@
     "hideTokenEntryAriaLabel": "Hide token entry",
     "enterTokenManuallyAriaLabel": "Enter token manually",
     "renameProfileAriaLabel": "Rename profile",
-    "deleteProfileAriaLabel": "Delete profile"
+    "deleteProfileAriaLabel": "Delete profile",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "actions": "Actions"
   },
   "buttons": {
     "save": "Save",
@@ -662,5 +665,58 @@
     "createSpec": "Create Spec",
     "creatingSpec": "Creating...",
     "specCreated": "Spec Created"
+  },
+  "review": {
+    "checklist": {
+      "title": "Review Checklist",
+      "allComplete": "All items complete",
+      "incomplete": "{{count}} items remaining",
+      "itemComplete": "Item complete",
+      "itemIncomplete": "Item incomplete",
+      "noItems": "No checklist items"
+    },
+    "reviewers": {
+      "title": "Reviewers",
+      "assign": "Assign Reviewer",
+      "assignPlaceholder": "Select reviewer...",
+      "noReviewers": "No reviewers assigned",
+      "approvalStatus": "Approval Status",
+      "approved": "Approved",
+      "pending": "Pending",
+      "allApproved": "All reviewers approved",
+      "requiresApproval": "{{count}} approval(s) required",
+      "addReviewer": "Add reviewer",
+      "removeReviewer": "Remove reviewer"
+    },
+    "metrics": {
+      "title": "Review Metrics",
+      "cycleTime": "Cycle Time",
+      "iterations": "Iterations",
+      "timeToApproval": "Time to Approval",
+      "reviewerResponseTime": "Reviewer Response Time",
+      "noData": "No metrics available",
+      "inProgress": "In progress",
+      "days": "{{count}} day(s)",
+      "hours": "{{count}} hour(s)",
+      "minutes": "{{count}} minute(s)"
+    },
+    "approvalGate": {
+      "title": "Approval Requirements",
+      "canMerge": "Ready to merge",
+      "blocked": "Merge blocked",
+      "checklistIncomplete": "Checklist incomplete",
+      "reviewersNotApproved": "Awaiting reviewer approval",
+      "reviewNotApproved": "Review not approved",
+      "requirements": "Requirements:",
+      "checklistRequired": "Complete all checklist items",
+      "reviewersRequired": "All reviewers must approve",
+      "reviewRequired": "Review must be approved"
+    },
+    "comments": {
+      "title": "Review Comments",
+      "addComment": "Add comment",
+      "noComments": "No comments yet",
+      "commentPlaceholder": "Enter your review comment..."
+    }
   }
 }

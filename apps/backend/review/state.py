@@ -50,6 +50,10 @@ class ReviewState:
         feedback: List of feedback comments from review sessions
         spec_hash: Hash of spec files at time of approval (for change detection)
         review_count: Number of review sessions conducted
+        checklist_complete: Whether the review checklist is complete
+        checklist_items: Individual checklist items and their completion status
+        required_reviewers: List of required reviewer names/usernames
+        actual_reviewers: List of people who have actually reviewed
     """
 
     approved: bool = False
@@ -58,6 +62,10 @@ class ReviewState:
     feedback: list[str] = field(default_factory=list)
     spec_hash: str = ""
     review_count: int = 0
+    checklist_complete: bool = False
+    checklist_items: dict[str, bool] = field(default_factory=dict)
+    required_reviewers: list[str] = field(default_factory=list)
+    actual_reviewers: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
@@ -68,6 +76,10 @@ class ReviewState:
             "feedback": self.feedback,
             "spec_hash": self.spec_hash,
             "review_count": self.review_count,
+            "checklist_complete": self.checklist_complete,
+            "checklist_items": self.checklist_items,
+            "required_reviewers": self.required_reviewers,
+            "actual_reviewers": self.actual_reviewers,
         }
 
     @classmethod
@@ -80,6 +92,10 @@ class ReviewState:
             feedback=data.get("feedback", []),
             spec_hash=data.get("spec_hash", ""),
             review_count=data.get("review_count", 0),
+            checklist_complete=data.get("checklist_complete", False),
+            checklist_items=data.get("checklist_items", {}),
+            required_reviewers=data.get("required_reviewers", []),
+            actual_reviewers=data.get("actual_reviewers", []),
         )
 
     def save(self, spec_dir: Path) -> None:

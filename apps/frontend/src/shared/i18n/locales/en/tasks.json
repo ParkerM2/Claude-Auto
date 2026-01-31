@@ -141,35 +141,6 @@
       "plan": "Plan",
       "code": "Code",
       "qa": "QA"
-    },
-    "activity": {
-      "title": "Activity",
-      "noActivity": "No activity yet",
-      "currentAction": "Current action",
-      "recentActions": "Recent actions",
-      "showMore": "Show more",
-      "showLess": "Show less",
-      "actions": {
-        "readingFile": "Reading {{file}}",
-        "writingFile": "Writing {{file}}",
-        "runningTests": "Running tests",
-        "analyzingCode": "Analyzing code",
-        "creatingPlan": "Creating plan",
-        "executingCommand": "Executing command",
-        "reviewingChanges": "Reviewing changes",
-        "fixingIssues": "Fixing issues",
-        "waiting": "Waiting..."
-      }
-    },
-    "estimatedTime": {
-      "label": "Est. time remaining",
-      "calculating": "Calculating...",
-      "lessThanMinute": "Less than a minute",
-      "minutes": "{{count}} min",
-      "hours": "{{count}} hr",
-      "hoursMinutes": "{{hours}} hr {{minutes}} min",
-      "unknown": "Unknown",
-      "completed": "Completed"
     }
   },
   "files": {
@@ -330,5 +301,39 @@
   "referenceImages": {
     "title": "Reference Images (optional)",
     "description": "Add visual references like screenshots or designs to help the AI understand your requirements."
+  },
+  "viewMode": {
+    "label": "View",
+    "kanban": "Kanban",
+    "table": "Table",
+    "switchToKanban": "Switch to Kanban view",
+    "switchToTable": "Switch to Table view"
+  },
+  "table": {
+    "expandRow": "Expand row: {{title}}",
+    "columns": {
+      "title": "Title",
+      "status": "Status",
+      "priority": "Priority",
+      "complexity": "Complexity",
+      "category": "Category",
+      "createdAt": "Created",
+      "updatedAt": "Updated"
+    },
+    "empty": {
+      "title": "No tasks found",
+      "description": "Create a new task to get started"
+    },
+    "actions": {
+      "sortBy": "Sort by",
+      "filterBy": "Filter by",
+      "ascending": "Ascending",
+      "descending": "Descending"
+    },
+    "pagination": {
+      "showing": "Showing {{start}} to {{end}} of {{total}}",
+      "rowsPerPage": "Rows per page",
+      "page": "Page {{current}} of {{total}}"
+    }
   }
 }

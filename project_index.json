@@ -3,34 +3,56 @@
   "services": {
     "backend": {
       "path": "./apps/backend",
-      "tech_stack": ["python", "asyncio", "aiohttp"],
+      "tech_stack": ["python", "asyncio", "aiohttp", "claude-agent-sdk", "pydantic"],
       "port": null,
-      "dev_command": "python run.py --spec 001",
-      "test_command": "pytest tests/ -v"
+      "dev_command": "python -m apps.backend.cli.main",
+      "test_command": "pytest tests/",
+      "key_modules": [
+        "analysis",
+        "agents",
+        "cli",
+        "core",
+        "integrations"
+      ]
     },
     "frontend": {
       "path": "./apps/frontend",
-      "tech_stack": ["electron", "typescript", "react"],
+      "tech_stack": ["electron", "react", "typescript", "vite"],
       "port": null,
       "dev_command": "npm run dev",
-      "test_command": "npm test"
+      "test_command": "npm test",
+      "key_features": [
+        "task_management",
+        "ideation",
+        "github_integration",
+        "jira_integration",
+        "quality_metrics_ui"
+      ]
     }
   },
   "infrastructure": {
     "docker": false,
     "database": null,
-    "git_worktrees": true
+    "git_worktrees": true,
+    "ci_cd": "github_actions",
+    "testing": ["pytest", "vitest", "playwright"]
   },
   "conventions": {
     "linter": "ruff",
     "formatter": "black",
     "testing": "pytest",
-    "frontend_linter": "biome"
+    "frontend_linter": "biome",
+    "code_style": "type_hints_required"
   },
   "integrations": {
     "github": true,
-    "jira": "partial",
+    "jira": true,
     "linear": "planned",
     "graphiti": true
+  },
+  "analysis_tools": {
+    "security": "scan_secrets.py, bandit",
+    "quality": "ruff",
+    "testing": "pytest with coverage"
   }
 }

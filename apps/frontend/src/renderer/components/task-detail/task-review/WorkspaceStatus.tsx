@@ -32,6 +32,10 @@ interface WorkspaceStatusProps {
   isMerging: boolean;
   isDiscarding: boolean;
   isCreatingPR?: boolean;
+  approvalGate?: {
+    canMerge: boolean;
+    blockingReasons: string[];
+  };
   onShowDiffDialog: (show: boolean) => void;
   onShowDiscardDialog: (show: boolean) => void;
   onShowConflictDialog: (show: boolean) => void;
@@ -90,6 +94,7 @@ export function WorkspaceStatus({
   isMerging,
   isDiscarding,
   isCreatingPR,
+  approvalGate,
   onShowDiffDialog,
   onShowDiscardDialog,
   onShowConflictDialog,
@@ -236,6 +241,23 @@ export function WorkspaceStatus({
 
       {/* Status/Warnings Section */}
       <div className="px-4 py-3 space-y-3">
+        {/* Approval Gate Status */}
+        {approvalGate && !approvalGate.canMerge && (
+          <div className="flex items-start gap-2 p-2.5 rounded-lg bg-warning/10 border border-warning/20">
+            <AlertTriangle className="h-4 w-4 text-warning mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-warning">
+                {t('common:review.approvalGate.blocked')}
+              </p>
+              <ul className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                {approvalGate.blockingReasons.map((reason, idx) => (
+                  <li key={idx}>• {reason}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+
         {/* Workspace Error */}
         {workspaceError && (
           <div className="flex items-start gap-2 p-2.5 rounded-lg bg-destructive/10 border border-destructive/20">
@@ -424,7 +446,7 @@ export function WorkspaceStatus({
                 <Button
                   variant={hasGitConflicts || isBranchBehind || hasPathMappedMerges ? "warning" : "success"}
                   onClick={onMerge}
-                  disabled={isMerging || isDiscarding}
+                  disabled={isMerging || isDiscarding || (approvalGate && !approvalGate.canMerge)}
                   className="flex-1"
                 >
                   {isMerging ? (
@@ -449,9 +471,20 @@ export function WorkspaceStatus({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p className="max-w-xs">
-                  {t('tasks:review.mergeTooltip')}
-                </p>
+                {approvalGate && !approvalGate.canMerge ? (
+                  <div className="max-w-xs">
+                    <p className="font-medium mb-1">{t('common:review.approvalGate.blocked')}</p>
+                    <ul className="text-xs space-y-0.5">
+                      {approvalGate.blockingReasons.map((reason, idx) => (
+                        <li key={idx}>• {reason}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="max-w-xs">
+                    {t('tasks:review.mergeTooltip')}
+                  </p>
+                )}
               </TooltipContent>
             </Tooltip>
           )}
