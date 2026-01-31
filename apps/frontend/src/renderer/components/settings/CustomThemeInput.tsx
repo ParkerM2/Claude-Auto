@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Palette, AlertCircle, Info } from 'lucide-react';
+import { Palette, AlertCircle, Info, CheckCircle2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
@@ -34,21 +34,58 @@ export function CustomThemeInput({ settings, onSettingsChange }: CustomThemeInpu
     updateStoreSettings({ customThemeName: name });
   };
 
+  const validateCss = (css: string): string | null => {
+    if (!css.trim()) {
+      return null; // Empty CSS is valid (allows clearing)
+    }
+
+    // Check for :root section
+    if (!css.includes(':root')) {
+      return 'CSS must include :root section with CSS variables';
+    }
+
+    // Check for CSS variables (--variable-name format)
+    const hasVariables = /--[\w-]+\s*:/.test(css);
+    if (!hasVariables) {
+      return 'CSS must contain at least one CSS variable (e.g., --background: #fff)';
+    }
+
+    // Check for balanced braces
+    const openBraces = (css.match(/{/g) || []).length;
+    const closeBraces = (css.match(/}/g) || []).length;
+    if (openBraces !== closeBraces) {
+      return 'CSS has unmatched braces - check your syntax';
+    }
+
+    // Check for basic :root structure
+    const rootMatch = css.match(/:root\s*{([^}]+)}/);
+    if (!rootMatch) {
+      return ':root section appears to be empty or malformed';
+    }
+
+    // Warn if .dark section is missing (optional but recommended)
+    if (!css.includes('.dark')) {
+      // This is just a warning, not an error - don't return it
+      // Could add a warning state in the future
+    }
+
+    return null; // Valid CSS
+  };
+
   const handleCssChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const css = e.target.value;
     setThemeCss(css);
-    setError(null);
 
-    // Basic validation - check if CSS contains :root
-    if (css.trim() && !css.includes(':root')) {
-      setError('CSS must include :root section with CSS variables');
-      return;
+    // Validate CSS
+    const validationError = validateCss(css);
+    setError(validationError);
+
+    // Only update settings if validation passes or CSS is empty
+    if (!validationError) {
+      const updatedSettings = { ...settings, customThemeCss: css };
+      onSettingsChange(updatedSettings);
+      updateStoreSettings({ customThemeCss: css });
     }
-
-    // Update settings immediately
-    const updatedSettings = { ...settings, customThemeCss: css };
-    onSettingsChange(updatedSettings);
-    updateStoreSettings({ customThemeCss: css });
   };
 
   const handleClear = () => {
@@ -144,13 +181,20 @@ export function CustomThemeInput({ settings, onSettingsChange }: CustomThemeInpu
 }`}
           className={cn(
             'min-h-[300px] font-mono text-xs resize-y',
-            error && 'border-destructive focus-visible:ring-destructive'
+            error && 'border-destructive focus-visible:ring-destructive',
+            !error && themeCss.trim() && 'border-green-500/50 focus-visible:ring-green-500/50'
           )}
         />
         {error && (
           <div className="flex items-center gap-2 text-sm text-destructive">
             <AlertCircle className="h-4 w-4" />
             <span>{error}</span>
+          </div>
+        )}
+        {!error && themeCss.trim() && (
+          <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-500">
+            <CheckCircle2 className="h-4 w-4" />
+            <span>Valid CSS - theme will be applied immediately</span>
           </div>
         )}
       </div>
