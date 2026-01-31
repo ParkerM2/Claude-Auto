@@ -330,5 +330,38 @@
   "referenceImages": {
     "title": "Reference Images (optional)",
     "description": "Add visual references like screenshots or designs to help the AI understand your requirements."
+  },
+  "viewMode": {
+    "label": "View",
+    "kanban": "Kanban",
+    "table": "Table",
+    "switchToKanban": "Switch to Kanban view",
+    "switchToTable": "Switch to Table view"
+  },
+  "table": {
+    "columns": {
+      "title": "Title",
+      "status": "Status",
+      "priority": "Priority",
+      "complexity": "Complexity",
+      "category": "Category",
+      "createdAt": "Created",
+      "updatedAt": "Updated"
+    },
+    "empty": {
+      "title": "No tasks found",
+      "description": "Create a new task to get started"
+    },
+    "actions": {
+      "sortBy": "Sort by",
+      "filterBy": "Filter by",
+      "ascending": "Ascending",
+      "descending": "Descending"
+    },
+    "pagination": {
+      "showing": "Showing {{start}} to {{end}} of {{total}}",
+      "rowsPerPage": "Rows per page",
+      "page": "Page {{current}} of {{total}}"
+    }
   }
 }
