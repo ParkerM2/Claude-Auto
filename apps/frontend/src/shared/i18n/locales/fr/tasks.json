@@ -329,5 +329,38 @@
   "referenceImages": {
     "title": "Images de référence (facultatif)",
     "description": "Ajoutez des références visuelles comme des captures d'écran ou des conceptions pour aider l'IA à comprendre vos exigences."
+  },
+  "viewMode": {
+    "label": "Vue",
+    "kanban": "Kanban",
+    "table": "Tableau",
+    "switchToKanban": "Basculer vers la vue Kanban",
+    "switchToTable": "Basculer vers la vue Tableau"
+  },
+  "table": {
+    "columns": {
+      "title": "Titre",
+      "status": "Statut",
+      "priority": "Priorité",
+      "complexity": "Complexité",
+      "category": "Catégorie",
+      "createdAt": "Créé le",
+      "updatedAt": "Mis à jour"
+    },
+    "empty": {
+      "title": "Aucune tâche trouvée",
+      "description": "Créez une nouvelle tâche pour commencer"
+    },
+    "actions": {
+      "sortBy": "Trier par",
+      "filterBy": "Filtrer par",
+      "ascending": "Croissant",
+      "descending": "Décroissant"
+    },
+    "pagination": {
+      "showing": "Affichage de {{start}} à {{end}} sur {{total}}",
+      "rowsPerPage": "Lignes par page",
+      "page": "Page {{current}} sur {{total}}"
+    }
   }
 }
