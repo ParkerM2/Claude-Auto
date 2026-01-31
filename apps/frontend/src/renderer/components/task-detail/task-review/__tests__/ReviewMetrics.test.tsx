@@ -14,7 +14,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import '../../../../shared/i18n';
+import '../../../../../shared/i18n';
 import { ReviewMetrics } from '../ReviewMetrics';
 import type { ReviewMetrics as ReviewMetricsType } from '../../../../../shared/types';
 
@@ -107,7 +107,7 @@ describe('ReviewMetrics', () => {
 
     render(<ReviewMetrics metrics={emptyMetrics} />);
 
-    expect(screen.getByText(/no data/i)).toBeInTheDocument();
+    expect(screen.getByText(/no metrics available/i)).toBeInTheDocument();
   });
 
   it('should display all four metric types', () => {

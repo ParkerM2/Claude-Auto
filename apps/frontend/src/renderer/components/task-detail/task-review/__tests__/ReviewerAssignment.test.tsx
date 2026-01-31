@@ -15,7 +15,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import '../../../../shared/i18n';
+import '../../../../../shared/i18n';
 import { ReviewerAssignment } from '../ReviewerAssignment';
 import type { ReviewerAssignment as ReviewerAssignmentType } from '../../../../../shared/types';
 
@@ -104,7 +104,7 @@ describe('ReviewerAssignment', () => {
       />
     );
 
-    expect(screen.getByText(/all approved/i)).toBeInTheDocument();
+    expect(screen.getByText(/all reviewers approved/i)).toBeInTheDocument();
   });
 
   it('should display "X waiting approval" when incomplete', () => {
@@ -117,8 +117,8 @@ describe('ReviewerAssignment', () => {
       />
     );
 
-    // Should show "1 waiting approval" (only Bob is required and not approved)
-    expect(screen.getByText(/1.*waiting/i)).toBeInTheDocument();
+    // Should show "1 approval(s) required" (only Bob is required and not approved)
+    expect(screen.getByText(/1.*approval.*required/i)).toBeInTheDocument();
   });
 
   it('should render add reviewer dropdown when available reviewers exist', () => {

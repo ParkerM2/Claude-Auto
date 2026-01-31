@@ -11,15 +11,12 @@ import path from 'path';
 import { registerReviewHandlers } from '../index';
 import { IPC_CHANNELS } from '../../../../shared/constants';
 import type { ReviewChecklist, ReviewerAssignment, ReviewMetrics } from '../../../../shared/types';
+import { projectStore } from '../../../project-store';
 
 // Mock project store
 vi.mock('../../../project-store', () => ({
   projectStore: {
-    getProject: vi.fn(() => ({
-      id: 'test-project',
-      path: '/test/project',
-      autoBuildPath: '.auto-claude'
-    }))
+    getProject: vi.fn()
   }
 }));
 
@@ -28,6 +25,13 @@ describe('Review Handlers Integration Tests', () => {
   const testSpecDir = path.join(testProjectPath, '.auto-claude', 'specs', 'test-spec');
 
   beforeEach(() => {
+    // Setup project store mock with correct path
+    vi.mocked(projectStore.getProject).mockReturnValue({
+      id: 'test-project',
+      path: testProjectPath,
+      autoBuildPath: '.auto-claude'
+    } as any);
+
     // Create test directory
     mkdirSync(testSpecDir, { recursive: true });
 
@@ -65,8 +69,7 @@ describe('Review Handlers Integration Tests', () => {
 
       // Call the handler
       const event = { sender: { send: vi.fn() } };
-      const handler = ipcMain.listeners(IPC_CHANNELS.REVIEW_GET_CHECKLIST)[0];
-      const result = await handler(event, 'test-project', 'test-spec');
+      const result = await (ipcMain as any).invokeHandler(IPC_CHANNELS.REVIEW_GET_CHECKLIST, event, 'test-project', 'test-spec');
 
       expect(result.success).toBe(true);
       expect(result.data).toBeDefined();
@@ -79,8 +82,7 @@ describe('Review Handlers Integration Tests', () => {
 
       // Call the handler
       const event = { sender: { send: vi.fn() } };
-      const handler = ipcMain.listeners(IPC_CHANNELS.REVIEW_GET_CHECKLIST)[0];
-      const result = await handler(event, 'test-project', 'test-spec');
+      const result = await (ipcMain as any).invokeHandler(IPC_CHANNELS.REVIEW_GET_CHECKLIST, event, 'test-project', 'test-spec');
 
       expect(result.success).toBe(true);
       expect(result.data).toBeDefined();
@@ -103,8 +105,7 @@ describe('Review Handlers Integration Tests', () => {
 
       // Call the handler
       const event = { sender: { send: vi.fn() } };
-      const handler = ipcMain.listeners(IPC_CHANNELS.REVIEW_UPDATE_CHECKLIST)[0];
-      const result = await handler(event, 'test-project', 'test-spec', checklist);
+      const result = await (ipcMain as any).invokeHandler(IPC_CHANNELS.REVIEW_UPDATE_CHECKLIST, event, 'test-project', 'test-spec', checklist);
 
       expect(result.success).toBe(true);
 
@@ -140,8 +141,7 @@ describe('Review Handlers Integration Tests', () => {
 
       // Call the handler
       const event = { sender: { send: vi.fn() } };
-      const handler = ipcMain.listeners(IPC_CHANNELS.REVIEW_GET_REVIEWER_ASSIGNMENT)[0];
-      const result = await handler(event, 'test-project', 'test-spec');
+      const result = await (ipcMain as any).invokeHandler(IPC_CHANNELS.REVIEW_GET_REVIEWER_ASSIGNMENT, event, 'test-project', 'test-spec');
 
       expect(result.success).toBe(true);
       expect(result.data).toBeDefined();
@@ -154,8 +154,7 @@ describe('Review Handlers Integration Tests', () => {
 
       // Call the handler
       const event = { sender: { send: vi.fn() } };
-      const handler = ipcMain.listeners(IPC_CHANNELS.REVIEW_GET_REVIEWER_ASSIGNMENT)[0];
-      const result = await handler(event, 'test-project', 'test-spec');
+      const result = await (ipcMain as any).invokeHandler(IPC_CHANNELS.REVIEW_GET_REVIEWER_ASSIGNMENT, event, 'test-project', 'test-spec');
 
       expect(result.success).toBe(true);
       expect(result.data).toBeDefined();
@@ -182,8 +181,7 @@ describe('Review Handlers Integration Tests', () => {
 
       // Call the handler
       const event = { sender: { send: vi.fn() } };
-      const handler = ipcMain.listeners(IPC_CHANNELS.REVIEW_UPDATE_REVIEWER_ASSIGNMENT)[0];
-      const result = await handler(event, 'test-project', 'test-spec', assignment);
+      const result = await (ipcMain as any).invokeHandler(IPC_CHANNELS.REVIEW_UPDATE_REVIEWER_ASSIGNMENT, event, 'test-project', 'test-spec', assignment);
 
       expect(result.success).toBe(true);
 
@@ -215,8 +213,7 @@ describe('Review Handlers Integration Tests', () => {
 
       // Call the handler
       const event = { sender: { send: vi.fn() } };
-      const handler = ipcMain.listeners(IPC_CHANNELS.REVIEW_GET_METRICS)[0];
-      const result = await handler(event, 'test-project', 'test-spec');
+      const result = await (ipcMain as any).invokeHandler(IPC_CHANNELS.REVIEW_GET_METRICS, event, 'test-project', 'test-spec');
 
       expect(result.success).toBe(true);
       expect(result.data).toBeDefined();
@@ -229,8 +226,7 @@ describe('Review Handlers Integration Tests', () => {
 
       // Call the handler
       const event = { sender: { send: vi.fn() } };
-      const handler = ipcMain.listeners(IPC_CHANNELS.REVIEW_GET_METRICS)[0];
-      const result = await handler(event, 'test-project', 'test-spec');
+      const result = await (ipcMain as any).invokeHandler(IPC_CHANNELS.REVIEW_GET_METRICS, event, 'test-project', 'test-spec');
 
       expect(result.success).toBe(true);
       expect(result.data).toBeDefined();
@@ -242,8 +238,7 @@ describe('Review Handlers Integration Tests', () => {
     it('should return error for invalid spec paths', async () => {
       // Call handler with non-existent spec
       const event = { sender: { send: vi.fn() } };
-      const handler = ipcMain.listeners(IPC_CHANNELS.REVIEW_GET_CHECKLIST)[0];
-      const result = await handler(event, 'test-project', 'nonexistent-spec');
+      const result = await (ipcMain as any).invokeHandler(IPC_CHANNELS.REVIEW_GET_CHECKLIST, event, 'test-project', 'nonexistent-spec');
 
       expect(result.success).toBe(false);
       expect(result.error).toBeDefined();
@@ -256,8 +251,7 @@ describe('Review Handlers Integration Tests', () => {
 
       // Call the handler
       const event = { sender: { send: vi.fn() } };
-      const handler = ipcMain.listeners(IPC_CHANNELS.REVIEW_GET_CHECKLIST)[0];
-      const result = await handler(event, 'test-project', 'test-spec');
+      const result = await (ipcMain as any).invokeHandler(IPC_CHANNELS.REVIEW_GET_CHECKLIST, event, 'test-project', 'test-spec');
 
       expect(result.success).toBe(false);
       expect(result.error).toBeDefined();

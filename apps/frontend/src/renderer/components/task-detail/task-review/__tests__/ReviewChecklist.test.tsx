@@ -15,7 +15,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import '../../../../shared/i18n';
+import '../../../../../shared/i18n';
 import { ReviewChecklist } from '../ReviewChecklist';
 import type { ReviewChecklist as ReviewChecklistType } from '../../../../../shared/types';
 
@@ -130,6 +130,6 @@ describe('ReviewChecklist', () => {
 
     render(<ReviewChecklist checklist={emptyChecklist} onItemChange={mockOnItemChange} />);
 
-    expect(screen.getByText(/no items/i)).toBeInTheDocument();
+    expect(screen.getByText(/no checklist items/i)).toBeInTheDocument();
   });
 });

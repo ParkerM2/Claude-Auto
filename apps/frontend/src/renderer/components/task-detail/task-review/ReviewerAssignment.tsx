@@ -78,7 +78,7 @@ export function ReviewerAssignment({
         >
           {allApproved
             ? t('common:review.reviewers.allApproved')
-            : t('common:review.reviewers.waitingApproval', {
+            : t('common:review.reviewers.requiresApproval', {
                 count: required.filter(r => !r.approved).length
               })}
         </span>
