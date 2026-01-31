@@ -338,6 +338,7 @@
     "switchToTable": "Basculer vers la vue Tableau"
   },
   "table": {
+    "expandRow": "Développer la ligne : {{title}}",
     "columns": {
       "title": "Titre",
       "status": "Statut",

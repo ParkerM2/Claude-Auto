@@ -339,6 +339,7 @@
     "switchToTable": "Switch to Table view"
   },
   "table": {
+    "expandRow": "Expand row: {{title}}",
     "columns": {
       "title": "Title",
       "status": "Status",
