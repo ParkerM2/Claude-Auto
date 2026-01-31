@@ -66,25 +66,39 @@ def greet(name):
     # Complex Python file with high complexity
     (temp_dir / "complex.py").write_text(
         """
-def complex_function(x, y, z):
+def complex_function(x, y, z, w):
     if x > 0:
         if y > 0:
             if z > 0:
-                return x + y + z
+                if w > 0:
+                    return x + y + z + w
+                elif w < 0:
+                    return x + y + z - w
+                else:
+                    return x + y + z
             elif z < 0:
-                return x + y - z
+                if w > 0:
+                    return x + y - z + w
+                else:
+                    return x + y - z
             else:
                 return x + y
         elif y < 0:
             if z > 0:
-                return x - y + z
+                if w > 0:
+                    return x - y + z + w
+                else:
+                    return x - y + z
             else:
                 return x - y
         else:
             return x
     elif x < 0:
         if y > 0:
-            return -x + y
+            if z > 0:
+                return -x + y + z
+            else:
+                return -x + y
         else:
             return -x - y
     else:

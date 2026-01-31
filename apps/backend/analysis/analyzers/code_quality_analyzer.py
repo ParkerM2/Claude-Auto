@@ -22,7 +22,7 @@ from typing import Any
 from .base import SKIP_DIRS, BaseAnalyzer
 
 try:
-    from radon.complexity import cc_visit
+    from radon.complexity import cc_visit, cc_rank
     from radon.metrics import mi_visit
 
     HAS_RADON = True
@@ -469,7 +469,7 @@ class CodeQualityAnalyzer(BaseAnalyzer):
                         name=result.name,
                         line=result.lineno,
                         complexity=result.complexity,
-                        rank=result.rank,
+                        rank=cc_rank(result.complexity),
                     )
                 )
                 total_complexity += result.complexity
