@@ -52,7 +52,10 @@
     "hideTokenEntryAriaLabel": "Masquer la saisie du jeton",
     "enterTokenManuallyAriaLabel": "Saisir le jeton manuellement",
     "renameProfileAriaLabel": "Renommer le profil",
-    "deleteProfileAriaLabel": "Supprimer le profil"
+    "deleteProfileAriaLabel": "Supprimer le profil",
+    "expand": "Développer",
+    "collapse": "Réduire",
+    "actions": "Actions"
   },
   "buttons": {
     "save": "Enregistrer",
