@@ -39,9 +39,7 @@ import { Context } from './components/Context';
 import { Ideation } from './components/Ideation';
 import { Insights } from './components/Insights';
 import { GitHubIssues } from './components/GitHubIssues';
-import { GitLabIssues } from './components/GitLabIssues';
 import { GitHubPRs } from './components/github-prs';
-import { GitLabMergeRequests } from './components/gitlab-merge-requests';
 import { JiraTickets } from './components/jira-tickets';
 import { Changelog } from './components/Changelog';
 import { Worktrees } from './components/Worktrees';
@@ -938,15 +936,6 @@ export function App() {
                     onNavigateToTask={handleGoToTask}
                   />
                 )}
-                {activeView === 'gitlab-issues' && (activeProjectId || selectedProjectId) && (
-                  <GitLabIssues
-                    onOpenSettings={() => {
-                      setSettingsInitialProjectSection('gitlab');
-                      setIsSettingsDialogOpen(true);
-                    }}
-                    onNavigateToTask={handleGoToTask}
-                  />
-                )}
                 {/* GitHubPRs is always mounted but hidden when not active to preserve review state */}
                 {(activeProjectId || selectedProjectId) && (
                   <div className={activeView === 'github-prs' ? 'h-full' : 'hidden'}>
@@ -958,15 +947,6 @@ export function App() {
                       isActive={activeView === 'github-prs'}
                     />
                   </div>
-                )}
-                {activeView === 'gitlab-merge-requests' && (activeProjectId || selectedProjectId) && (
-                  <GitLabMergeRequests
-                    projectId={activeProjectId || selectedProjectId!}
-                    onOpenSettings={() => {
-                      setSettingsInitialProjectSection('gitlab');
-                      setIsSettingsDialogOpen(true);
-                    }}
-                  />
                 )}
                 {activeView === 'jira-tickets' && (activeProjectId || selectedProjectId) && (
                   <JiraTickets

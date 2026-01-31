@@ -13,8 +13,6 @@
     "context": "Context",
     "githubIssues": "GitHub Issues",
     "githubPRs": "GitHub PRs",
-    "gitlabIssues": "GitLab Issues",
-    "gitlabMRs": "GitLab MRs",
     "jiraTickets": "Jira Tickets",
     "worktrees": "Worktrees",
     "agentTools": "MCP Overview"

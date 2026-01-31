@@ -323,26 +323,12 @@
       "title": "Auth Claude",
       "description": "Authentification Claude"
     },
-    "linear": {
-      "title": "Linear",
-      "description": "Intégration Linear",
-      "integrationTitle": "Intégration Linear",
-      "integrationDescription": "Se connecter à Linear pour le suivi des issues et l'import de tâches",
-      "syncDescription": "Synchroniser avec Linear pour le suivi des issues"
-    },
     "github": {
       "title": "GitHub",
       "description": "Synchronisation issues GitHub",
       "integrationTitle": "Intégration GitHub",
       "integrationDescription": "Se connecter à GitHub pour le suivi des issues",
       "syncDescription": "Synchroniser avec GitHub Issues"
-    },
-    "gitlab": {
-      "title": "GitLab",
-      "description": "Synchronisation issues GitLab",
-      "integrationTitle": "Intégration GitLab",
-      "integrationDescription": "Se connecter à GitLab pour le suivi des issues",
-      "syncDescription": "Synchroniser avec GitLab Issues"
     },
     "jira": {
       "title": "Jira",
@@ -673,11 +659,6 @@
         "name": "Graphiti Memory",
         "description": "Graphe de connaissances pour le contexte inter-sessions",
         "notConfigured": "Nécessite la configuration mémoire (voir paramètres Mémoire)"
-      },
-      "linear": {
-        "name": "Linear",
-        "description": "Intégration gestion de projet",
-        "notConfigured": "Nécessite l'intégration Linear (voir paramètres Linear)"
       },
       "electron": {
         "name": "Electron",

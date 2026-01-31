@@ -299,26 +299,12 @@ export interface ProjectEnvConfig {
   // Model Override
   autoBuildModel?: string;
 
-  // Linear Integration
-  linearEnabled: boolean;
-  linearApiKey?: string;
-  linearTeamId?: string;
-  linearProjectId?: string;
-  linearRealtimeSync?: boolean; // Enable real-time sync of new Linear tasks
-
   // GitHub Integration
   githubEnabled: boolean;
   githubToken?: string;
   githubRepo?: string; // Format: owner/repo
   githubAutoSync?: boolean; // Auto-sync issues on project load
   githubAuthMethod?: 'oauth' | 'pat'; // How the token was obtained
-
-  // GitLab Integration
-  gitlabEnabled: boolean;
-  gitlabInstanceUrl?: string; // Default: https://gitlab.com, or self-hosted URL
-  gitlabToken?: string;
-  gitlabProject?: string; // Format: group/project or numeric ID
-  gitlabAutoSync?: boolean; // Auto-sync issues on project load
 
   // Jira Integration
   jiraEnabled: boolean;
@@ -350,8 +336,6 @@ export interface ProjectEnvConfig {
     context7Enabled?: boolean;
     /** Graphiti knowledge graph - default: true (if graphitiProviderConfig set) */
     graphitiEnabled?: boolean;
-    /** Linear MCP integration - default: follows linearEnabled */
-    linearMcpEnabled?: boolean;
     /** Electron desktop automation (QA only) - default: false */
     electronEnabled?: boolean;
     /** Puppeteer browser automation (QA only) - default: false */

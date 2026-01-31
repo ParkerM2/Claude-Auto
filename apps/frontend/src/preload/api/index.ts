@@ -8,7 +8,6 @@ import type { IdeationAPI } from './modules/ideation-api';
 import type { InsightsAPI } from './modules/insights-api';
 import { AppUpdateAPI, createAppUpdateAPI } from './app-update-api';
 import { GitHubAPI, createGitHubAPI } from './modules/github-api';
-import type { GitLabAPI } from './modules/gitlab-api';
 import { JiraAPI, createJiraAPI } from './modules/jira-api';
 import { DebugAPI, createDebugAPI } from './modules/debug-api';
 import { ClaudeCodeAPI, createClaudeCodeAPI } from './modules/claude-code-api';
@@ -26,7 +25,6 @@ export interface ElectronAPI extends
   IdeationAPI,
   InsightsAPI,
   AppUpdateAPI,
-  GitLabAPI,
   DebugAPI,
   ClaudeCodeAPI,
   McpAPI,
@@ -84,7 +82,6 @@ export type {
   AppUpdateAPI,
   ProfileAPI,
   GitHubAPI,
-  GitLabAPI,
   JiraAPI,
   DebugAPI,
   ClaudeCodeAPI,

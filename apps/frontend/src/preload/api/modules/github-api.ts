@@ -8,7 +8,10 @@ import type {
   GitHubInvestigationResult,
   IPCResult,
   VersionSuggestion,
-  PaginatedIssuesResult
+  PaginatedIssuesResult,
+  PRWorktreeInfo,
+  DevCommandInfo,
+  CIStatusResult
 } from '../../../shared/types';
 import { createIpcListener, invokeIpc, sendIpc, IpcListenerCleanup } from './ipc-utils';
 
@@ -284,6 +287,18 @@ export interface GitHubAPI {
 
   // PR logs
   getPRLogs: (projectId: string, prNumber: number) => Promise<PRLogs | null>;
+
+  // PR worktree operations
+  getPRWorktreeStatus: (projectId: string, prNumber: number) => Promise<IPCResult<PRWorktreeInfo>>;
+  checkoutPRToWorktree: (projectId: string, prNumber: number) => Promise<IPCResult<PRWorktreeInfo>>;
+
+  // PR quick actions - dev preview
+  detectPRDevCommand: (projectId: string, worktreePath: string) => Promise<IPCResult<DevCommandInfo | null>>;
+  spawnPRDevServer: (projectId: string, prNumber: number) => Promise<IPCResult<{ terminalId: string; port: number }>>;
+
+  // PR quick actions - CI status and review
+  getCIStatus: (projectId: string, prNumber: number) => Promise<IPCResult<CIStatusResult>>;
+  requestChanges: (projectId: string, prNumber: number, comment: string) => Promise<IPCResult<boolean>>;
 
   // Workflow approval (for fork PRs)
   getWorkflowsAwaitingApproval: (projectId: string, prNumber: number) => Promise<WorkflowsAwaitingApprovalResult>;
@@ -704,6 +719,27 @@ export const createGitHubAPI = (): GitHubAPI => ({
   // PR logs
   getPRLogs: (projectId: string, prNumber: number): Promise<PRLogs | null> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_GET_LOGS, projectId, prNumber),
+
+  // PR worktree operations
+  getPRWorktreeStatus: (projectId: string, prNumber: number): Promise<IPCResult<PRWorktreeInfo>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_GET_WORKTREE_STATUS, projectId, prNumber),
+
+  checkoutPRToWorktree: (projectId: string, prNumber: number): Promise<IPCResult<PRWorktreeInfo>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_CHECKOUT_WORKTREE, projectId, prNumber),
+
+  // PR quick actions - dev preview
+  detectPRDevCommand: (projectId: string, worktreePath: string): Promise<IPCResult<DevCommandInfo | null>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_DETECT_DEV_COMMAND, projectId, worktreePath),
+
+  spawnPRDevServer: (projectId: string, prNumber: number): Promise<IPCResult<{ terminalId: string; port: number }>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_SPAWN_DEV_SERVER, projectId, prNumber),
+
+  // PR quick actions - CI status and review
+  getCIStatus: (projectId: string, prNumber: number): Promise<IPCResult<CIStatusResult>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_GET_CI_STATUS, projectId, prNumber),
+
+  requestChanges: (projectId: string, prNumber: number, comment: string): Promise<IPCResult<boolean>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_REQUEST_CHANGES, projectId, prNumber, comment),
 
   // Workflow approval (for fork PRs)
   getWorkflowsAwaitingApproval: (projectId: string, prNumber: number): Promise<WorkflowsAwaitingApprovalResult> =>

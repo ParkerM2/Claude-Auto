@@ -228,7 +228,16 @@ const browserMockAPI: ElectronAPI = {
     approveBatches: async () => ({ success: true, batches: [] }),
     onAnalyzePreviewProgress: () => () => {},
     onAnalyzePreviewComplete: () => () => {},
-    onAnalyzePreviewError: () => () => {}
+    onAnalyzePreviewError: () => () => {},
+    // PR worktree operations
+    getPRWorktreeStatus: async () => ({ success: true, data: { prNumber: 0, branch: '', worktreePath: '', hasWorktree: false } }),
+    checkoutPRToWorktree: async () => ({ success: false, error: 'Not available in browser mock' }),
+    // PR quick actions - dev preview
+    detectPRDevCommand: async () => ({ success: true, data: null }),
+    spawnPRDevServer: async () => ({ success: false, error: 'Not available in browser mock' }),
+    // PR quick actions - CI status and review
+    getCIStatus: async () => ({ success: true, data: { totalChecks: 0, passedChecks: 0, failedChecks: 0, pendingChecks: 0, checks: [] } }),
+    requestChanges: async () => ({ success: false, error: 'Not available in browser mock' })
   },
 
   // Claude Code Operations
