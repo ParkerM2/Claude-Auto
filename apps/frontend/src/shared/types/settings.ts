@@ -219,6 +219,8 @@ export interface AgentProfile {
 export interface AppSettings {
   theme: 'light' | 'dark' | 'system';
   colorTheme?: ColorTheme;
+  customThemeName?: string;
+  customThemeCss?: string;
   defaultModel: string;
   agentFramework: string;
   pythonPath?: string;
