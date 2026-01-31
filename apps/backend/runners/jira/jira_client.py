@@ -3,14 +3,18 @@ Jira REST API Client with Timeout and Retry Logic
 ==================================================
 
 Async client for Jira Cloud REST API that provides:
-- Basic authentication with email + API token
+- Basic authentication with email + API token OR OAuth token
 - Configurable timeouts (default 30s)
 - Exponential backoff retry (3 attempts)
 - Structured error handling
 
-Authentication uses Jira Cloud's standard Basic auth:
-  - Email: Your Atlassian account email
-  - API Token: Generated at https://id.atlassian.com/manage-profile/security/api-tokens
+Authentication Methods:
+  1. Basic Auth (email + API token):
+     - Email: Your Atlassian account email
+     - API Token: Generated at https://id.atlassian.com/manage-profile/security/api-tokens
+
+  2. OAuth Bearer Token:
+     - OAuth Token: Bearer token from Jira OAuth flow
 """
 
 from __future__ import annotations
@@ -52,19 +56,53 @@ class JiraApiError(Exception):
 
 @dataclass
 class JiraConfig:
-    """Configuration for Jira client."""
+    """
+    Configuration for Jira client.
+
+    Supports two authentication methods:
+    1. Basic Auth: Provide email + api_token
+    2. OAuth: Provide oauth_token
+
+    Args:
+        base_url: Jira instance URL (e.g., https://company.atlassian.net)
+        email: Email for Basic auth (optional if using OAuth)
+        api_token: API token for Basic auth (optional if using OAuth)
+        oauth_token: OAuth bearer token (optional if using Basic auth)
+        project_key: Default project key (e.g., ES)
+    """
 
     base_url: str  # e.g., https://company.atlassian.net
-    email: str
-    api_token: str
+    email: str | None = None
+    api_token: str | None = None
+    oauth_token: str | None = None
     project_key: str | None = None  # e.g., ES
+
+    def __post_init__(self):
+        """Validate that exactly one auth method is provided."""
+        has_basic = self.email and self.api_token
+        has_oauth = self.oauth_token
+
+        if not has_basic and not has_oauth:
+            raise ValueError(
+                "JiraConfig requires authentication credentials. "
+                "Provide either (email + api_token) for Basic auth "
+                "or (oauth_token) for OAuth."
+            )
+
+        if has_basic and has_oauth:
+            raise ValueError(
+                "JiraConfig cannot use both Basic auth and OAuth simultaneously. "
+                "Provide either (email + api_token) OR (oauth_token), not both."
+            )
 
 
 class JiraClient:
     """
     Async client for Jira Cloud REST API.
 
-    Usage:
+    Supports two authentication methods: Basic auth or OAuth token.
+
+    Usage with Basic Auth:
         config = JiraConfig(
             base_url="https://company.atlassian.net",
             email="user@company.com",
@@ -73,6 +111,15 @@ class JiraClient:
         )
         client = JiraClient(config)
 
+    Usage with OAuth:
+        config = JiraConfig(
+            base_url="https://company.atlassian.net",
+            oauth_token="your-oauth-token",
+            project_key="ES"
+        )
+        client = JiraClient(config)
+
+    Common operations:
         # Get current user
         user = await client.get_current_user()
 
@@ -101,10 +148,17 @@ class JiraClient:
         self.default_timeout = default_timeout
         self.max_retries = max_retries
 
-        # Build auth header
-        credentials = f"{config.email}:{config.api_token}"
-        encoded = base64.b64encode(credentials.encode()).decode()
-        self._auth_header = f"Basic {encoded}"
+        # Build auth header based on auth method
+        if config.oauth_token:
+            # OAuth Bearer token authentication
+            self._auth_header = f"Bearer {config.oauth_token}"
+            logger.debug("Jira client initialized with OAuth authentication")
+        else:
+            # Basic authentication (email + API token)
+            credentials = f"{config.email}:{config.api_token}"
+            encoded = base64.b64encode(credentials.encode()).decode()
+            self._auth_header = f"Basic {encoded}"
+            logger.debug("Jira client initialized with Basic authentication")
 
         # API base URL
         self._api_url = f"{config.base_url.rstrip('/')}/rest/api/3"
@@ -164,8 +218,9 @@ class JiraClient:
 
                         # Handle authentication errors
                         if response.status == 401:
+                            auth_method = "OAuth token" if self.config.oauth_token else "email and API token"
                             raise JiraAuthError(
-                                "Authentication failed. Check your email and API token."
+                                f"Authentication failed. Check your {auth_method}."
                             )
                         if response.status == 403:
                             raise JiraAuthError(
