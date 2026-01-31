@@ -53,6 +53,11 @@ interface TaskReviewProps {
   isCreatingPR: boolean;
   onShowPRDialog: (show: boolean) => void;
   onCreatePR: (options: { targetBranch?: string; title?: string; draft?: boolean }) => Promise<WorktreeCreatePRResult | null>;
+  // Approval gate
+  approvalGate?: {
+    canMerge: boolean;
+    blockingReasons: string[];
+  };
 }
 
 /**
@@ -101,7 +106,8 @@ export function TaskReview({
   showPRDialog,
   isCreatingPR,
   onShowPRDialog,
-  onCreatePR
+  onCreatePR,
+  approvalGate
 }: TaskReviewProps) {
   return (
     <div className="space-y-4">
@@ -142,6 +148,7 @@ export function TaskReview({
           isMerging={isMerging}
           isDiscarding={isDiscarding}
           isCreatingPR={isCreatingPR}
+          approvalGate={approvalGate}
           onShowDiffDialog={onShowDiffDialog}
           onShowDiscardDialog={onShowDiscardDialog}
           onShowConflictDialog={onShowConflictDialog}
