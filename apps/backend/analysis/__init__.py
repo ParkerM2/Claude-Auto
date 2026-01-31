@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from .analyzers import (
     ProjectAnalyzer as ModularProjectAnalyzer,
+    CodeQualityAnalyzer,
 )
 from .analyzers import (
     ServiceAnalyzer,
@@ -38,6 +39,7 @@ __all__ = [
     "RiskClassifier",
     "SecurityScanner",
     "CIDiscovery",
+    "CodeQualityAnalyzer",
     "CodeQualityTracker",
     "TestDiscovery",
 ]
