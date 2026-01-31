@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Palette, AlertCircle, Info, CheckCircle2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
@@ -20,6 +21,7 @@ interface CustomThemeInputProps {
  * require saving to take effect.
  */
 export function CustomThemeInput({ settings, onSettingsChange }: CustomThemeInputProps) {
+  const { t } = useTranslation(['settings']);
   const updateStoreSettings = useSettingsStore((state) => state.updateSettings);
   const [themeName, setThemeName] = useState(settings.customThemeName || '');
   const [themeCss, setThemeCss] = useState(settings.customThemeCss || '');
@@ -41,26 +43,26 @@ export function CustomThemeInput({ settings, onSettingsChange }: CustomThemeInpu
 
     // Check for :root section
     if (!css.includes(':root')) {
-      return 'CSS must include :root section with CSS variables';
+      return t('settings:theme.customTheme.validationErrors.missingRoot');
     }
 
     // Check for CSS variables (--variable-name format)
     const hasVariables = /--[\w-]+\s*:/.test(css);
     if (!hasVariables) {
-      return 'CSS must contain at least one CSS variable (e.g., --background: #fff)';
+      return t('settings:theme.customTheme.validationErrors.missingVariables');
     }
 
     // Check for balanced braces
     const openBraces = (css.match(/{/g) || []).length;
     const closeBraces = (css.match(/}/g) || []).length;
     if (openBraces !== closeBraces) {
-      return 'CSS has unmatched braces - check your syntax';
+      return t('settings:theme.customTheme.validationErrors.unmatchedBraces');
     }
 
     // Check for basic :root structure
     const rootMatch = css.match(/:root\s*{([^}]+)}/);
     if (!rootMatch) {
-      return ':root section appears to be empty or malformed';
+      return t('settings:theme.customTheme.validationErrors.emptyRoot');
     }
 
     // Warn if .dark section is missing (optional but recommended)
@@ -105,18 +107,18 @@ export function CustomThemeInput({ settings, onSettingsChange }: CustomThemeInpu
           <Palette className="h-5 w-5" />
         </div>
         <div className="flex-1 space-y-1">
-          <h3 className="text-base font-semibold text-foreground">Custom Theme</h3>
+          <h3 className="text-base font-semibold text-foreground">{t('settings:theme.customTheme.title')}</h3>
           <p className="text-sm text-muted-foreground">
-            Paste CSS variables from{' '}
+            {t('settings:theme.customTheme.description')}{' '}
             <a
               href="https://tweakcn.com/editor/theme?tab=typography&p=dashboard"
               target="_blank"
               rel="noopener noreferrer"
               className="text-primary hover:underline"
             >
-              tweakcn.com/editor
+              {t('settings:theme.customTheme.linkText')}
             </a>
-            {' '}to create your own theme
+            {' '}{t('settings:theme.customTheme.descriptionSuffix')}
           </p>
         </div>
       </div>
@@ -126,12 +128,12 @@ export function CustomThemeInput({ settings, onSettingsChange }: CustomThemeInpu
         <div className="flex items-start gap-2">
           <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
           <div className="space-y-2 text-sm text-muted-foreground">
-            <p className="font-medium text-foreground">Expected format:</p>
+            <p className="font-medium text-foreground">{t('settings:theme.customTheme.expectedFormat')}</p>
             <ul className="list-disc list-inside space-y-1 text-xs">
-              <li>Must include <code className="px-1 py-0.5 rounded bg-muted">:root</code> section with CSS variables</li>
-              <li>Should include <code className="px-1 py-0.5 rounded bg-muted">.dark</code> section for dark mode support</li>
-              <li>Variables like <code className="px-1 py-0.5 rounded bg-muted">--background</code>, <code className="px-1 py-0.5 rounded bg-muted">--foreground</code>, <code className="px-1 py-0.5 rounded bg-muted">--primary</code>, etc.</li>
-              <li>Supports hex, HSL, RGB color formats</li>
+              <li>{t('settings:theme.customTheme.formatRequirement1')} <code className="px-1 py-0.5 rounded bg-muted">{t('settings:theme.customTheme.formatRequirement1Code')}</code> {t('settings:theme.customTheme.formatRequirement1Suffix')}</li>
+              <li>{t('settings:theme.customTheme.formatRequirement2')} <code className="px-1 py-0.5 rounded bg-muted">{t('settings:theme.customTheme.formatRequirement2Code')}</code> {t('settings:theme.customTheme.formatRequirement2Suffix')}</li>
+              <li>{t('settings:theme.customTheme.formatRequirement3')} <code className="px-1 py-0.5 rounded bg-muted">{t('settings:theme.customTheme.formatRequirement3Variables')}</code>{t('settings:theme.customTheme.formatRequirement3Suffix')}</li>
+              <li>{t('settings:theme.customTheme.formatRequirement4')}</li>
             </ul>
           </div>
         </div>
@@ -140,14 +142,14 @@ export function CustomThemeInput({ settings, onSettingsChange }: CustomThemeInpu
       {/* Theme Name Input */}
       <div className="space-y-2">
         <Label htmlFor="theme-name" className="text-sm font-medium text-foreground">
-          Theme Name
+          {t('settings:theme.customTheme.themeNameLabel')}
         </Label>
         <input
           id="theme-name"
           type="text"
           value={themeName}
           onChange={handleNameChange}
-          placeholder="e.g., My Custom Theme"
+          placeholder={t('settings:theme.customTheme.themeNamePlaceholder')}
           className={cn(
             'flex h-10 w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground',
             'placeholder:text-muted-foreground',
@@ -161,24 +163,13 @@ export function CustomThemeInput({ settings, onSettingsChange }: CustomThemeInpu
       {/* CSS Input */}
       <div className="space-y-2">
         <Label htmlFor="theme-css" className="text-sm font-medium text-foreground">
-          Theme CSS
+          {t('settings:theme.customTheme.themeCssLabel')}
         </Label>
         <Textarea
           id="theme-css"
           value={themeCss}
           onChange={handleCssChange}
-          placeholder={`:root {
-  --background: #ffffff;
-  --foreground: #000000;
-  --primary: #3b82f6;
-  /* ... more variables */
-}
-
-.dark {
-  --background: #000000;
-  --foreground: #ffffff;
-  /* ... more variables */
-}`}
+          placeholder={t('settings:theme.customTheme.themeCssPlaceholder')}
           className={cn(
             'min-h-[300px] font-mono text-xs resize-y',
             error && 'border-destructive focus-visible:ring-destructive',
@@ -194,7 +185,7 @@ export function CustomThemeInput({ settings, onSettingsChange }: CustomThemeInpu
         {!error && themeCss.trim() && (
           <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-500">
             <CheckCircle2 className="h-4 w-4" />
-            <span>Valid CSS - theme will be applied immediately</span>
+            <span>{t('settings:theme.customTheme.successMessage')}</span>
           </div>
         )}
       </div>
@@ -207,7 +198,7 @@ export function CustomThemeInput({ settings, onSettingsChange }: CustomThemeInpu
           onClick={handleClear}
           disabled={!themeName && !themeCss}
         >
-          Clear
+          {t('settings:theme.customTheme.clearButton')}
         </Button>
       </div>
     </div>

@@ -257,6 +257,13 @@
       "themeCssLabel": "Theme CSS",
       "themeCssPlaceholder": ":root {\n  --background: #ffffff;\n  --foreground: #000000;\n  --primary: #3b82f6;\n  /* ... more variables */\n}\n\n.dark {\n  --background: #000000;\n  --foreground: #ffffff;\n  /* ... more variables */\n}",
       "validationError": "CSS must include :root section with CSS variables",
+      "successMessage": "Valid CSS - theme will be applied immediately",
+      "validationErrors": {
+        "missingRoot": "CSS must include :root section with CSS variables",
+        "missingVariables": "CSS must contain at least one CSS variable (e.g., --background: #fff)",
+        "unmatchedBraces": "CSS has unmatched braces - check your syntax",
+        "emptyRoot": ":root section appears to be empty or malformed"
+      },
       "clearButton": "Clear",
       "customDefaultName": "Custom",
       "customDescription": "Create your own theme with CSS variables"

@@ -1,4 +1,5 @@
 import { Check, Sun, Moon, Monitor, Palette } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { Label } from '../ui/label';
 import { COLOR_THEMES } from '../../../shared/constants';
@@ -19,6 +20,7 @@ interface ThemeSelectorProps {
  * require saving to take effect.
  */
 export function ThemeSelector({ settings, onSettingsChange }: ThemeSelectorProps) {
+  const { t } = useTranslation(['settings']);
   const updateStoreSettings = useSettingsStore((state) => state.updateSettings);
 
   const currentColorTheme = settings.colorTheme || 'default';
@@ -161,10 +163,10 @@ export function ThemeSelector({ settings, onSettingsChange }: ThemeSelectorProps
             {/* Theme info */}
             <div className="space-y-1">
               <p className="font-medium text-sm text-foreground">
-                {settings.customThemeName || 'Custom'}
+                {settings.customThemeName || t('settings:theme.customTheme.customDefaultName')}
               </p>
               <p className="text-xs text-muted-foreground line-clamp-2">
-                Create your own theme with CSS variables
+                {t('settings:theme.customTheme.customDescription')}
               </p>
             </div>
           </button>
