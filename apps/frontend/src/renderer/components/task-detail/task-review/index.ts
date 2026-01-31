@@ -15,4 +15,5 @@ export { ConflictDetailsDialog } from './ConflictDetailsDialog';
 export { CreatePRDialog } from './CreatePRDialog';
 export { LoadingMessage, NoWorkspaceMessage, StagedInProjectMessage } from './WorkspaceMessages';
 export { ReviewChecklist } from './ReviewChecklist';
+export { ReviewerAssignment } from './ReviewerAssignment';
 export { getSeverityIcon, getSeverityVariant } from './utils';
