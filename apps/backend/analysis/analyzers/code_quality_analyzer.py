@@ -349,14 +349,7 @@ class CodeQualityAnalyzer(BaseAnalyzer):
         self._compute_aggregate_metrics()
 
         # Fetch SonarQube metrics if enabled
-        if self.sonarqube_client and self.sonarqube_config.project_key:
-            try:
-                sonarqube_data = self.sonarqube_client.fetch_project_metrics()
-                if "error" not in sonarqube_data:
-                    self.metrics.sonarqube_metrics = sonarqube_data
-            except Exception:
-                # SonarQube is optional - continue without it on error
-                pass
+        self._fetch_sonarqube_metrics()
 
         # Return structured results
         result = {
@@ -654,3 +647,20 @@ class CodeQualityAnalyzer(BaseAnalyzer):
             and self.sonarqube_client is not None
             and HAS_REQUESTS
         )
+
+    def _fetch_sonarqube_metrics(self) -> None:
+        """
+        Fetch metrics from SonarQube and add to self.metrics.
+
+        Only activates when SONARQUBE_URL is set in environment.
+        """
+        if not self.is_sonarqube_enabled():
+            return
+
+        try:
+            sonarqube_data = self.sonarqube_client.fetch_project_metrics()
+            if "error" not in sonarqube_data:
+                self.metrics.sonarqube_metrics = sonarqube_data
+        except Exception:
+            # Silently skip SonarQube errors - it's an optional feature
+            pass
