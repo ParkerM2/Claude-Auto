@@ -8,7 +8,8 @@ import {
   countSubtasksByStatus,
   determineOverallStatus,
   formatProgressString,
-  estimateRemainingTime
+  estimateRemainingTime,
+  formatRemainingTime
 } from '../progress';
 import type { Subtask, SubtaskStatus } from '../types';
 
@@ -274,5 +275,113 @@ describe('estimateRemainingTime', () => {
 
     // Should be a small positive number or 0, not negative
     expect(remaining).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('formatRemainingTime', () => {
+  describe('edge cases', () => {
+    it('should return null for null input', () => {
+      expect(formatRemainingTime(null)).toBeNull();
+    });
+
+    it('should return null for negative input', () => {
+      expect(formatRemainingTime(-1000)).toBeNull();
+      expect(formatRemainingTime(-1)).toBeNull();
+    });
+
+    it('should return "~1 sec" for 0ms', () => {
+      // 0ms rounds to 0 seconds, but minimum is 1 sec
+      expect(formatRemainingTime(0)).toBe('~1 sec');
+    });
+  });
+
+  describe('seconds formatting', () => {
+    it('should return "~1 sec" for values under 1 second', () => {
+      expect(formatRemainingTime(500)).toBe('~1 sec');
+      expect(formatRemainingTime(100)).toBe('~1 sec');
+      expect(formatRemainingTime(999)).toBe('~1 sec');
+    });
+
+    it('should return "~1 sec" for exactly 1 second', () => {
+      expect(formatRemainingTime(1000)).toBe('~1 sec');
+    });
+
+    it('should return correct seconds for values under 1 minute', () => {
+      expect(formatRemainingTime(5000)).toBe('~5 sec');
+      expect(formatRemainingTime(30000)).toBe('~30 sec');
+      expect(formatRemainingTime(45000)).toBe('~45 sec');
+      expect(formatRemainingTime(59000)).toBe('~59 sec');
+    });
+
+    it('should round seconds correctly', () => {
+      // 5500ms = 5.5 seconds, rounds to 6
+      expect(formatRemainingTime(5500)).toBe('~6 sec');
+      // 29400ms = 29.4 seconds, rounds to 29
+      expect(formatRemainingTime(29400)).toBe('~29 sec');
+    });
+  });
+
+  describe('minutes formatting', () => {
+    it('should return "~1 min" for exactly 1 minute', () => {
+      expect(formatRemainingTime(60000)).toBe('~1 min');
+    });
+
+    it('should return correct minutes for values under 1 hour', () => {
+      expect(formatRemainingTime(120000)).toBe('~2 min');
+      expect(formatRemainingTime(300000)).toBe('~5 min');
+      expect(formatRemainingTime(900000)).toBe('~15 min');
+      expect(formatRemainingTime(1800000)).toBe('~30 min');
+      expect(formatRemainingTime(3540000)).toBe('~59 min');
+    });
+
+    it('should round minutes correctly', () => {
+      // 90 seconds = 1.5 minutes, rounds to 2
+      expect(formatRemainingTime(90000)).toBe('~2 min');
+      // 150 seconds = 2.5 minutes, rounds to 3
+      expect(formatRemainingTime(150000)).toBe('~3 min');
+    });
+  });
+
+  describe('hours formatting', () => {
+    it('should return "~1 hr" for exactly 1 hour', () => {
+      expect(formatRemainingTime(3600000)).toBe('~1 hr');
+    });
+
+    it('should return hours only when no remaining minutes', () => {
+      expect(formatRemainingTime(7200000)).toBe('~2 hr');
+      expect(formatRemainingTime(10800000)).toBe('~3 hr');
+    });
+
+    it('should return hours and minutes combined', () => {
+      // 1 hour 30 minutes = 5400000ms
+      expect(formatRemainingTime(5400000)).toBe('~1 hr 30 min');
+      // 2 hours 15 minutes = 8100000ms
+      expect(formatRemainingTime(8100000)).toBe('~2 hr 15 min');
+      // 1 hour 1 minute = 3660000ms
+      expect(formatRemainingTime(3660000)).toBe('~1 hr 1 min');
+    });
+
+    it('should handle large hour values', () => {
+      // 5 hours = 18000000ms
+      expect(formatRemainingTime(18000000)).toBe('~5 hr');
+      // 10 hours 45 minutes = 38700000ms
+      expect(formatRemainingTime(38700000)).toBe('~10 hr 45 min');
+    });
+  });
+
+  describe('boundary values', () => {
+    it('should transition from seconds to minutes at 60 seconds', () => {
+      // 59.5 seconds rounds to 60 seconds = 1 minute
+      expect(formatRemainingTime(59500)).toBe('~1 min');
+      // 59 seconds stays as seconds
+      expect(formatRemainingTime(59000)).toBe('~59 sec');
+    });
+
+    it('should transition from minutes to hours at 60 minutes', () => {
+      // 59.5 minutes rounds to 60 minutes = 1 hour
+      expect(formatRemainingTime(3570000)).toBe('~1 hr');
+      // 59 minutes stays as minutes
+      expect(formatRemainingTime(3540000)).toBe('~59 min');
+    });
   });
 });
