@@ -32,9 +32,11 @@ import { ReviewStatusTree } from './ReviewStatusTree';
 import { PRHeader } from './PRHeader';
 import { ReviewFindings } from './ReviewFindings';
 import { PRLogs } from './PRLogs';
+import { PRActionsDropdown } from './PRActionsDropdown';
 
 import type { PRData, PRReviewResult, PRReviewProgress } from '../hooks/useGitHubPRs';
 import type { NewCommitsCheck, MergeReadiness, PRLogs as PRLogsType, WorkflowsAwaitingApprovalResult } from '../../../../preload/api/modules/github-api';
+import type { PRWorktreeInfo } from '../../../../shared/types/integrations';
 
 interface PRDetailProps {
   pr: PRData;
@@ -134,6 +136,9 @@ export function PRDetail({
   const [workflowsAwaiting, setWorkflowsAwaiting] = useState<WorkflowsAwaitingApprovalResult | null>(null);
   const [isApprovingWorkflow, setIsApprovingWorkflow] = useState<number | null>(null);
   const [workflowsExpanded, setWorkflowsExpanded] = useState(true);
+
+  // PR Worktree state
+  const [worktreeStatus, setWorktreeStatus] = useState<PRWorktreeInfo | null>(null);
 
   // Generate stable IDs for accessibility
   const cleanReviewErrorDetailsId = useId();
@@ -337,6 +342,25 @@ export function PRDetail({
     // Re-check when a review is completed (CI status might have changed)
   }, [pr.number, reviewResult]);
 
+  // Check worktree status when PR changes
+  useEffect(() => {
+    const checkWorktreeStatus = async () => {
+      if (!projectId) return;
+      try {
+        const result = await window.electronAPI.github.getPRWorktreeStatus(projectId, pr.number);
+        if (result.success && result.data) {
+          setWorktreeStatus(result.data);
+        } else {
+          setWorktreeStatus(null);
+        }
+      } catch {
+        setWorktreeStatus(null);
+      }
+    };
+
+    checkWorktreeStatus();
+  }, [pr.number, projectId]);
+
   // Check merge readiness (real-time validation) when PR is selected
   // This runs on every PR selection to catch stale verdicts
   useEffect(() => {
@@ -407,6 +431,19 @@ export function PRDetail({
     const result = await window.electronAPI.github.getWorkflowsAwaitingApproval('', pr.number);
     setWorkflowsAwaiting(result);
   }, [pr.number, workflowsAwaiting]);
+
+  // Handler to checkout PR to worktree
+  const handleCheckoutWorktree = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const result = await window.electronAPI.github.checkoutPRToWorktree(projectId, pr.number);
+      if (result.success && result.data) {
+        setWorktreeStatus(result.data);
+      }
+    } catch (err) {
+      console.error('Failed to checkout PR to worktree:', err);
+    }
+  }, [projectId, pr.number]);
 
   // Handler to update PR branch when behind base
   const handleUpdateBranch = useCallback(async () => {
@@ -820,8 +857,28 @@ ${t('prReview.blockedStatusMessageFooter')}`;
     <ScrollArea className="flex-1">
       <div className="p-6 max-w-5xl mx-auto space-y-6">
 
-        {/* Refactored Header */}
-        <PRHeader pr={pr} isLoadingFiles={isLoadingFiles} />
+        {/* Refactored Header with Actions Dropdown */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <PRHeader pr={pr} isLoadingFiles={isLoadingFiles} />
+          </div>
+          <PRActionsDropdown
+            pr={pr}
+            projectId={projectId}
+            onRunReview={onRunReview}
+            onRunFollowupReview={onRunFollowupReview}
+            onMergePR={async (method) => {
+              onMergePR(method);
+              return true;
+            }}
+            onPostComment={onPostComment}
+            isReviewing={isReviewing}
+            worktreeStatus={worktreeStatus}
+            onCheckoutWorktree={handleCheckoutWorktree}
+            triggerVariant="icon"
+            align="end"
+          />
+        </div>
 
         {/* Merge Readiness Warning Banner - shows when real-time status contradicts AI verdict */}
         {mergeReadiness && mergeReadiness.blockers.length > 0 && reviewResult?.success && (

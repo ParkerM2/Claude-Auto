@@ -14,3 +14,9 @@ export { PRList } from './PRList';
 export { PRDetail } from './PRDetail';
 export { PRFilterBar } from './PRFilterBar';
 export { ReviewFindings } from './ReviewFindings';
+
+// PR Actions components
+export { PRActionsDropdown } from './PRActionsDropdown';
+export type { PRActionsDropdownProps } from './PRActionsDropdown';
+export { QuickCommentDialog } from './QuickCommentDialog';
+export type { QuickCommentDialogProps } from './QuickCommentDialog';

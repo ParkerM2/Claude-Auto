@@ -22,6 +22,8 @@ import { registerReleaseHandlers } from './release-handlers';
 import { registerGithubOAuthHandlers } from './oauth-handlers';
 import { registerAutoFixHandlers } from './autofix-handlers';
 import { registerPRHandlers } from './pr-handlers';
+import { registerPRWorktreeHandlers } from './pr-worktree-handlers';
+import { registerPRActionsHandlers } from './pr-actions-handlers';
 import { registerTriageHandlers } from './triage-handlers';
 
 /**
@@ -39,6 +41,8 @@ export function registerGithubHandlers(
   registerGithubOAuthHandlers();
   registerAutoFixHandlers(agentManager, getMainWindow);
   registerPRHandlers(getMainWindow);
+  registerPRWorktreeHandlers();
+  registerPRActionsHandlers(getMainWindow);
   registerTriageHandlers(getMainWindow);
 }
 
