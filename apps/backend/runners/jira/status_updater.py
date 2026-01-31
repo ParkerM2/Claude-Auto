@@ -169,26 +169,6 @@ class JiraStatusUpdater:
         Returns:
             Jira issue key if found, None otherwise
         """
-        jira_metadata_path = spec_dir / "jira_issue.json"
+        from .spec_metadata import get_issue_key
 
-        if not jira_metadata_path.exists():
-            logger.debug(f"No Jira metadata found at {jira_metadata_path}")
-            return None
-
-        try:
-            import json
-
-            with open(jira_metadata_path, "r", encoding="utf-8") as f:
-                metadata = json.load(f)
-                issue_key = metadata.get("key")
-
-                if issue_key:
-                    logger.debug(f"Found Jira issue key {issue_key} in spec metadata")
-                    return issue_key
-                else:
-                    logger.warning(f"Jira metadata exists but has no 'key' field")
-                    return None
-
-        except (json.JSONDecodeError, IOError) as e:
-            logger.error(f"Failed to read Jira metadata from {jira_metadata_path}: {e}")
-            return None
+        return get_issue_key(spec_dir)

@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from .models import JiraIssue
+from .spec_metadata import JiraSpecMetadata, save_jira_metadata
 
 
 class JiraSpecImporter:
@@ -296,18 +297,13 @@ class JiraSpecImporter:
         Returns:
             Path to created jira_issue.json file
         """
-        metadata_file = spec_dir / "jira_issue.json"
+        metadata = JiraSpecMetadata(
+            issue_key=issue.key,
+            issue_id=issue.id,
+            issue_url=issue.url,
+            project_key=issue.project.key,
+            imported_at=datetime.now().isoformat(),
+            original_status=issue.status.name,
+        )
 
-        metadata = {
-            "issue_key": issue.key,
-            "issue_id": issue.id,
-            "issue_url": issue.url,
-            "project_key": issue.project.key,
-            "imported_at": datetime.now().isoformat(),
-            "original_status": issue.status.name,
-        }
-
-        with open(metadata_file, "w", encoding="utf-8") as f:
-            json.dump(metadata, f, indent=2)
-
-        return metadata_file
+        return save_jira_metadata(spec_dir, metadata)
