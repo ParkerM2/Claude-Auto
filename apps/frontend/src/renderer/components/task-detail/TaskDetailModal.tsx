@@ -42,6 +42,8 @@ import { TaskSubtasks } from './TaskSubtasks';
 import { TaskLogs } from './TaskLogs';
 import { TaskFiles } from './TaskFiles';
 import { TaskReview } from './TaskReview';
+import { CurrentActionIndicator } from './CurrentActionIndicator';
+import { ActivityFeed } from './ActivityFeed';
 import type { Task, WorktreeCreatePROptions } from '../../../shared/types';
 
 interface TaskDetailModalProps {
@@ -435,6 +437,28 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                 <div className="mt-3 flex items-center gap-3">
                   <Progress value={progressPercent} className="h-1.5 flex-1" />
                   <span className="text-xs text-muted-foreground tabular-nums w-10 text-right">{progressPercent}%</span>
+                </div>
+              )}
+
+              {/* Real-time progress indicators - show when task is running */}
+              {state.isRunning && !state.isStuck && (
+                <div className="mt-3 space-y-3">
+                  {/* Current action indicator */}
+                  <CurrentActionIndicator
+                    currentAction={task.executionProgress?.recentActions?.slice(-1)[0] ?? null}
+                    phase={task.executionProgress?.phase}
+                    isRunning={state.isRunning}
+                    isStuck={state.isStuck}
+                  />
+
+                  {/* Activity feed - show recent agent actions */}
+                  {task.executionProgress?.recentActions && task.executionProgress.recentActions.length > 0 && (
+                    <ActivityFeed
+                      actions={task.executionProgress.recentActions}
+                      maxActions={10}
+                      isRunning={state.isRunning}
+                    />
+                  )}
                 </div>
               )}
 

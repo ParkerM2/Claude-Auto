@@ -230,11 +230,37 @@ export const useTaskStore = create<TaskState>((set, get) => ({
           if (status === 'backlog') {
             // When status goes to backlog, reset execution progress to idle
             // This ensures the planning/coding animation stops when task is stopped
+            // Also clear startedAt since the task is being stopped/reset
             executionProgress = { phase: 'idle' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
-          } else if (status === 'in_progress' && !t.executionProgress?.phase) {
-            // When starting a task and no phase is set yet, default to planning
-            // This prevents the "no active phase" UI state during startup race condition
-            executionProgress = { phase: 'planning' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
+          } else if (status === 'in_progress') {
+            // When transitioning to in_progress, track execution start time for time remaining estimation
+            const existingStartedAt = t.executionProgress?.startedAt;
+            const existingPhase = t.executionProgress?.phase;
+
+            if (!existingPhase) {
+              // When starting a task and no phase is set yet, default to planning
+              // This prevents the "no active phase" UI state during startup race condition
+              executionProgress = {
+                phase: 'planning' as ExecutionPhase,
+                phaseProgress: 0,
+                overallProgress: 0,
+                startedAt: existingStartedAt || new Date()  // Preserve existing startedAt or set new
+              };
+            } else if (!existingStartedAt) {
+              // If there's already a phase but no startedAt, add startedAt while preserving other progress data
+              // We know existingPhase is defined here, so we can safely create the progress object
+              executionProgress = {
+                phase: existingPhase,
+                phaseProgress: t.executionProgress?.phaseProgress ?? 0,
+                overallProgress: t.executionProgress?.overallProgress ?? 0,
+                currentSubtask: t.executionProgress?.currentSubtask,
+                message: t.executionProgress?.message,
+                sequenceNumber: t.executionProgress?.sequenceNumber,
+                completedPhases: t.executionProgress?.completedPhases,
+                recentActions: t.executionProgress?.recentActions,
+                startedAt: new Date()
+              };
+            }
           }
 
           // Log status transitions to help diagnose flip-flop issues
