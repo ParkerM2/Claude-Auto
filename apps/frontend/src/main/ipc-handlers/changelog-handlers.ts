@@ -125,8 +125,14 @@ export function registerChangelogHandlers(
         specs = await changelogService.loadTaskSpecs(project.path, request.taskIds, tasks, specsBaseDir);
       }
 
+      // Enrich request with project name
+      const enrichedRequest = {
+        ...request,
+        projectName: project.name
+      };
+
       // Start generation
-      changelogService.generateChangelog(request.projectId, project.path, request, specs);
+      changelogService.generateChangelog(request.projectId, project.path, enrichedRequest, specs);
     }
   );
 
