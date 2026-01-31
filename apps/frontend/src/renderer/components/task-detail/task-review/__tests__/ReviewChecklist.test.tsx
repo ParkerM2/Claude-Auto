@@ -23,20 +23,24 @@ describe('ReviewChecklist', () => {
   const mockOnItemChange = vi.fn();
 
   const mockChecklist: ReviewChecklistType = {
+    specId: 'test-spec',
     items: [
       { id: 'item1', label: 'Code quality check', completed: false, required: true },
       { id: 'item2', label: 'Tests passing', completed: true, required: true },
       { id: 'item3', label: 'Performance review', completed: false, required: false },
     ],
     allComplete: false,
+    updatedAt: new Date(),
   };
 
   const mockCompleteChecklist: ReviewChecklistType = {
+    specId: 'test-spec',
     items: [
       { id: 'item1', label: 'Code quality check', completed: true, required: true },
       { id: 'item2', label: 'Tests passing', completed: true, required: true },
     ],
     allComplete: true,
+    updatedAt: new Date(),
   };
 
   beforeEach(() => {
@@ -124,8 +128,10 @@ describe('ReviewChecklist', () => {
 
   it('should show no items message when checklist is empty', () => {
     const emptyChecklist: ReviewChecklistType = {
+      specId: 'test-spec',
       items: [],
       allComplete: true,
+      updatedAt: new Date(),
     };
 
     render(<ReviewChecklist checklist={emptyChecklist} onItemChange={mockOnItemChange} />);

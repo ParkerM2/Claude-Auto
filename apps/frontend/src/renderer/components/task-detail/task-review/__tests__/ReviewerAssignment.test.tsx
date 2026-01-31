@@ -25,6 +25,7 @@ describe('ReviewerAssignment', () => {
   const mockOnApprove = vi.fn();
 
   const mockAssignment: ReviewerAssignmentType = {
+    specId: 'test-spec',
     required: [
       { id: 'alice', name: 'Alice Smith', email: 'alice@example.com', approved: true },
       { id: 'bob', name: 'Bob Jones', email: 'bob@example.com', approved: false },
@@ -35,9 +36,11 @@ describe('ReviewerAssignment', () => {
       { id: 'charlie', name: 'Charlie Brown', email: 'charlie@example.com', approved: false },
     ],
     allApproved: false,
+    updatedAt: new Date(),
   };
 
   const mockApprovedAssignment: ReviewerAssignmentType = {
+    specId: 'test-spec',
     required: [
       { id: 'alice', name: 'Alice Smith', email: 'alice@example.com', approved: true },
       { id: 'bob', name: 'Bob Jones', email: 'bob@example.com', approved: true },
@@ -47,6 +50,7 @@ describe('ReviewerAssignment', () => {
       { id: 'bob', name: 'Bob Jones', email: 'bob@example.com', approved: true },
     ],
     allApproved: true,
+    updatedAt: new Date(),
   };
 
   const mockAvailableReviewers = [
@@ -215,9 +219,11 @@ describe('ReviewerAssignment', () => {
 
   it('should show empty state when no reviewers assigned', () => {
     const emptyAssignment: ReviewerAssignmentType = {
+      specId: 'test-spec',
       required: [],
       actual: [],
       allApproved: true,
+      updatedAt: new Date(),
     };
 
     render(

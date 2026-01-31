@@ -20,21 +20,25 @@ import type { ReviewMetrics as ReviewMetricsType } from '../../../../../shared/t
 
 describe('ReviewMetrics', () => {
   const mockMetrics: ReviewMetricsType = {
+    specId: 'test-spec',
     cycleTime: 86400000, // 1 day in milliseconds
     iterationCount: 3,
     timeToApproval: 3600000, // 1 hour in milliseconds
     reviewerResponseTime: 1800000, // 30 minutes in milliseconds
-    reviewStartedAt: '2024-01-01T00:00:00Z',
-    approvedAt: '2024-01-02T00:00:00Z',
+    reviewStartedAt: new Date('2024-01-01T00:00:00Z'),
+    approvedAt: new Date('2024-01-02T00:00:00Z'),
+    updatedAt: new Date(),
   };
 
   const mockInProgressMetrics: ReviewMetricsType = {
+    specId: 'test-spec',
     cycleTime: 0,
     iterationCount: 2,
     timeToApproval: 0,
     reviewerResponseTime: 0,
-    reviewStartedAt: '2024-01-01T00:00:00Z',
+    reviewStartedAt: new Date('2024-01-01T00:00:00Z'),
     approvedAt: undefined,
+    updatedAt: new Date(),
   };
 
   it('should render metrics grid with all metrics', () => {
@@ -97,12 +101,14 @@ describe('ReviewMetrics', () => {
 
   it('should show "No data" message when no metrics available', () => {
     const emptyMetrics: ReviewMetricsType = {
+      specId: 'test-spec',
       cycleTime: 0,
       iterationCount: 0,
       timeToApproval: 0,
       reviewerResponseTime: 0,
       reviewStartedAt: undefined,
       approvedAt: undefined,
+      updatedAt: new Date(),
     };
 
     render(<ReviewMetrics metrics={emptyMetrics} />);
