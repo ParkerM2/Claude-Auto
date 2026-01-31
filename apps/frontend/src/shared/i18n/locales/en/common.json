@@ -658,6 +658,9 @@
     "commits": "Commits",
     "comments": "Comments",
     "diff": "Diff",
-    "noComments": "No comments"
+    "noComments": "No comments",
+    "createSpec": "Create Spec",
+    "creatingSpec": "Creating...",
+    "specCreated": "Spec Created"
   }
 }
