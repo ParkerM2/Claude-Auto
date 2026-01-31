@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical } from 'lucide-react';
+import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical, ExternalLink } from 'lucide-react';
+import { PRStatusBadge } from './PRStatusBadge';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -105,6 +106,9 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     prevTask.metadata?.complexity === nextTask.metadata?.complexity &&
     prevTask.metadata?.archivedAt === nextTask.metadata?.archivedAt &&
     prevTask.metadata?.prUrl === nextTask.metadata?.prUrl &&
+    prevTask.metadata?.prStatus?.state === nextTask.metadata?.prStatus?.state &&
+    prevTask.metadata?.prStatus?.reviewDecision === nextTask.metadata?.prStatus?.reviewDecision &&
+    prevTask.metadata?.prStatus?.ciStatus === nextTask.metadata?.prStatus?.ciStatus &&
     // Check if any subtask statuses changed (compare all subtasks)
     prevTask.subtasks.every((s, i) => s.status === nextTask.subtasks[i]?.status)
   );
@@ -431,6 +435,10 @@ export const TaskCard = memo(function TaskCard({
                 <Archive className="h-2.5 w-2.5" />
                 {t('status.archived')}
               </Badge>
+            )}
+            {/* PR status badge - shown when task has a linked PR with status */}
+            {task.metadata?.prStatus && (
+              <PRStatusBadge status={task.metadata.prStatus} compact />
             )}
             {/* Execution phase badge - shown when actively running */}
             {hasActiveExecution && executionPhase && !isStuck && !isIncomplete && (

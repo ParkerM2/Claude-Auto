@@ -20,9 +20,7 @@ import { registerFileHandlers } from './file-handlers';
 import { registerRoadmapHandlers } from './roadmap-handlers';
 import { registerContextHandlers } from './context-handlers';
 import { registerEnvHandlers } from './env-handlers';
-import { registerLinearHandlers } from './linear-handlers';
 import { registerGithubHandlers } from './github-handlers';
-import { registerGitlabHandlers } from './gitlab-handlers';
 import { registerJiraHandlers } from './jira';
 import { registerIdeationHandlers } from './ideation-handlers';
 import { registerChangelogHandlers } from './changelog-handlers';
@@ -35,6 +33,7 @@ import { registerMcpHandlers } from './mcp-handlers';
 import { registerProfileHandlers } from './profile-handlers';
 import { registerScreenshotHandlers } from './screenshot-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
+import { registerManagerHandlers } from './manager-handlers';
 import { notificationService } from '../notification-service';
 
 /**
@@ -84,14 +83,8 @@ export function setupIpcHandlers(
   // Environment configuration handlers
   registerEnvHandlers(getMainWindow);
 
-  // Linear integration handlers
-  registerLinearHandlers(agentManager, getMainWindow);
-
   // GitHub integration handlers
   registerGithubHandlers(agentManager, getMainWindow);
-
-  // GitLab integration handlers
-  registerGitlabHandlers(agentManager, getMainWindow);
 
   // Jira integration handlers
   registerJiraHandlers();
@@ -126,6 +119,9 @@ export function setupIpcHandlers(
   // Screenshot capture handlers
   registerScreenshotHandlers();
 
+  // Manager handlers (PR status monitoring)
+  registerManagerHandlers(getMainWindow);
+
   console.warn('[IPC] All handler modules registered successfully');
 }
 
@@ -141,9 +137,7 @@ export {
   registerRoadmapHandlers,
   registerContextHandlers,
   registerEnvHandlers,
-  registerLinearHandlers,
   registerGithubHandlers,
-  registerGitlabHandlers,
   registerJiraHandlers,
   registerIdeationHandlers,
   registerChangelogHandlers,
@@ -154,5 +148,6 @@ export {
   registerClaudeCodeHandlers,
   registerMcpHandlers,
   registerProfileHandlers,
-  registerScreenshotHandlers
+  registerScreenshotHandlers,
+  registerManagerHandlers
 };

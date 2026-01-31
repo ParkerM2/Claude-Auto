@@ -7,6 +7,20 @@ import type { ExecutionPhase as ExecutionPhaseType, CompletablePhase } from '../
 
 export type TaskStatus = 'backlog' | 'queue' | 'in_progress' | 'ai_review' | 'human_review' | 'done' | 'pr_created' | 'error';
 
+/**
+ * PR status information from GitHub.
+ * Used by the Manager agent to track linked PR state on TaskCards.
+ */
+export interface PRStatusInfo {
+  prNumber: number;
+  state: 'open' | 'closed' | 'merged';
+  reviewDecision: 'approved' | 'changes_requested' | 'review_required' | null;
+  ciStatus: 'passing' | 'failing' | 'pending' | 'none';
+  isDraft: boolean;
+  mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+  lastUpdated: string;  // ISO timestamp
+}
+
 // Maps task status columns to ordered task IDs for kanban board reordering
 export type TaskOrderState = Record<TaskStatus, string[]>;
 
@@ -241,6 +255,9 @@ export interface TaskMetadata {
   // Archive status
   archivedAt?: string;  // ISO date when task was archived
   archivedInVersion?: string;  // Version in which task was archived (from changelog)
+
+  // PR status (cached from Manager agent monitoring)
+  prStatus?: PRStatusInfo;  // Cached PR status from GitHub
 }
 
 export interface Task {

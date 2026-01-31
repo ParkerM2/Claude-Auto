@@ -52,6 +52,7 @@ import { setupErrorLogging } from './app-logger';
 import { initSentryMain } from './sentry';
 import { preWarmToolCache } from './cli-tool-manager';
 import { initializeClaudeProfileManager } from './claude-profile-manager';
+import { cleanupManagerHandlers } from './ipc-handlers/manager-handlers';
 import type { AppSettings } from '../shared/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -472,6 +473,10 @@ app.on('before-quit', async () => {
   const usageMonitor = getUsageMonitor();
   usageMonitor.stop();
   console.warn('[main] Usage monitor stopped');
+
+  // Stop manager agent
+  cleanupManagerHandlers();
+  console.warn('[main] Manager agent stopped');
 
   // Kill all running agent processes
   if (agentManager) {

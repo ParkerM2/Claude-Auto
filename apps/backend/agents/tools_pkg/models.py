@@ -324,6 +324,17 @@ AGENT_CONFIGS = {
         "auto_claude_tools": [],
         "thinking_default": "high",
     },
+    # ═══════════════════════════════════════════════════════════════════════
+    # BACKGROUND AGENTS (Long-running, lightweight)
+    # ═══════════════════════════════════════════════════════════════════════
+    "manager": {
+        # Manager agent for PR status monitoring
+        # Uses gh CLI for GitHub API calls, read-only filesystem access
+        "tools": BASE_READ_TOOLS + ["Bash"],
+        "mcp_servers": [],  # Uses gh CLI directly, no MCP needed
+        "auto_claude_tools": [],
+        "thinking_default": "none",  # Simple status checking, no extended thinking
+    },
 }
 
 

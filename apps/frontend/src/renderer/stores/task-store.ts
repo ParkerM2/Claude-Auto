@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { arrayMove } from '@dnd-kit/sortable';
-import type { Task, TaskStatus, SubtaskStatus, ImplementationPlan, Subtask, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft, ImageAttachment, TaskOrderState } from '../../shared/types';
+import type { Task, TaskStatus, SubtaskStatus, ImplementationPlan, Subtask, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft, ImageAttachment, TaskOrderState, PRStatusInfo } from '../../shared/types';
 import { debugLog } from '../../shared/utils/debug-logger';
 import { isTerminalPhase } from '../../shared/constants/phase-protocol';
 
@@ -18,6 +18,7 @@ interface TaskState {
   updateTaskStatus: (taskId: string, status: TaskStatus) => void;
   updateTaskFromPlan: (taskId: string, plan: ImplementationPlan) => void;
   updateExecutionProgress: (taskId: string, progress: Partial<ExecutionProgress>) => void;
+  updateTaskPRStatus: (taskId: string, prStatus: PRStatusInfo) => void;
   appendLog: (taskId: string, log: string) => void;
   batchAppendLogs: (taskId: string, logs: string[]) => void;
   selectTask: (taskId: string | null) => void;
@@ -490,6 +491,22 @@ export const useTaskStore = create<TaskState>((set, get) => ({
             ...(phaseChanged ? { updatedAt: new Date() } : {})
           };
         })
+      };
+    }),
+
+  updateTaskPRStatus: (taskId, prStatus) =>
+    set((state) => {
+      const index = findTaskIndex(state.tasks, taskId);
+      if (index === -1) return state;
+
+      return {
+        tasks: updateTaskAtIndex(state.tasks, index, (t) => ({
+          ...t,
+          metadata: {
+            ...t.metadata,
+            prStatus
+          }
+        }))
       };
     }),
 

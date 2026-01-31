@@ -6,7 +6,6 @@
  * - Ideation operations
  * - Insights operations
  * - Changelog operations
- * - Linear integration
  * - GitHub integration
  * - Shell operations
  */
@@ -15,10 +14,9 @@ import { createRoadmapAPI, RoadmapAPI } from './modules/roadmap-api';
 import { createIdeationAPI, IdeationAPI } from './modules/ideation-api';
 import { createInsightsAPI, InsightsAPI } from './modules/insights-api';
 import { createChangelogAPI, ChangelogAPI } from './modules/changelog-api';
-import { createLinearAPI, LinearAPI } from './modules/linear-api';
 import { createGitHubAPI, GitHubAPI } from './modules/github-api';
-import { createGitLabAPI, GitLabAPI } from './modules/gitlab-api';
 import { createShellAPI, ShellAPI } from './modules/shell-api';
+import { createManagerAPI, ManagerAPI } from './modules/manager-api';
 
 /**
  * Combined Agent API interface
@@ -29,10 +27,9 @@ export interface AgentAPI extends
   IdeationAPI,
   InsightsAPI,
   ChangelogAPI,
-  LinearAPI,
   GitHubAPI,
-  GitLabAPI,
-  ShellAPI {}
+  ShellAPI,
+  ManagerAPI {}
 
 /**
  * Creates the complete Agent API by combining all module APIs
@@ -44,10 +41,9 @@ export const createAgentAPI = (): AgentAPI => {
   const ideationAPI = createIdeationAPI();
   const insightsAPI = createInsightsAPI();
   const changelogAPI = createChangelogAPI();
-  const linearAPI = createLinearAPI();
   const githubAPI = createGitHubAPI();
-  const gitlabAPI = createGitLabAPI();
   const shellAPI = createShellAPI();
+  const managerAPI = createManagerAPI();
 
   return {
     // Roadmap API
@@ -62,17 +58,14 @@ export const createAgentAPI = (): AgentAPI => {
     // Changelog API
     ...changelogAPI,
 
-    // Linear Integration API
-    ...linearAPI,
-
     // GitHub Integration API
     ...githubAPI,
 
-    // GitLab Integration API
-    ...gitlabAPI,
-
     // Shell Operations API
-    ...shellAPI
+    ...shellAPI,
+
+    // Manager API (PR status monitoring)
+    ...managerAPI
   };
 };
 
@@ -82,8 +75,7 @@ export type {
   IdeationAPI,
   InsightsAPI,
   ChangelogAPI,
-  LinearAPI,
   GitHubAPI,
-  GitLabAPI,
-  ShellAPI
+  ShellAPI,
+  ManagerAPI
 };
