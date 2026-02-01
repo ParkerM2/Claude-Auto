@@ -53,6 +53,8 @@ python run.py --spec 001
 | `--spec 001 --review` | Review build changes |
 | `--spec 001 --discard` | Discard build |
 | `--spec 001 --qa` | Run QA validation |
+| `--jira-import ISSUE-123` | Import Jira issue as spec |
+| `--jira-import ISSUE-123 --spec-name name` | Import with custom spec name |
 | `--list-worktrees` | List all worktrees |
 | `--help` | Show all options |
 
@@ -65,6 +67,9 @@ Optional `.env` settings:
 | `AUTO_BUILD_MODEL` | Override Claude model |
 | `DEBUG=true` | Enable debug logging |
 | `LINEAR_API_KEY` | Enable Linear integration |
+| `JIRA_BASE_URL` | Jira instance URL (Cloud or Server) |
+| `JIRA_EMAIL` | Jira email (for API token auth) |
+| `JIRA_API_TOKEN` | Jira API token (or use OAuth) |
 | `GRAPHITI_ENABLED=true` | Enable memory system |
 
 ## Troubleshooting
@@ -88,6 +93,7 @@ backend/
 ├── cli/             # Command-line interface
 ├── core/            # Core utilities
 ├── integrations/    # External services (Linear, Graphiti)
+├── runners/         # Service runners (GitHub, GitLab, Jira)
 ├── merge/           # Git merge handling
 ├── project/         # Project detection
 ├── prompts/         # Prompt templates

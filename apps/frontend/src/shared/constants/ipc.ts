@@ -463,6 +463,7 @@ export const IPC_CHANNELS = {
   JIRA_CHECK_CONNECTION: 'jira:checkConnection',
   JIRA_GET_MY_ISSUES: 'jira:getMyIssues',
   JIRA_GET_ISSUE: 'jira:getIssue',
+  JIRA_IMPORT_AS_SPEC: 'jira:importAsSpec',
 
   // Manager agent operations (PR status monitoring)
   MANAGER_START: 'manager:start',

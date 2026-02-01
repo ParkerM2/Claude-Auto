@@ -3,14 +3,18 @@ Jira REST API Client with Timeout and Retry Logic
 ==================================================
 
 Async client for Jira Cloud REST API that provides:
-- Basic authentication with email + API token
+- Basic authentication with email + API token OR OAuth token
 - Configurable timeouts (default 30s)
 - Exponential backoff retry (3 attempts)
 - Structured error handling
 
-Authentication uses Jira Cloud's standard Basic auth:
-  - Email: Your Atlassian account email
-  - API Token: Generated at https://id.atlassian.com/manage-profile/security/api-tokens
+Authentication Methods:
+  1. Basic Auth (email + API token):
+     - Email: Your Atlassian account email
+     - API Token: Generated at https://id.atlassian.com/manage-profile/security/api-tokens
+
+  2. OAuth Bearer Token:
+     - OAuth Token: Bearer token from Jira OAuth flow
 """
 
 from __future__ import annotations
@@ -20,11 +24,13 @@ import base64
 import json
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import aiohttp
 
 from .models import JiraIssue, JiraUser, JiraProject
+from .spec_importer import JiraSpecImporter
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -50,19 +56,53 @@ class JiraApiError(Exception):
 
 @dataclass
 class JiraConfig:
-    """Configuration for Jira client."""
+    """
+    Configuration for Jira client.
+
+    Supports two authentication methods:
+    1. Basic Auth: Provide email + api_token
+    2. OAuth: Provide oauth_token
+
+    Args:
+        base_url: Jira instance URL (e.g., https://company.atlassian.net)
+        email: Email for Basic auth (optional if using OAuth)
+        api_token: API token for Basic auth (optional if using OAuth)
+        oauth_token: OAuth bearer token (optional if using Basic auth)
+        project_key: Default project key (e.g., ES)
+    """
 
     base_url: str  # e.g., https://company.atlassian.net
-    email: str
-    api_token: str
+    email: str | None = None
+    api_token: str | None = None
+    oauth_token: str | None = None
     project_key: str | None = None  # e.g., ES
+
+    def __post_init__(self):
+        """Validate that exactly one auth method is provided."""
+        has_basic = self.email and self.api_token
+        has_oauth = self.oauth_token
+
+        if not has_basic and not has_oauth:
+            raise ValueError(
+                "JiraConfig requires authentication credentials. "
+                "Provide either (email + api_token) for Basic auth "
+                "or (oauth_token) for OAuth."
+            )
+
+        if has_basic and has_oauth:
+            raise ValueError(
+                "JiraConfig cannot use both Basic auth and OAuth simultaneously. "
+                "Provide either (email + api_token) OR (oauth_token), not both."
+            )
 
 
 class JiraClient:
     """
     Async client for Jira Cloud REST API.
 
-    Usage:
+    Supports two authentication methods: Basic auth or OAuth token.
+
+    Usage with Basic Auth:
         config = JiraConfig(
             base_url="https://company.atlassian.net",
             email="user@company.com",
@@ -71,6 +111,15 @@ class JiraClient:
         )
         client = JiraClient(config)
 
+    Usage with OAuth:
+        config = JiraConfig(
+            base_url="https://company.atlassian.net",
+            oauth_token="your-oauth-token",
+            project_key="ES"
+        )
+        client = JiraClient(config)
+
+    Common operations:
         # Get current user
         user = await client.get_current_user()
 
@@ -99,10 +148,17 @@ class JiraClient:
         self.default_timeout = default_timeout
         self.max_retries = max_retries
 
-        # Build auth header
-        credentials = f"{config.email}:{config.api_token}"
-        encoded = base64.b64encode(credentials.encode()).decode()
-        self._auth_header = f"Basic {encoded}"
+        # Build auth header based on auth method
+        if config.oauth_token:
+            # OAuth Bearer token authentication
+            self._auth_header = f"Bearer {config.oauth_token}"
+            logger.debug("Jira client initialized with OAuth authentication")
+        else:
+            # Basic authentication (email + API token)
+            credentials = f"{config.email}:{config.api_token}"
+            encoded = base64.b64encode(credentials.encode()).decode()
+            self._auth_header = f"Basic {encoded}"
+            logger.debug("Jira client initialized with Basic authentication")
 
         # API base URL
         self._api_url = f"{config.base_url.rstrip('/')}/rest/api/3"
@@ -162,8 +218,9 @@ class JiraClient:
 
                         # Handle authentication errors
                         if response.status == 401:
+                            auth_method = "OAuth token" if self.config.oauth_token else "email and API token"
                             raise JiraAuthError(
-                                "Authentication failed. Check your email and API token."
+                                f"Authentication failed. Check your {auth_method}."
                             )
                         if response.status == 403:
                             raise JiraAuthError(
@@ -358,3 +415,156 @@ class JiraClient:
                 "connected": False,
                 "error": f"Connection failed: {e}",
             }
+
+    async def update_status(
+        self,
+        issue_key: str,
+        target_status: str,
+    ) -> bool:
+        """
+        Update the status of a Jira issue by transitioning to a new status.
+
+        Finds the appropriate transition ID for the target status and executes it.
+        If multiple transitions lead to the same status, uses the first match.
+
+        Args:
+            issue_key: Jira issue key (e.g., "ES-1234")
+            target_status: Target status name (e.g., "In Progress", "Done")
+
+        Returns:
+            True if status transition was successful
+
+        Raises:
+            JiraApiError: If transition fails or target status is not available
+        """
+        # Get available transitions for this issue
+        logger.debug(f"Fetching available transitions for issue {issue_key}")
+        transitions_data = await self._request(
+            "GET",
+            f"/issue/{issue_key}/transitions",
+        )
+
+        transitions = transitions_data.get("transitions", [])
+        if not transitions:
+            raise JiraApiError(
+                f"No transitions available for issue {issue_key}. "
+                "The issue may be in a terminal state or you lack permissions."
+            )
+
+        # Find transition ID for target status
+        # Match case-insensitively for better UX
+        target_status_lower = target_status.lower()
+        transition_id = None
+
+        for transition in transitions:
+            to_status = transition.get("to", {}).get("name", "")
+            if to_status.lower() == target_status_lower:
+                transition_id = transition.get("id")
+                logger.debug(
+                    f"Found transition ID {transition_id} for status '{to_status}'"
+                )
+                break
+
+        if not transition_id:
+            available_statuses = [
+                t.get("to", {}).get("name", "Unknown") for t in transitions
+            ]
+            raise JiraApiError(
+                f"Status '{target_status}' is not available for issue {issue_key}. "
+                f"Available transitions: {', '.join(available_statuses)}"
+            )
+
+        # Execute the transition
+        logger.info(
+            f"Transitioning issue {issue_key} to status '{target_status}' "
+            f"(transition ID: {transition_id})"
+        )
+        await self._request(
+            "POST",
+            f"/issue/{issue_key}/transitions",
+            data={"transition": {"id": transition_id}},
+        )
+
+        logger.info(f"Successfully transitioned issue {issue_key} to '{target_status}'")
+        return True
+
+    async def link_pr(
+        self,
+        issue_key: str,
+        pr_url: str,
+        pr_title: str,
+    ) -> dict[str, Any]:
+        """
+        Add a remote link to a Pull Request on a Jira issue.
+
+        Creates a remote link on the issue pointing to the PR URL,
+        making it easy to navigate between Jira and GitHub.
+
+        Args:
+            issue_key: Jira issue key (e.g., "ES-1234")
+            pr_url: Full URL of the pull request
+            pr_title: Title/description of the pull request
+
+        Returns:
+            Dict containing the created remote link data
+
+        Raises:
+            JiraApiError: If link creation fails
+        """
+        logger.info(f"Adding PR link to issue {issue_key}: {pr_url}")
+
+        # Build remote link payload
+        # Follows Jira Cloud REST API v3 remote link schema
+        payload = {
+            "object": {
+                "url": pr_url,
+                "title": pr_title,
+            }
+        }
+
+        # Create the remote link
+        response = await self._request(
+            "POST",
+            f"/issue/{issue_key}/remotelink",
+            data=payload,
+        )
+
+        logger.info(f"Successfully linked PR to issue {issue_key}")
+        return response
+
+    async def import_issue(
+        self,
+        issue_key: str,
+        specs_dir: Path,
+        spec_name: str | None = None,
+    ) -> Path:
+        """
+        Import a Jira issue as an Auto Claude spec.
+
+        Fetches the issue from Jira and creates a spec directory with:
+        - spec.md (formatted issue content)
+        - requirements.json (structured requirements)
+        - jira_issue.json (metadata linking spec to Jira)
+
+        Args:
+            issue_key: Jira issue key (e.g., "ES-1234")
+            specs_dir: Directory to create specs in (e.g., Path(".auto-claude/specs"))
+            spec_name: Optional spec name (e.g., "001-feature"). If None,
+                      generates from issue key
+
+        Returns:
+            Path to created spec directory
+
+        Raises:
+            JiraApiError: If issue fetch fails
+            ValueError: If spec directory already exists
+        """
+        # Fetch the issue from Jira
+        issue = await self.get_issue(issue_key)
+
+        # Use JiraSpecImporter to create the spec
+        importer = JiraSpecImporter(specs_dir)
+        spec_dir = importer.import_issue(issue, spec_name)
+
+        logger.info(f"Successfully imported Jira issue {issue_key} to {spec_dir}")
+        return spec_dir

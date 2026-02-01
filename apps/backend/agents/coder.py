@@ -11,6 +11,12 @@ import os
 from pathlib import Path
 
 from core.client import create_client
+from jira_updater import (
+    is_jira_enabled,
+    jira_build_complete,
+    jira_task_started,
+    jira_task_stuck,
+)
 from linear_updater import (
     LinearTaskState,
     is_linear_enabled,
@@ -130,6 +136,12 @@ async def run_autonomous_agent(
             print_status("Linear enabled but no task created for this spec", "warning")
             print()
 
+    # Check Jira integration status
+    jira_enabled = is_jira_enabled()
+    if jira_enabled:
+        print_status("Jira integration: ENABLED", "success")
+        print()
+
     # Check if this is a fresh start or continuation
     first_run = is_first_run(spec_dir)
 
@@ -186,6 +198,11 @@ async def run_autonomous_agent(
         if linear_task and linear_task.task_id:
             print_status("Updating Linear task to In Progress...", "progress")
             await linear_task_started(spec_dir)
+
+        # Update Jira to "In Progress" when build starts
+        if jira_enabled:
+            print_status("Updating Jira issue to In Progress...", "progress")
+            await jira_task_started(spec_dir)
     else:
         print(f"Continuing build: {highlight(spec_dir.name)}")
         print_progress_summary(spec_dir)
@@ -500,6 +517,15 @@ async def run_autonomous_agent(
                         attempt_count=attempt_count,
                     )
                     print_status("Linear notified of stuck subtask", "info")
+
+                # Record stuck subtask in Jira (if enabled)
+                if jira_enabled:
+                    await jira_task_stuck(
+                        spec_dir=spec_dir,
+                        subtask_id=subtask_id,
+                        attempt_count=attempt_count,
+                    )
+                    print_status("Jira notified of stuck subtask", "info")
         elif plan_validated and source_spec_dir:
             # After planning phase, sync the newly created implementation plan back to source
             if sync_spec_to_source(spec_dir, source_spec_dir):
@@ -522,6 +548,11 @@ async def run_autonomous_agent(
             if linear_task and linear_task.task_id:
                 await linear_build_complete(spec_dir)
                 print_status("Linear notified: build complete, ready for QA", "success")
+
+            # Update Jira to "Done" when build completes
+            if jira_enabled:
+                await jira_build_complete(spec_dir)
+                print_status("Jira notified: build complete, ready for QA", "success")
 
             break
 
