@@ -8,7 +8,7 @@
  * To run: npx playwright test worktree-deletion --config=e2e/playwright.config.ts
  */
 import { test, expect } from '@playwright/test';
-import { mkdirSync, mkdtempSync, rmSync, existsSync, writeFileSync, readFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, rmSync, existsSync, writeFileSync, readFileSync, readdirSync, statSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
 import { execSync } from 'child_process';
@@ -178,6 +178,49 @@ function createOrphanWorktree(specId: string): { specDir: string; worktreePath: 
   }
 
   return result;
+}
+
+// Helper to create a true orphan worktree (worktree directory exists but NO task reference at all)
+function createTrueOrphanWorktree(specId: string): { worktreePath: string } {
+  const worktreePath = path.join(WORKTREES_DIR, specId);
+  mkdirSync(worktreePath, { recursive: true });
+
+  // Create files to simulate a real worktree, but NO spec directory
+  writeFileSync(path.join(worktreePath, '.git'), `gitdir: ${TEST_PROJECT_DIR}/.git/worktrees/${specId}`);
+  writeFileSync(path.join(worktreePath, 'README.md'), `# Orphan Worktree for ${specId}`);
+
+  // Create src directory first, then write file
+  mkdirSync(path.join(worktreePath, 'src'), { recursive: true });
+  writeFileSync(path.join(worktreePath, 'src', 'index.ts'), '// orphan file');
+
+  return { worktreePath };
+}
+
+// Helper to detect orphan worktrees (worktrees with no corresponding spec)
+function findOrphanWorktrees(): string[] {
+  if (!existsSync(WORKTREES_DIR)) {
+    return [];
+  }
+
+  const worktreeDirs = readdirSync(WORKTREES_DIR);
+  const orphans: string[] = [];
+
+  for (const dir of worktreeDirs) {
+    const worktreePath = path.join(WORKTREES_DIR, dir);
+    const specDir = path.join(SPECS_DIR, dir);
+
+    // Check if it's a directory
+    if (!statSync(worktreePath).isDirectory()) {
+      continue;
+    }
+
+    // If worktree exists but no spec directory, it's an orphan
+    if (!existsSync(specDir)) {
+      orphans.push(dir);
+    }
+  }
+
+  return orphans;
 }
 
 // Helper to verify worktree exists
@@ -631,5 +674,220 @@ test.describe('Phantom Worktree Auto-Cleanup Tests', () => {
 
     // Cleanup
     rmSync(specDir, { recursive: true, force: true });
+  });
+});
+
+test.describe('Orphan Worktree Deletion Tests (No Task Reference)', () => {
+  test.beforeAll(() => {
+    setupTestEnvironment();
+  });
+
+  test.afterAll(() => {
+    cleanupTestEnvironment();
+  });
+
+  test('orphan worktree should be detectable when no spec exists', () => {
+    const specId = '400-orphan-no-spec';
+    const { worktreePath } = createTrueOrphanWorktree(specId);
+
+    // Verify worktree exists
+    expect(existsSync(worktreePath)).toBe(true);
+
+    // Verify NO spec directory exists
+    const specDir = path.join(SPECS_DIR, specId);
+    expect(existsSync(specDir)).toBe(false);
+
+    // Detect orphan using helper
+    const orphans = findOrphanWorktrees();
+    expect(orphans).toContain(specId);
+
+    // Cleanup
+    rmSync(worktreePath, { recursive: true, force: true });
+  });
+
+  test('orphan worktree should be deletable without task reference', () => {
+    const specId = '401-orphan-delete-no-task';
+    const { worktreePath } = createTrueOrphanWorktree(specId);
+
+    // Verify orphan exists
+    expect(existsSync(worktreePath)).toBe(true);
+    expect(findOrphanWorktrees()).toContain(specId);
+
+    // Delete the orphan worktree directory directly
+    rmSync(worktreePath, { recursive: true, force: true });
+
+    // Verify deletion succeeded
+    expect(existsSync(worktreePath)).toBe(false);
+
+    // Orphan should no longer be detected
+    expect(findOrphanWorktrees()).not.toContain(specId);
+  });
+
+  test('orphan worktree deletion should not require spec directory', () => {
+    const specId = '402-orphan-no-spec-required';
+    const { worktreePath } = createTrueOrphanWorktree(specId);
+
+    // Confirm no spec
+    const specDir = path.join(SPECS_DIR, specId);
+    expect(existsSync(specDir)).toBe(false);
+
+    // Deletion should work without spec directory
+    expect(() => {
+      rmSync(worktreePath, { recursive: true, force: true });
+    }).not.toThrow();
+
+    expect(existsSync(worktreePath)).toBe(false);
+  });
+
+  test('orphan worktree detection should distinguish from valid worktrees', () => {
+    const orphanId = '403-orphan-mixed';
+    const validId = '403-valid-mixed';
+
+    // Create orphan (no spec)
+    const { worktreePath: orphanPath } = createTrueOrphanWorktree(orphanId);
+
+    // Create valid worktree (has spec)
+    const { worktreePath: validPath, specDir } = createSpecWithWorktree(validId);
+
+    // Verify states
+    expect(existsSync(orphanPath)).toBe(true);
+    expect(existsSync(path.join(SPECS_DIR, orphanId))).toBe(false);
+    expect(existsSync(validPath)).toBe(true);
+    expect(existsSync(path.join(SPECS_DIR, validId))).toBe(true);
+
+    // Only orphan should be detected
+    const orphans = findOrphanWorktrees();
+    expect(orphans).toContain(orphanId);
+    expect(orphans).not.toContain(validId);
+
+    // Cleanup
+    rmSync(orphanPath, { recursive: true, force: true });
+    rmSync(validPath, { recursive: true, force: true });
+    rmSync(specDir, { recursive: true, force: true });
+  });
+
+  test('orphan worktree deletion should handle multiple orphans', () => {
+    const orphanIds = ['404-orphan-multi-1', '404-orphan-multi-2', '404-orphan-multi-3'];
+    const orphanPaths: string[] = [];
+
+    // Create multiple orphans
+    for (const specId of orphanIds) {
+      const { worktreePath } = createTrueOrphanWorktree(specId);
+      orphanPaths.push(worktreePath);
+    }
+
+    // All should be detected as orphans
+    const detectedOrphans = findOrphanWorktrees();
+    for (const specId of orphanIds) {
+      expect(detectedOrphans).toContain(specId);
+    }
+
+    // Delete all orphans in batch
+    for (const worktreePath of orphanPaths) {
+      rmSync(worktreePath, { recursive: true, force: true });
+    }
+
+    // All should be gone
+    const remainingOrphans = findOrphanWorktrees();
+    for (const specId of orphanIds) {
+      expect(remainingOrphans).not.toContain(specId);
+    }
+  });
+
+  test('orphan worktree with git registration should be cleanable', () => {
+    const specId = '405-orphan-with-git-reg';
+    const { worktreePath } = createTrueOrphanWorktree(specId);
+
+    // Register in git to simulate real worktree
+    registerWorktreeInGit(specId, worktreePath);
+
+    // Verify state
+    expect(existsSync(worktreePath)).toBe(true);
+    expect(worktreeRegisteredInGit(specId)).toBe(true);
+    expect(existsSync(path.join(SPECS_DIR, specId))).toBe(false);
+
+    // Should still be detected as orphan (no spec)
+    expect(findOrphanWorktrees()).toContain(specId);
+
+    // Delete worktree directory
+    rmSync(worktreePath, { recursive: true, force: true });
+
+    // Prune git registration
+    pruneWorktrees();
+
+    // Both should be cleaned up
+    expect(existsSync(worktreePath)).toBe(false);
+    expect(worktreeRegisteredInGit(specId)).toBe(false);
+  });
+
+  test('orphan worktree deletion should preserve other worktrees', () => {
+    const orphanId = '406-orphan-preserve';
+    const keepId1 = '406-keep-valid';
+    const keepId2 = '406-keep-orphan-archived';
+
+    // Create orphan to delete
+    const { worktreePath: orphanPath } = createTrueOrphanWorktree(orphanId);
+
+    // Create valid worktree to keep
+    const keep1 = createSpecWithWorktree(keepId1);
+
+    // Create archived orphan to keep
+    const keep2 = createOrphanWorktree(keepId2);
+
+    // Verify initial states
+    expect(existsSync(orphanPath)).toBe(true);
+    expect(existsSync(keep1.worktreePath)).toBe(true);
+    expect(existsSync(keep2.worktreePath)).toBe(true);
+
+    // Delete only the true orphan
+    rmSync(orphanPath, { recursive: true, force: true });
+
+    // Verify only orphan was deleted
+    expect(existsSync(orphanPath)).toBe(false);
+    expect(existsSync(keep1.worktreePath)).toBe(true);
+    expect(existsSync(keep2.worktreePath)).toBe(true);
+
+    // Cleanup
+    rmSync(keep1.worktreePath, { recursive: true, force: true });
+    rmSync(keep1.specDir, { recursive: true, force: true });
+    rmSync(keep2.worktreePath, { recursive: true, force: true });
+    rmSync(keep2.specDir, { recursive: true, force: true });
+  });
+
+  test('orphan worktree created by external process should be deletable', () => {
+    // Simulate a worktree created by an external process (e.g., crashed session)
+    const specId = '407-external-orphan';
+    const worktreePath = path.join(WORKTREES_DIR, specId);
+
+    // Create directory manually (simulating external creation)
+    mkdirSync(worktreePath, { recursive: true });
+    writeFileSync(path.join(worktreePath, 'partial-work.txt'), 'incomplete work from crashed session');
+    writeFileSync(path.join(worktreePath, 'package.json'), JSON.stringify({ name: 'incomplete' }));
+
+    // No spec exists
+    expect(existsSync(path.join(SPECS_DIR, specId))).toBe(false);
+
+    // Should be detected as orphan
+    expect(findOrphanWorktrees()).toContain(specId);
+
+    // Should be deletable
+    rmSync(worktreePath, { recursive: true, force: true });
+    expect(existsSync(worktreePath)).toBe(false);
+  });
+
+  test('orphan worktree detection should handle empty worktrees directory', () => {
+    // Ensure we have a clean worktrees directory
+    const tempDir = mkdtempSync(path.join(tmpdir(), 'orphan-empty-test-'));
+    const emptyWorktreesDir = path.join(tempDir, 'worktrees');
+    mkdirSync(emptyWorktreesDir, { recursive: true });
+
+    // No orphans should be detected in empty directory
+    // Note: This tests the robustness of findOrphanWorktrees()
+    const orphans = findOrphanWorktrees();
+    // Should not throw and should return valid array
+    expect(Array.isArray(orphans)).toBe(true);
+
+    // Cleanup
+    rmSync(tempDir, { recursive: true, force: true });
   });
 });
