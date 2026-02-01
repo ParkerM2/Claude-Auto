@@ -28,7 +28,7 @@ from .qa_commands import (
     handle_qa_status_command,
     handle_review_status_command,
 )
-from .spec_commands import print_specs_list
+from .spec_commands import import_jira_issue, print_specs_list
 from .utils import (
     DEFAULT_MODEL,
     find_spec,
@@ -88,6 +88,22 @@ Environment Variables:
         "--list",
         action="store_true",
         help="List all available specs and their status",
+    )
+
+    parser.add_argument(
+        "--jira-import",
+        type=str,
+        metavar="ISSUE_KEY",
+        default=None,
+        help="Import a Jira issue as a spec (e.g., 'ES-1234')",
+    )
+
+    parser.add_argument(
+        "--spec-name",
+        type=str,
+        metavar="NAME",
+        default=None,
+        help="With --jira-import: custom spec name (default: auto-generated from issue)",
     )
 
     parser.add_argument(
@@ -331,6 +347,11 @@ def _run_cli() -> None:
     if args.list:
         print_banner()
         print_specs_list(project_dir)
+        return
+
+    # Handle --jira-import command
+    if args.jira_import:
+        import_jira_issue(args.jira_import, project_dir, args.spec_name)
         return
 
     # Handle --list-worktrees command

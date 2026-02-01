@@ -34,6 +34,7 @@ import { registerProfileHandlers } from './profile-handlers';
 import { registerScreenshotHandlers } from './screenshot-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
 import { registerManagerHandlers } from './manager-handlers';
+import { registerReviewHandlers } from './review-handlers';
 import { notificationService } from '../notification-service';
 
 /**
@@ -122,6 +123,9 @@ export function setupIpcHandlers(
   // Manager handlers (PR status monitoring)
   registerManagerHandlers(getMainWindow);
 
+  // Review workflow handlers
+  registerReviewHandlers();
+
   console.warn('[IPC] All handler modules registered successfully');
 }
 
@@ -149,5 +153,6 @@ export {
   registerMcpHandlers,
   registerProfileHandlers,
   registerScreenshotHandlers,
-  registerManagerHandlers
+  registerManagerHandlers,
+  registerReviewHandlers
 };

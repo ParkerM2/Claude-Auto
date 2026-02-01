@@ -9,6 +9,7 @@ import { cn } from '../../../lib/utils';
 import type { JiraIssue } from '../../../../shared/types';
 import { useLinkedPRs } from '../hooks';
 import { LinkedPRSection } from './LinkedPRSection';
+import { CreateSpecButton } from './CreateSpecButton';
 
 interface TicketDetailProps {
   ticket: JiraIssue;
@@ -50,15 +51,17 @@ export function TicketDetail({ ticket, projectId }: TicketDetailProps) {
             </div>
             <h2 className="text-lg font-medium">{ticket.summary}</h2>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => window.open(ticket.url, '_blank')}
-            className="shrink-0"
-          >
-            <ExternalLink className="h-4 w-4 mr-1" />
-            {t('jira.openInJira')}
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <CreateSpecButton ticket={ticket} projectId={projectId} />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => window.open(ticket.url, '_blank')}
+            >
+              <ExternalLink className="h-4 w-4 mr-1" />
+              {t('jira.openInJira')}
+            </Button>
+          </div>
         </div>
       </div>
 

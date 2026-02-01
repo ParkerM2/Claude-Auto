@@ -43,7 +43,7 @@ function getPrimaryStatus(status: PRStatusInfo): {
     return {
       label: 'prStatus.merged',
       icon: GitMerge,
-      className: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+      className: 'bg-green-500/10 text-green-400 border-green-500/30',
       priority: 100
     };
   }
@@ -87,11 +87,11 @@ function getPrimaryStatus(status: PRStatusInfo): {
     };
   }
 
-  // Default: pending review
+  // Default: open/pending review
   return {
     label: 'prStatus.pendingReview',
     icon: AlertCircle,
-    className: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
+    className: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
     priority: 50
   };
 }

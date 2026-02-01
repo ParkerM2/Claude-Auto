@@ -82,6 +82,7 @@
 | **AI-Powered Merge** | Automatic conflict resolution when integrating back to main |
 | **Memory Layer** | Agents retain insights across sessions for smarter builds |
 | **GitHub/GitLab Integration** | Import issues, investigate with AI, create merge requests |
+| **Jira Integration** | Import tickets as specs, auto-update status, link PRs |
 | **Linear Integration** | Sync tasks with Linear for team progress tracking |
 | **Cross-Platform** | Native desktop apps for Windows, macOS, and Linux |
 | **Auto-Updates** | App updates automatically when new versions are released |

@@ -9,6 +9,7 @@ export interface JiraAPI {
   checkConnection: (projectId: string) => Promise<IPCResult<JiraSyncStatus>>;
   getMyIssues: (projectId: string) => Promise<IPCResult<JiraIssue[]>>;
   getIssue: (projectId: string, issueKey: string) => Promise<IPCResult<JiraIssue>>;
+  importAsSpec: (projectId: string, issueKey: string) => Promise<IPCResult<void>>;
 }
 
 /**
@@ -23,4 +24,7 @@ export const createJiraAPI = (): JiraAPI => ({
 
   getIssue: (projectId: string, issueKey: string): Promise<IPCResult<JiraIssue>> =>
     invokeIpc(IPC_CHANNELS.JIRA_GET_ISSUE, projectId, issueKey),
+
+  importAsSpec: (projectId: string, issueKey: string): Promise<IPCResult<void>> =>
+    invokeIpc(IPC_CHANNELS.JIRA_IMPORT_AS_SPEC, projectId, issueKey),
 });

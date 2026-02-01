@@ -30,56 +30,6 @@ import { safeSendToRenderer } from "./utils";
 import { getClaudeProfileManager } from "../claude-profile-manager";
 
 /**
- * Track when each task's execution started.
- * This is used to include startedAt timestamp in execution progress updates
- * sent to the renderer, enabling accurate time remaining estimation.
- */
-const taskStartTimes: Map<string, Date> = new Map();
-
-/**
- * Get or set the start time for a task's execution.
- * Records the start time when a task first enters a non-idle phase,
- * and cleans up when the task completes or fails.
- *
- * @param taskId - The task identifier
- * @param phase - The current execution phase
- * @returns The start time for this task, or undefined if not started
- */
-function getOrSetTaskStartTime(
-  taskId: string,
-  phase: ExecutionProgressData["phase"]
-): Date | undefined {
-  // Clean up when task is complete or failed
-  if (phase === "complete" || phase === "failed") {
-    // Don't delete immediately - keep for final progress update
-    // Will be cleaned up on next task start
-    return taskStartTimes.get(taskId);
-  }
-
-  // If task is idle, don't set a start time
-  if (phase === "idle") {
-    return undefined;
-  }
-
-  // If we don't have a start time yet, record one
-  if (!taskStartTimes.has(taskId)) {
-    taskStartTimes.set(taskId, new Date());
-  }
-
-  return taskStartTimes.get(taskId);
-}
-
-/**
- * Clean up the start time tracking for a completed task.
- * Called when a task exits to free memory.
- *
- * @param taskId - The task identifier to clean up
- */
-function cleanupTaskStartTime(taskId: string): void {
-  taskStartTimes.delete(taskId);
-}
-
-/**
  * Validates status transitions to prevent invalid state changes.
  * FIX (ACS-55, ACS-71): Adds guardrails against bad status transitions.
  * FIX (PR Review): Uses comprehensive wouldPhaseRegress() utility instead of hardcoded checks.
@@ -233,9 +183,6 @@ export function registerAgenteventsHandlers(
 
     fileWatcher.unwatch(taskId);
 
-    // Clean up task start time tracking to prevent memory leaks
-    cleanupTaskStartTime(taskId);
-
     if (processType === "spec-creation") {
       console.warn(`[Task ${taskId}] Spec creation completed with code ${code}`);
       return;
@@ -356,21 +303,12 @@ export function registerAgenteventsHandlers(
     const { task, project } = findTaskAndProject(taskId);
     const taskProjectId = project?.id;
 
-    // Track execution start time for time remaining estimation
-    const startedAt = getOrSetTaskStartTime(taskId, progress.phase);
-
-    // Augment progress with startedAt timestamp for the renderer
-    const augmentedProgress = {
-      ...progress,
-      startedAt,
-    };
-
     // Include projectId in execution progress event for multi-project filtering
     safeSendToRenderer(
       getMainWindow,
       IPC_CHANNELS.TASK_EXECUTION_PROGRESS,
       taskId,
-      augmentedProgress,
+      progress,
       taskProjectId
     );
 

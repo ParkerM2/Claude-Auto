@@ -19,6 +19,74 @@ from workspace import get_existing_build_worktree
 from .utils import get_specs_dir
 
 
+def import_jira_issue(
+    issue_key: str, project_dir: Path, spec_name: str | None = None
+) -> None:
+    """
+    Import a Jira issue as an Auto Claude spec.
+
+    Args:
+        issue_key: Jira issue key (e.g., "ES-1234")
+        project_dir: Project root directory
+        spec_name: Optional spec name (e.g., "001-feature"). If None, generates from issue key
+    """
+    import asyncio
+    import os
+
+    from runners.jira.jira_client import JiraClient, JiraConfig
+
+    # Get Jira configuration from environment
+    base_url = os.environ.get("JIRA_BASE_URL")
+    email = os.environ.get("JIRA_EMAIL")
+    api_token = os.environ.get("JIRA_API_TOKEN")
+    project_key = os.environ.get("JIRA_PROJECT_KEY")
+
+    # Validate required configuration
+    if not base_url:
+        print("\nError: JIRA_BASE_URL is not set")
+        print("Set it in apps/backend/.env:")
+        print("  JIRA_BASE_URL=https://your-company.atlassian.net")
+        sys.exit(1)
+
+    if not email:
+        print("\nError: JIRA_EMAIL is not set")
+        print("Set it in apps/backend/.env:")
+        print("  JIRA_EMAIL=your.email@company.com")
+        sys.exit(1)
+
+    if not api_token:
+        print("\nError: JIRA_API_TOKEN is not set")
+        print("Set it in apps/backend/.env:")
+        print("  JIRA_API_TOKEN=your-api-token")
+        print("\nGenerate a token at: https://id.atlassian.com/manage-profile/security/api-tokens")
+        sys.exit(1)
+
+    # Create Jira client
+    config = JiraConfig(
+        base_url=base_url,
+        email=email,
+        api_token=api_token,
+        project_key=project_key,
+    )
+    client = JiraClient(config)
+
+    # Get specs directory
+    specs_dir = get_specs_dir(project_dir)
+
+    # Import the issue
+    print(f"\nImporting Jira issue {issue_key}...")
+    try:
+        spec_dir = asyncio.run(client.import_issue(issue_key, specs_dir, spec_name))
+        print(f"✓ Successfully imported {issue_key}")
+        print(f"  Spec created at: {spec_dir}")
+        print(f"\nTo build this spec:")
+        print(f"  python auto-claude/run.py --spec {spec_dir.name}")
+    except Exception as e:
+        print(f"\n✗ Failed to import {issue_key}")
+        print(f"  Error: {e}")
+        sys.exit(1)
+
+
 def list_specs(project_dir: Path) -> list[dict]:
     """
     List all specs in the project.
