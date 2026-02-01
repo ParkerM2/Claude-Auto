@@ -60,6 +60,7 @@ export interface TaskAPI {
   mergeWorktree: (taskId: string, options?: { noCommit?: boolean }) => Promise<IPCResult<import('../../shared/types').WorktreeMergeResult>>;
   mergeWorktreePreview: (taskId: string) => Promise<IPCResult<import('../../shared/types').WorktreeMergeResult>>;
   discardWorktree: (taskId: string, skipStatusChange?: boolean) => Promise<IPCResult<import('../../shared/types').WorktreeDiscardResult>>;
+  discardWorktreeDirect: (projectPath: string, specName: string) => Promise<IPCResult<import('../../shared/types').WorktreeDiscardResult>>;
   clearStagedState: (taskId: string) => Promise<IPCResult<{ cleared: boolean }>>;
   listWorktrees: (projectId: string) => Promise<IPCResult<import('../../shared/types').WorktreeListResult>>;
   worktreeOpenInIDE: (worktreePath: string, ide: SupportedIDE, customPath?: string) => Promise<IPCResult<{ opened: boolean }>>;
@@ -164,6 +165,9 @@ export const createTaskAPI = (): TaskAPI => ({
 
   discardWorktree: (taskId: string, skipStatusChange?: boolean): Promise<IPCResult<import('../../shared/types').WorktreeDiscardResult>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_WORKTREE_DISCARD, taskId, skipStatusChange),
+
+  discardWorktreeDirect: (projectPath: string, specName: string): Promise<IPCResult<import('../../shared/types').WorktreeDiscardResult>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_WORKTREE_DISCARD_DIRECT, projectPath, specName),
 
   clearStagedState: (taskId: string): Promise<IPCResult<{ cleared: boolean }>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_CLEAR_STAGED_STATE, taskId),
