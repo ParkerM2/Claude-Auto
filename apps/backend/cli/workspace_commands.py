@@ -5,6 +5,7 @@ Workspace Commands
 CLI commands for workspace management (merge, review, discard, list, cleanup)
 """
 
+import asyncio
 import json
 import subprocess
 import sys
@@ -26,6 +27,7 @@ from core.workspace.git_utils import (
 from core.worktree import PushAndCreatePRResult as CreatePRResult
 from core.worktree import WorktreeManager
 from debug import debug_warning
+from jira_updater import is_jira_enabled, jira_pr_created
 from ui import (
     Icons,
     icon,
@@ -1097,6 +1099,15 @@ def handle_create_pr_command(
             print(f"\n{icon(Icons.LINK)} {pr_url}")
         else:
             print(f"\n{icon(Icons.INFO)} Check GitHub for the PR URL")
+
+        # Link PR to Jira issue if integration is enabled
+        if pr_url and is_jira_enabled():
+            spec_path = project_dir / ".auto-claude" / "specs" / spec_name
+            try:
+                asyncio.run(jira_pr_created(spec_path, pr_url, title))
+                print(f"{icon(Icons.SUCCESS)} Linked PR to Jira issue")
+            except Exception as e:
+                print(f"{icon(Icons.WARNING)} Failed to link PR to Jira: {e}")
 
         print("\nNext steps:")
         print("  1. Review the PR on GitHub")

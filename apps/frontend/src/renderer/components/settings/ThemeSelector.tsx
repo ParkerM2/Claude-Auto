@@ -1,11 +1,9 @@
-import { Check, Sun, Moon, Monitor, Palette } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { Check, Sun, Moon, Monitor } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Label } from '../ui/label';
 import { COLOR_THEMES } from '../../../shared/constants';
 import { useSettingsStore } from '../../stores/settings-store';
 import type { ColorTheme, AppSettings } from '../../../shared/types';
-import { CustomThemeInput } from './CustomThemeInput';
 
 interface ThemeSelectorProps {
   settings: AppSettings;
@@ -20,7 +18,6 @@ interface ThemeSelectorProps {
  * require saving to take effect.
  */
 export function ThemeSelector({ settings, onSettingsChange }: ThemeSelectorProps) {
-  const { t } = useTranslation(['settings']);
   const updateStoreSettings = useSettingsStore((state) => state.updateSettings);
 
   const currentColorTheme = settings.colorTheme || 'default';
@@ -134,51 +131,8 @@ export function ThemeSelector({ settings, onSettingsChange }: ThemeSelectorProps
               </button>
             );
           })}
-
-          {/* Custom Theme Card */}
-          <button
-            onClick={() => handleColorThemeChange('custom')}
-            className={cn(
-              'relative flex flex-col p-4 rounded-lg border-2 text-left transition-all',
-              'hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-              currentColorTheme === 'custom'
-                ? 'border-primary bg-primary/5 shadow-sm'
-                : 'border-border hover:border-primary/50 hover:bg-accent/30'
-            )}
-          >
-            {/* Selection indicator */}
-            {currentColorTheme === 'custom' && (
-              <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                <Check className="w-3 h-3 text-primary-foreground" />
-              </div>
-            )}
-
-            {/* Icon */}
-            <div className="flex items-center gap-2 mb-3">
-              <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20">
-                <Palette className="h-4 w-4 text-primary" />
-              </div>
-            </div>
-
-            {/* Theme info */}
-            <div className="space-y-1">
-              <p className="font-medium text-sm text-foreground">
-                {settings.customThemeName || t('settings:theme.customTheme.customDefaultName')}
-              </p>
-              <p className="text-xs text-muted-foreground line-clamp-2">
-                {t('settings:theme.customTheme.customDescription')}
-              </p>
-            </div>
-          </button>
         </div>
       </div>
-
-      {/* Custom Theme Input - shown when custom theme is selected */}
-      {currentColorTheme === 'custom' && (
-        <div className="pt-2">
-          <CustomThemeInput settings={settings} onSettingsChange={onSettingsChange} />
-        </div>
-      )}
     </div>
   );
 }

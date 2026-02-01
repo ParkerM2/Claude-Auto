@@ -309,4 +309,26 @@ export function registerJiraIssueHandlers(): void {
       }
     }
   );
+
+  // Import Jira issue as spec
+  ipcMain.handle(
+    IPC_CHANNELS.JIRA_IMPORT_AS_SPEC,
+    async (_, projectId: string, issueKey: string): Promise<IPCResult<void>> => {
+      const config = getJiraConfig(projectId);
+      if (!config) {
+        return { success: false, error: 'Jira not configured' };
+      }
+
+      try {
+        // TODO: Implement spec creation from Jira issue
+        // This will be implemented in a later subtask
+        return { success: true, data: undefined };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to import issue as spec',
+        };
+      }
+    }
+  );
 }

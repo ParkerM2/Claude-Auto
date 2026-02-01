@@ -232,42 +232,8 @@
     "light": "Light",
     "dark": "Dark",
     "system": "System",
-    "appearanceMode": "Appearance Mode",
-    "appearanceModeDescription": "Choose light, dark, or system preference",
     "colorTheme": "Color Theme",
-    "colorThemeDescription": "Choose your preferred color palette",
-    "customTheme": {
-      "title": "Custom Theme",
-      "description": "Paste CSS variables from",
-      "linkText": "tweakcn.com/editor",
-      "descriptionSuffix": "to create your own theme",
-      "expectedFormat": "Expected format:",
-      "formatRequirement1": "Must include",
-      "formatRequirement1Code": ":root",
-      "formatRequirement1Suffix": "section with CSS variables",
-      "formatRequirement2": "Should include",
-      "formatRequirement2Code": ".dark",
-      "formatRequirement2Suffix": "section for dark mode support",
-      "formatRequirement3": "Variables like",
-      "formatRequirement3Variables": "--background, --foreground, --primary",
-      "formatRequirement3Suffix": ", etc.",
-      "formatRequirement4": "Supports hex, HSL, RGB color formats",
-      "themeNameLabel": "Theme Name",
-      "themeNamePlaceholder": "e.g., My Custom Theme",
-      "themeCssLabel": "Theme CSS",
-      "themeCssPlaceholder": ":root {\n  --background: #ffffff;\n  --foreground: #000000;\n  --primary: #3b82f6;\n  /* ... more variables */\n}\n\n.dark {\n  --background: #000000;\n  --foreground: #ffffff;\n  /* ... more variables */\n}",
-      "validationError": "CSS must include :root section with CSS variables",
-      "successMessage": "Valid CSS - theme will be applied immediately",
-      "validationErrors": {
-        "missingRoot": "CSS must include :root section with CSS variables",
-        "missingVariables": "CSS must contain at least one CSS variable (e.g., --background: #fff)",
-        "unmatchedBraces": "CSS has unmatched braces - check your syntax",
-        "emptyRoot": ":root section appears to be empty or malformed"
-      },
-      "clearButton": "Clear",
-      "customDefaultName": "Custom",
-      "customDescription": "Create your own theme with CSS variables"
-    }
+    "colorThemeDescription": "Choose your preferred color palette"
   },
   "devtools": {
     "title": "Developer Tools",
