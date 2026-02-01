@@ -350,13 +350,13 @@ export function Worktrees({ projectId }: WorktreesProps) {
     // Delete task worktrees
     for (const specName of taskSpecNames) {
       const task = findTaskForWorktree(specName);
-      if (!task) {
-        errors.push(t('common:errors.taskNotFoundForWorktree', { specName }));
-        continue;
-      }
 
       try {
-        const result = await window.electronAPI.discardWorktree(task.id);
+        // Use task-based deletion if task exists, otherwise use direct deletion for orphan worktrees
+        const result = task
+          ? await window.electronAPI.discardWorktree(task.id)
+          : await window.electronAPI.discardWorktreeDirect(selectedProject.path, specName);
+
         if (!result.success) {
           errors.push(result.error || t('common:errors.failedToDeleteTaskWorktree', { specName }));
         }
