@@ -1,13 +1,23 @@
 import { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
+/**
+ * View mode for the Kanban board display
+ * - 'kanban-full': Full-size Kanban cards with all details
+ * - 'kanban-compact': Compact Kanban cards showing minimal info
+ * - 'table': Jira-style table view with expandable rows
+ */
+export type ViewMode = 'kanban-full' | 'kanban-compact' | 'table';
+
 interface ViewState {
   showArchived: boolean;
+  viewMode: ViewMode;
 }
 
 interface ViewStateContextValue extends ViewState {
   setShowArchived: (show: boolean) => void;
   toggleShowArchived: () => void;
+  setViewMode: (mode: ViewMode) => void;
 }
 
 const ViewStateContext = createContext<ViewStateContextValue | null>(null);
@@ -22,9 +32,11 @@ interface ViewStateProviderProps {
  *
  * Currently manages:
  * - showArchived: Whether to show archived items in views
+ * - viewMode: Display mode for Kanban board (full, compact, or table view)
  */
 export function ViewStateProvider({ children }: ViewStateProviderProps) {
   const [showArchived, setShowArchivedState] = useState(false);
+  const [viewMode, setViewModeState] = useState<ViewMode>('kanban-full');
 
   const setShowArchived = useCallback((show: boolean) => {
     setShowArchivedState(show);
@@ -34,13 +46,19 @@ export function ViewStateProvider({ children }: ViewStateProviderProps) {
     setShowArchivedState((prev) => !prev);
   }, []);
 
+  const setViewMode = useCallback((mode: ViewMode) => {
+    setViewModeState(mode);
+  }, []);
+
   const value = useMemo<ViewStateContextValue>(
     () => ({
       showArchived,
       setShowArchived,
       toggleShowArchived,
+      viewMode,
+      setViewMode,
     }),
-    [showArchived, setShowArchived, toggleShowArchived]
+    [showArchived, setShowArchived, toggleShowArchived, viewMode, setViewMode]
   );
 
   return (
@@ -58,12 +76,17 @@ export function ViewStateProvider({ children }: ViewStateProviderProps) {
  * @example
  * ```tsx
  * function KanbanBoard() {
- *   const { showArchived, toggleShowArchived } = useViewState();
+ *   const { showArchived, toggleShowArchived, viewMode, setViewMode } = useViewState();
  *
  *   return (
- *     <button onClick={toggleShowArchived}>
- *       {showArchived ? 'Hide archived' : 'Show archived'}
- *     </button>
+ *     <div>
+ *       <button onClick={toggleShowArchived}>
+ *         {showArchived ? 'Hide archived' : 'Show archived'}
+ *       </button>
+ *       <button onClick={() => setViewMode('kanban-compact')}>
+ *         Compact View
+ *       </button>
+ *     </div>
  *   );
  * }
  * ```

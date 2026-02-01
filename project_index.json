@@ -3,7 +3,7 @@
   "services": {
     "backend": {
       "path": "./apps/backend",
-      "tech_stack": ["python", "claude-agent-sdk", "pydantic"],
+      "tech_stack": ["python", "asyncio", "aiohttp", "claude-agent-sdk", "pydantic"],
       "port": null,
       "dev_command": "python -m apps.backend.cli.main",
       "test_command": "pytest tests/",
@@ -25,12 +25,15 @@
         "task_management",
         "ideation",
         "github_integration",
+        "jira_integration",
         "quality_metrics_ui"
       ]
     }
   },
   "infrastructure": {
     "docker": false,
+    "database": null,
+    "git_worktrees": true,
     "ci_cd": "github_actions",
     "testing": ["pytest", "vitest", "playwright"]
   },
@@ -38,7 +41,14 @@
     "linter": "ruff",
     "formatter": "black",
     "testing": "pytest",
+    "frontend_linter": "biome",
     "code_style": "type_hints_required"
+  },
+  "integrations": {
+    "github": true,
+    "jira": true,
+    "linear": "planned",
+    "graphiti": true
   },
   "analysis_tools": {
     "security": "scan_secrets.py, bandit",

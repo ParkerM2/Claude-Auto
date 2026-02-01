@@ -463,6 +463,7 @@ export const IPC_CHANNELS = {
   JIRA_CHECK_CONNECTION: 'jira:checkConnection',
   JIRA_GET_MY_ISSUES: 'jira:getMyIssues',
   JIRA_GET_ISSUE: 'jira:getIssue',
+  JIRA_IMPORT_AS_SPEC: 'jira:importAsSpec',
 
   // Manager agent operations (PR status monitoring)
   MANAGER_START: 'manager:start',
@@ -471,5 +472,12 @@ export const IPC_CHANNELS = {
   MANAGER_REMOVE_TASK: 'manager:removeTask',
   MANAGER_REFRESH_TASK: 'manager:refreshTask',
   MANAGER_PR_STATUS_UPDATE: 'manager:prStatusUpdate',  // Event: PR status changed (main -> renderer)
-  MANAGER_TASK_ACTIVITY: 'manager:taskActivity'        // Event: User activity on task (renderer -> main)
+  MANAGER_TASK_ACTIVITY: 'manager:taskActivity',       // Event: User activity on task (renderer -> main)
+
+  // Review workflow operations
+  REVIEW_GET_CHECKLIST: 'review:getChecklist',
+  REVIEW_UPDATE_CHECKLIST: 'review:updateChecklist',
+  REVIEW_GET_REVIEWER_ASSIGNMENT: 'review:getReviewerAssignment',
+  REVIEW_UPDATE_REVIEWER_ASSIGNMENT: 'review:updateReviewerAssignment',
+  REVIEW_GET_METRICS: 'review:getMetrics'
 } as const;

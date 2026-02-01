@@ -14,4 +14,7 @@ export { DiffViewDialog } from './DiffViewDialog';
 export { ConflictDetailsDialog } from './ConflictDetailsDialog';
 export { CreatePRDialog } from './CreatePRDialog';
 export { LoadingMessage, NoWorkspaceMessage, StagedInProjectMessage } from './WorkspaceMessages';
+export { ReviewChecklist } from './ReviewChecklist';
+export { ReviewerAssignment } from './ReviewerAssignment';
+export { ReviewMetrics } from './ReviewMetrics';
 export { getSeverityIcon, getSeverityVariant } from './utils';
