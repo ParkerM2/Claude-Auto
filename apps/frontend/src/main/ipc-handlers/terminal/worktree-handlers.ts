@@ -606,6 +606,20 @@ async function listOtherWorktrees(projectPath: string): Promise<OtherWorktreeInf
     return [];
   }
 
+  // Prune stale worktree references before listing
+  // This cleans up git's worktree tracking for worktrees that were deleted externally
+  try {
+    execFileSync(getToolPath('git'), ['worktree', 'prune'], {
+      cwd: projectPath,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: getIsolatedGitEnv(),
+    });
+    debugLog('[TerminalWorktree] Pruned stale worktree registrations before listing other worktrees');
+  } catch {
+    // Ignore prune errors - not critical for listing
+  }
+
   const results: OtherWorktreeInfo[] = [];
 
   // Paths to exclude (normalize for comparison)
