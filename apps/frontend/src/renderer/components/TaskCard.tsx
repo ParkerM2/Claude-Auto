@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical, ExternalLink } from 'lucide-react';
 import { PRStatusBadge } from './PRStatusBadge';
+import { PRActionButtons } from './PRActionButtons';
+import { PRConfirmDialog, type PRActionType } from './PRConfirmDialog';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -15,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { cn, formatRelativeTime, sanitizeMarkdownForDisplay } from '../lib/utils';
+import { useToast } from '../hooks/use-toast';
 import { PhaseProgressIndicator } from './PhaseProgressIndicator';
 import {
   TASK_CATEGORY_LABELS,
@@ -33,6 +36,7 @@ import {
   JSON_ERROR_TITLE_SUFFIX
 } from '../../shared/constants';
 import { startTask, stopTask, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks } from '../stores/task-store';
+import { useProjectStore } from '../stores/project-store';
 import type { Task, TaskCategory, ReviewReason, TaskStatus } from '../../shared/types';
 
 // Category icon mapping
@@ -113,6 +117,7 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     prevTask.metadata?.prStatus?.state === nextTask.metadata?.prStatus?.state &&
     prevTask.metadata?.prStatus?.reviewDecision === nextTask.metadata?.prStatus?.reviewDecision &&
     prevTask.metadata?.prStatus?.ciStatus === nextTask.metadata?.prStatus?.ciStatus &&
+    prevTask.metadata?.prStatus?.mergeable === nextTask.metadata?.prStatus?.mergeable &&
     // Check if any subtask statuses changed (compare all subtasks)
     prevTask.subtasks.every((s, i) => s.status === nextTask.subtasks[i]?.status)
   );
@@ -143,12 +148,21 @@ export const TaskCard = memo(function TaskCard({
   compact
 }: TaskCardProps) {
   const { t } = useTranslation(['tasks', 'errors']);
+  const { toast } = useToast();
+  const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
   const stuckCheckRef = useRef<{ timeout: NodeJS.Timeout | null; interval: NodeJS.Timeout | null }>({
     timeout: null,
     interval: null
   });
+
+  // PR action dialog state
+  const [showPRDialog, setShowPRDialog] = useState(false);
+  const [prActionType, setPRActionType] = useState<PRActionType>('approve');
+  const [isApprovingPR, setIsApprovingPR] = useState(false);
+  const [isRequestingChanges, setIsRequestingChanges] = useState(false);
+  const [isMergingPR, setIsMergingPR] = useState(false);
 
   const isRunning = task.status === 'in_progress';
   const executionPhase = task.executionProgress?.phase;
@@ -316,6 +330,108 @@ export const TaskCard = memo(function TaskCard({
       window.electronAPI.openExternal(task.metadata.prUrl);
     }
   };
+
+  // PR action handlers - show confirmation dialogs
+  const handleApprovePR = useCallback(() => {
+    if (!selectedProjectId || !task.metadata?.prStatus?.prNumber) return;
+    setPRActionType('approve');
+    setShowPRDialog(true);
+  }, [selectedProjectId, task.metadata?.prStatus?.prNumber]);
+
+  const handleRequestChangesPR = useCallback(() => {
+    if (!selectedProjectId || !task.metadata?.prStatus?.prNumber) return;
+    setPRActionType('request_changes');
+    setShowPRDialog(true);
+  }, [selectedProjectId, task.metadata?.prStatus?.prNumber]);
+
+  const handleMergePR = useCallback(() => {
+    if (!selectedProjectId || !task.metadata?.prStatus?.prNumber) return;
+    setPRActionType('merge');
+    setShowPRDialog(true);
+  }, [selectedProjectId, task.metadata?.prStatus?.prNumber]);
+
+  // Confirmed PR action handlers - actual API calls with error handling
+  const handleConfirmPRAction = useCallback(async (comment?: string) => {
+    if (!selectedProjectId || !task.metadata?.prStatus?.prNumber) return;
+
+    const prNumber = task.metadata.prStatus.prNumber;
+
+    try {
+      if (prActionType === 'approve') {
+        setIsApprovingPR(true);
+        const result = await window.electronAPI.github.postPRReview(
+          selectedProjectId,
+          prNumber,
+          undefined, // selectedFindingIds - approve all
+          { forceApprove: true } // Force approve without findings
+        );
+
+        if (result) {
+          toast({
+            title: t('common:prReview.approved'),
+            duration: 3000,
+          });
+        } else {
+          toast({
+            title: t('errors:generic'),
+            variant: 'destructive',
+            duration: 3000,
+          });
+        }
+      } else if (prActionType === 'request_changes') {
+        setIsRequestingChanges(true);
+        const result = await window.electronAPI.github.requestChanges(
+          selectedProjectId,
+          prNumber,
+          comment || t('common:prReview.actions.requestChanges')
+        );
+
+        if (result.success) {
+          toast({
+            title: t('common:prReview.actions.changesRequested'),
+            duration: 3000,
+          });
+        } else {
+          toast({
+            title: result.error || t('errors:generic'),
+            variant: 'destructive',
+            duration: 3000,
+          });
+        }
+      } else if (prActionType === 'merge') {
+        setIsMergingPR(true);
+        const result = await window.electronAPI.github.mergePR(
+          selectedProjectId,
+          prNumber,
+          'squash' // Default merge method
+        );
+
+        if (result) {
+          toast({
+            title: t('common:prReview.actions.merged'),
+            duration: 3000,
+          });
+        } else {
+          toast({
+            title: t('errors:generic'),
+            variant: 'destructive',
+            duration: 3000,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('[TaskCard] Failed to perform PR action:', prActionType, error);
+      toast({
+        title: t('errors:generic'),
+        variant: 'destructive',
+        duration: 3000,
+      });
+    } finally {
+      setIsApprovingPR(false);
+      setIsRequestingChanges(false);
+      setIsMergingPR(false);
+    }
+  }, [selectedProjectId, task.metadata?.prStatus?.prNumber, prActionType, toast, t]);
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
@@ -595,94 +711,121 @@ export const TaskCard = memo(function TaskCard({
               <span>{relativeTime}</span>
             </div>
 
-            <div className="flex items-center gap-1.5">
-              {/* Action buttons */}
-              {isStuck ? (
-                <Button
-                  variant="warning"
-                  size="sm"
-                  className="h-7 px-2.5"
-                  onClick={handleRecover}
-                  disabled={isRecovering}
-                >
-                  {isRecovering ? (
-                    <>
-                      <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-                      {t('labels.recovering')}
-                    </>
-                  ) : (
-                    <>
-                      <RotateCcw className="mr-1.5 h-3 w-3" />
-                      {t('actions.recover')}
-                    </>
-                  )}
-                </Button>
-              ) : isIncomplete ? (
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="h-7 px-2.5"
-                  onClick={handleStartStop}
-                >
-                  <Play className="mr-1.5 h-3 w-3" />
-                  {t('actions.resume')}
-                </Button>
-              ) : task.status === 'done' && task.metadata?.prUrl ? (
-                <div className="flex gap-1">
-                  {task.metadata?.prUrl && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 cursor-pointer"
-                      onClick={handleViewPR}
-                      title={t('tooltips.viewPR')}
-                    >
-                      <GitPullRequest className="h-3 w-3" />
-                    </Button>
-                  )}
-                  {!task.metadata?.archivedAt && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 cursor-pointer"
-                      onClick={handleArchive}
-                      title={t('tooltips.archiveTask')}
-                    >
-                      <Archive className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
-              ) : task.status === 'done' && !task.metadata?.archivedAt ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2.5 hover:bg-muted-foreground/10"
-                  onClick={handleArchive}
-                  title={t('tooltips.archiveTask')}
-                >
-                  <Archive className="mr-1.5 h-3 w-3" />
-                  {t('actions.archive')}
-                </Button>
-              ) : (task.status === 'backlog' || task.status === 'in_progress') && (
-                <Button
-                  variant={isRunning ? 'destructive' : 'default'}
-                  size="sm"
-                  className="h-7 px-2.5"
-                  onClick={handleStartStop}
-                >
-                  {isRunning ? (
-                    <>
-                      <Square className="mr-1.5 h-3 w-3" />
-                      {t('actions.stop')}
-                    </>
-                  ) : (
-                    <>
-                      <Play className="mr-1.5 h-3 w-3" />
-                      {t('actions.start')}
-                    </>
-                  )}
-                </Button>
-              )}
+          <div className="flex items-center gap-1.5">
+            {/* Action buttons */}
+            {isStuck ? (
+              <Button
+                variant="warning"
+                size="sm"
+                className="h-7 px-2.5"
+                onClick={handleRecover}
+                disabled={isRecovering}
+              >
+                {isRecovering ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                    {t('labels.recovering')}
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="mr-1.5 h-3 w-3" />
+                    {t('actions.recover')}
+                  </>
+                )}
+              </Button>
+            ) : isIncomplete ? (
+              <Button
+                variant="default"
+                size="sm"
+                className="h-7 px-2.5"
+                onClick={handleStartStop}
+              >
+                <Play className="mr-1.5 h-3 w-3" />
+                {t('actions.resume')}
+              </Button>
+            ) : task.metadata?.prStatus && task.metadata?.prUrl && selectedProjectId ? (
+              <div className="flex gap-1 items-center">
+                <PRActionButtons
+                  prNumber={task.metadata.prStatus.prNumber}
+                  prState={task.metadata.prStatus.state}
+                  prHtmlUrl={task.metadata.prUrl}
+                  projectId={selectedProjectId}
+                  isApproved={task.metadata.prStatus.reviewDecision === 'approved'}
+                  isMergeable={task.metadata.prStatus.mergeable === 'MERGEABLE'}
+                  onApprove={handleApprovePR}
+                  onRequestChanges={handleRequestChangesPR}
+                  onMerge={handleMergePR}
+                  disabled={isApprovingPR || isRequestingChanges || isMergingPR}
+                  className="text-xs"
+                />
+                {!task.metadata?.archivedAt && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 cursor-pointer"
+                    onClick={handleArchive}
+                    title={t('tooltips.archiveTask')}
+                  >
+                    <Archive className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            ) : task.status === 'done' && task.metadata?.prUrl ? (
+              <div className="flex gap-1">
+                {task.metadata?.prUrl && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 cursor-pointer"
+                    onClick={handleViewPR}
+                    title={t('tooltips.viewPR')}
+                  >
+                    <GitPullRequest className="h-3 w-3" />
+                  </Button>
+                )}
+                {!task.metadata?.archivedAt && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 cursor-pointer"
+                    onClick={handleArchive}
+                    title={t('tooltips.archiveTask')}
+                  >
+                    <Archive className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            ) : task.status === 'done' && !task.metadata?.archivedAt ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2.5 hover:bg-muted-foreground/10"
+                onClick={handleArchive}
+                title={t('tooltips.archiveTask')}
+              >
+                <Archive className="mr-1.5 h-3 w-3" />
+                {t('actions.archive')}
+              </Button>
+            ) : (task.status === 'backlog' || task.status === 'in_progress') && (
+              <Button
+                variant={isRunning ? 'destructive' : 'default'}
+                size="sm"
+                className="h-7 px-2.5"
+                onClick={handleStartStop}
+              >
+                {isRunning ? (
+                  <>
+                    <Square className="mr-1.5 h-3 w-3" />
+                    {t('actions.stop')}
+                  </>
+                ) : (
+                  <>
+                    <Play className="mr-1.5 h-3 w-3" />
+                    {t('actions.start')}
+                  </>
+                )}
+              </Button>
+            )}
 
               {/* Move to menu for keyboard accessibility */}
               {statusMenuItems && (
@@ -713,6 +856,19 @@ export const TaskCard = memo(function TaskCard({
         {/* Close flex container for selectable mode */}
         </div>
       </CardContent>
+
+      {/* PR Confirmation Dialog */}
+      {task.metadata?.prStatus?.prNumber && (
+        <PRConfirmDialog
+          open={showPRDialog}
+          onOpenChange={setShowPRDialog}
+          actionType={prActionType}
+          prNumber={task.metadata.prStatus.prNumber}
+          prTitle={task.title}
+          onConfirm={handleConfirmPRAction}
+          mergeMethod="squash"
+        />
+      )}
     </Card>
   );
 }, taskCardPropsAreEqual);
