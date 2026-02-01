@@ -2653,6 +2653,19 @@ export function registerWorktreeHandlers(
         const worktrees: WorktreeListItem[] = [];
         const worktreesDir = getTaskWorktreeDir(project.path);
 
+        // Prune stale worktree registrations before listing
+        // This cleans up entries pointing to non-existent directories (phantom worktrees)
+        try {
+          execFileSync(getToolPath('git'), ['worktree', 'prune'], {
+            cwd: project.path,
+            encoding: 'utf-8',
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: getIsolatedGitEnv(),
+          });
+        } catch {
+          // Ignore prune errors - not critical for listing operation
+        }
+
         // Helper to process a single worktree entry
         const processWorktreeEntry = (entry: string, entryPath: string) => {
 
