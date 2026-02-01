@@ -484,3 +484,152 @@ test.describe('Worktree Data Integrity Tests', () => {
     rmSync(orphan.specDir, { recursive: true, force: true });
   });
 });
+
+test.describe('Phantom Worktree Auto-Cleanup Tests', () => {
+  test.beforeAll(() => {
+    setupTestEnvironment();
+  });
+
+  test.afterAll(() => {
+    cleanupTestEnvironment();
+  });
+
+  test('phantom worktree should be auto-cleaned when loading worktree list', () => {
+    const specId = '300-phantom-auto-cleanup';
+    const { specDir, worktreePath } = createPhantomWorktree(specId);
+
+    // Verify phantom state - git registered but no directory
+    expect(existsSync(specDir)).toBe(true);
+    expect(existsSync(worktreePath)).toBe(false);
+    expect(worktreeRegisteredInGit(specId)).toBe(true);
+
+    // Simulate auto-cleanup that happens when loading worktree list
+    // (the app calls git worktree prune before listing)
+    pruneWorktrees();
+
+    // After auto-cleanup, phantom registration should be gone
+    expect(worktreeRegisteredInGit(specId)).toBe(false);
+
+    // Spec metadata can remain (for history/archival purposes)
+    expect(existsSync(specDir)).toBe(true);
+
+    // Cleanup
+    rmSync(specDir, { recursive: true, force: true });
+  });
+
+  test('phantom worktree auto-cleanup should handle multiple phantom entries', () => {
+    const specIds = ['301-phantom-multi-1', '301-phantom-multi-2', '301-phantom-multi-3'];
+    const phantoms: Array<{ specDir: string; worktreePath: string }> = [];
+
+    // Create multiple phantom worktrees
+    for (const specId of specIds) {
+      phantoms.push(createPhantomWorktree(specId));
+    }
+
+    // Verify all are in phantom state
+    for (let i = 0; i < phantoms.length; i++) {
+      expect(existsSync(phantoms[i].worktreePath)).toBe(false);
+      expect(worktreeRegisteredInGit(specIds[i])).toBe(true);
+    }
+
+    // Single prune call should clean up all phantom registrations
+    pruneWorktrees();
+
+    // All phantom registrations should be gone
+    for (let i = 0; i < specIds.length; i++) {
+      expect(worktreeRegisteredInGit(specIds[i])).toBe(false);
+    }
+
+    // Cleanup spec dirs
+    for (const phantom of phantoms) {
+      rmSync(phantom.specDir, { recursive: true, force: true });
+    }
+  });
+
+  test('phantom worktree auto-cleanup should not affect valid worktrees', () => {
+    const validSpecId = '302-valid-worktree';
+    const phantomSpecId = '302-phantom-worktree';
+
+    // Create one valid worktree and one phantom
+    const validWorktree = createSpecWithWorktree(validSpecId);
+    registerWorktreeInGit(validSpecId, validWorktree.worktreePath);
+
+    const phantomWorktree = createPhantomWorktree(phantomSpecId);
+
+    // Verify initial states
+    expect(existsSync(validWorktree.worktreePath)).toBe(true);
+    expect(worktreeRegisteredInGit(validSpecId)).toBe(true);
+    expect(existsSync(phantomWorktree.worktreePath)).toBe(false);
+    expect(worktreeRegisteredInGit(phantomSpecId)).toBe(true);
+
+    // Run auto-cleanup
+    pruneWorktrees();
+
+    // Valid worktree should remain intact
+    expect(existsSync(validWorktree.worktreePath)).toBe(true);
+    // Note: registration may or may not exist depending on git version,
+    // but directory should always remain
+
+    // Phantom worktree registration should be gone
+    expect(worktreeRegisteredInGit(phantomSpecId)).toBe(false);
+
+    // Cleanup
+    rmSync(validWorktree.worktreePath, { recursive: true, force: true });
+    rmSync(validWorktree.specDir, { recursive: true, force: true });
+    rmSync(phantomWorktree.specDir, { recursive: true, force: true });
+  });
+
+  test('phantom worktree auto-cleanup should be idempotent', () => {
+    const specId = '303-phantom-idempotent';
+    const { specDir, worktreePath } = createPhantomWorktree(specId);
+
+    // Verify phantom state
+    expect(worktreeRegisteredInGit(specId)).toBe(true);
+    expect(existsSync(worktreePath)).toBe(false);
+
+    // First prune
+    pruneWorktrees();
+    expect(worktreeRegisteredInGit(specId)).toBe(false);
+
+    // Second prune should be a no-op, not throw
+    expect(() => {
+      pruneWorktrees();
+    }).not.toThrow();
+
+    // Third prune also safe
+    expect(() => {
+      pruneWorktrees();
+    }).not.toThrow();
+
+    // Cleanup
+    rmSync(specDir, { recursive: true, force: true });
+  });
+
+  test('phantom worktree auto-cleanup should work after manual directory deletion', () => {
+    const specId = '304-manual-delete-then-cleanup';
+
+    // Create a normal worktree first
+    const { specDir, worktreePath } = createSpecWithWorktree(specId);
+    registerWorktreeInGit(specId, worktreePath);
+
+    // Verify it's a valid worktree
+    expect(existsSync(worktreePath)).toBe(true);
+    expect(worktreeRegisteredInGit(specId)).toBe(true);
+
+    // Simulate external deletion (user deletes directory manually)
+    rmSync(worktreePath, { recursive: true, force: true });
+
+    // Now it's a phantom - directory gone but registration remains
+    expect(existsSync(worktreePath)).toBe(false);
+    expect(worktreeRegisteredInGit(specId)).toBe(true);
+
+    // Auto-cleanup should detect and clean up the phantom
+    pruneWorktrees();
+
+    // Registration should now be cleaned up
+    expect(worktreeRegisteredInGit(specId)).toBe(false);
+
+    // Cleanup
+    rmSync(specDir, { recursive: true, force: true });
+  });
+});
