@@ -240,27 +240,27 @@ export function Worktrees({ projectId }: WorktreesProps) {
 
   // Handle delete
   const handleDelete = async () => {
-    if (!worktreeToDelete) return;
+    if (!worktreeToDelete || !selectedProject) return;
 
     const task = findTaskForWorktree(worktreeToDelete.specName);
-    if (!task) {
-      setError('Task not found for this worktree');
-      return;
-    }
 
     setIsDeleting(true);
     try {
-      const result = await window.electronAPI.discardWorktree(task.id);
+      // Try task-based deletion if task exists, otherwise use direct deletion
+      const result = task
+        ? await window.electronAPI.discardWorktree(task.id)
+        : await window.electronAPI.discardWorktreeDirect(selectedProject.path, worktreeToDelete.specName);
+
       if (result.success) {
         // Refresh worktrees after successful delete
         await loadWorktrees();
         setShowDeleteConfirm(false);
         setWorktreeToDelete(null);
       } else {
-        setError(result.error || 'Failed to delete worktree');
+        setError(result.error || t('common:errors.failedToDeleteWorktree'));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete worktree');
+      setError(err instanceof Error ? err.message : t('common:errors.failedToDeleteWorktree'));
     } finally {
       setIsDeleting(false);
     }
@@ -656,7 +656,6 @@ export function Worktrees({ projectId }: WorktreesProps) {
                             size="sm"
                             className="text-destructive hover:text-destructive hover:bg-destructive/10"
                             onClick={() => confirmDelete(worktree)}
-                            disabled={!task}
                           >
                             <Trash2 className="h-3.5 w-3.5 mr-1.5" />
                             Delete
