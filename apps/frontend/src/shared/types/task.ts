@@ -386,6 +386,7 @@ export interface WorktreeStatus {
   branch?: string;
   baseBranch?: string;
   currentProjectBranch?: string; // User's current checked-out branch in main project (merge target)
+  productionBranch?: string; // Production branch if three-tier strategy is configured
   commitCount?: number;
   filesChanged?: number;
   additions?: number;
@@ -519,6 +520,7 @@ export interface WorktreeListItem {
   path: string;
   branch: string;
   baseBranch: string;
+  productionBranch?: string; // Production branch if three-tier strategy is configured
   commitCount: number;
   filesChanged: number;
   additions: number;

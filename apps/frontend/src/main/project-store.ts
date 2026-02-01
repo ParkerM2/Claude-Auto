@@ -30,12 +30,25 @@ interface TasksCacheEntry {
  * Persistent storage for projects and settings
  */
 export class ProjectStore {
-  private storePath: string;
-  private data: StoreData;
+  private storePath: string | null = null;
+  private data: StoreData | null = null;
   private tasksCache: Map<string, TasksCacheEntry> = new Map();
   private readonly CACHE_TTL_MS = 3000; // 3 seconds TTL for task cache
+  private initialized = false;
 
   constructor() {
+    // Lazy initialization - don't read userData path yet
+    // This allows dev mode isolation to set the path before we read it
+  }
+
+  /**
+   * Ensure the store is initialized (lazy initialization)
+   * This defers reading app.getPath('userData') until first use,
+   * allowing dev mode to set a different userData path before initialization.
+   */
+  private ensureInitialized(): void {
+    if (this.initialized) return;
+
     // Store in app's userData directory
     const userDataPath = app.getPath('userData');
     const storeDir = path.join(userDataPath, 'store');
@@ -47,13 +60,30 @@ export class ProjectStore {
 
     this.storePath = path.join(storeDir, 'projects.json');
     this.data = this.load();
+    this.initialized = true;
+  }
+
+  /**
+   * Get the store data, ensuring initialization first
+   */
+  private getData(): StoreData {
+    this.ensureInitialized();
+    return this.data!;
+  }
+
+  /**
+   * Get the store path, ensuring initialization first
+   */
+  private getStorePath(): string {
+    this.ensureInitialized();
+    return this.storePath!;
   }
 
   /**
    * Load store from disk
    */
   private load(): StoreData {
-    if (existsSync(this.storePath)) {
+    if (this.storePath && existsSync(this.storePath)) {
       try {
         const content = readFileSync(this.storePath, 'utf-8');
         const data = JSON.parse(content);
@@ -75,15 +105,17 @@ export class ProjectStore {
    * Save store to disk
    */
   private save(): void {
-    writeFileSync(this.storePath, JSON.stringify(this.data, null, 2));
+    this.ensureInitialized();
+    writeFileSync(this.storePath!, JSON.stringify(this.data, null, 2));
   }
 
   /**
    * Add a new project
    */
   addProject(projectPath: string, name?: string): Project {
+    this.ensureInitialized();
     // Check if project already exists
-    const existing = this.data.projects.find((p) => p.path === projectPath);
+    const existing = this.data!.projects.find((p) => p.path === projectPath);
     if (existing) {
       // Validate that .auto-claude folder still exists for existing project
       // If manually deleted, reset autoBuildPath so UI prompts for reinitialization
@@ -112,7 +144,7 @@ export class ProjectStore {
       updatedAt: new Date()
     };
 
-    this.data.projects.push(project);
+    this.data!.projects.push(project);
     this.save();
 
     return project;
@@ -122,7 +154,8 @@ export class ProjectStore {
    * Update project's autoBuildPath after initialization
    */
   updateAutoBuildPath(projectId: string, autoBuildPath: string): Project | undefined {
-    const project = this.data.projects.find((p) => p.id === projectId);
+    this.ensureInitialized();
+    const project = this.data!.projects.find((p) => p.id === projectId);
     if (project) {
       project.autoBuildPath = autoBuildPath;
       project.updatedAt = new Date();
@@ -135,9 +168,10 @@ export class ProjectStore {
    * Remove a project
    */
   removeProject(projectId: string): boolean {
-    const index = this.data.projects.findIndex((p) => p.id === projectId);
+    this.ensureInitialized();
+    const index = this.data!.projects.findIndex((p) => p.id === projectId);
     if (index !== -1) {
-      this.data.projects.splice(index, 1);
+      this.data!.projects.splice(index, 1);
       this.save();
       return true;
     }
@@ -148,14 +182,16 @@ export class ProjectStore {
    * Get all projects
    */
   getProjects(): Project[] {
-    return this.data.projects;
+    this.ensureInitialized();
+    return this.data!.projects;
   }
 
   /**
    * Get tab state
    */
   getTabState(): TabState {
-    return this.data.tabState || {
+    this.ensureInitialized();
+    return this.data!.tabState || {
       openProjectIds: [],
       activeProjectId: null,
       tabOrder: []
@@ -166,16 +202,17 @@ export class ProjectStore {
    * Save tab state
    */
   saveTabState(tabState: TabState): void {
+    this.ensureInitialized();
     // Filter out any project IDs that no longer exist
-    const validProjectIds = this.data.projects.map(p => p.id);
-    this.data.tabState = {
+    const validProjectIds = this.data!.projects.map(p => p.id);
+    this.data!.tabState = {
       openProjectIds: tabState.openProjectIds.filter(id => validProjectIds.includes(id)),
       activeProjectId: tabState.activeProjectId && validProjectIds.includes(tabState.activeProjectId)
         ? tabState.activeProjectId
         : null,
       tabOrder: tabState.tabOrder.filter(id => validProjectIds.includes(id))
     };
-    console.log('[ProjectStore] Saving tab state:', this.data.tabState);
+    console.log('[ProjectStore] Saving tab state:', this.data!.tabState);
     this.save();
   }
 
@@ -187,10 +224,11 @@ export class ProjectStore {
    * @returns Array of project IDs that were reset due to missing .auto-claude folder
    */
   validateProjects(): string[] {
+    this.ensureInitialized();
     const resetProjectIds: string[] = [];
     let hasChanges = false;
 
-    for (const project of this.data.projects) {
+    for (const project of this.data!.projects) {
       // Skip projects that aren't initialized (autoBuildPath is empty)
       if (!project.autoBuildPath) {
         continue;
@@ -224,7 +262,8 @@ export class ProjectStore {
    * Get a project by ID
    */
   getProject(projectId: string): Project | undefined {
-    return this.data.projects.find((p) => p.id === projectId);
+    this.ensureInitialized();
+    return this.data!.projects.find((p) => p.id === projectId);
   }
 
   /**
@@ -234,7 +273,8 @@ export class ProjectStore {
     projectId: string,
     settings: Partial<ProjectSettings>
   ): Project | undefined {
-    const project = this.data.projects.find((p) => p.id === projectId);
+    this.ensureInitialized();
+    const project = this.data!.projects.find((p) => p.id === projectId);
     if (project) {
       project.settings = { ...project.settings, ...settings };
       project.updatedAt = new Date();

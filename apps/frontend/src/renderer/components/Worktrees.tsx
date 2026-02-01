@@ -285,6 +285,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
     worktreePath: worktree.path,
     branch: worktree.branch,
     baseBranch: worktree.baseBranch,
+    productionBranch: worktree.productionBranch,
     commitCount: worktree.commitCount,
     filesChanged: worktree.filesChanged,
     additions: worktree.additions,
@@ -603,10 +604,15 @@ export function Worktrees({ projectId }: WorktreesProps) {
                         </div>
 
                         {/* Branch info */}
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4 bg-muted/50 rounded-md p-2">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4 bg-muted/50 rounded-md p-2 flex-wrap">
                           <span className="font-mono">{worktree.baseBranch}</span>
                           <ChevronRight className="h-3 w-3" />
                           <span className="font-mono text-info">{worktree.branch}</span>
+                          {worktree.productionBranch && (
+                            <span className="text-muted-foreground/70 ml-1">
+                              (merge to <span className="font-mono">{worktree.productionBranch}</span>)
+                            </span>
+                          )}
                         </div>
 
                         {/* Actions */}

@@ -21,6 +21,7 @@
   "scripts": {
     "postinstall": "node scripts/postinstall.cjs",
     "dev": "node scripts/unset-electron-node.cjs electron-vite dev",
+    "dev:production-data": "cross-env DISABLE_DEV_SANDBOX=true node scripts/unset-electron-node.cjs electron-vite dev",
     "dev:debug": "cross-env DEBUG=true node scripts/unset-electron-node.cjs electron-vite dev",
     "dev:mcp": "node scripts/unset-electron-node.cjs electron-vite dev -- --remote-debugging-port=9222",
     "build": "electron-vite build",

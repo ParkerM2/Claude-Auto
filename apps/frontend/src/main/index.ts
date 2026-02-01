@@ -36,6 +36,28 @@ for (const envPath of possibleEnvPaths) {
 }
 
 import { app, BrowserWindow, shell, nativeImage, session, screen } from 'electron';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DEV MODE DATA ISOLATION - MUST RUN BEFORE OTHER IMPORTS
+// ─────────────────────────────────────────────────────────────────────────────
+// In development mode, use a separate userData directory to isolate:
+//   - Project list ({userData}/store/projects.json)
+//   - Settings
+//   - All Electron storage
+//
+// CRITICAL: This must run before any imports that use app.getPath('userData'),
+// like project-store.ts which creates a singleton at import time.
+//
+// We use app.isPackaged instead of is.dev to avoid importing electron-toolkit
+// before the path is set. Use DISABLE_DEV_SANDBOX=true to bypass isolation.
+// ─────────────────────────────────────────────────────────────────────────────
+if (!app.isPackaged && process.env.DISABLE_DEV_SANDBOX !== 'true') {
+  const devUserData = app.getPath('userData') + '-dev';
+  app.setPath('userData', devUserData);
+  console.warn('[DEV] Using isolated userData directory:', devUserData);
+  console.warn('[DEV] To use production data, run: npm run dev:production-data');
+}
+
 import { join } from 'path';
 import { accessSync, readFileSync, writeFileSync, rmSync } from 'fs';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';

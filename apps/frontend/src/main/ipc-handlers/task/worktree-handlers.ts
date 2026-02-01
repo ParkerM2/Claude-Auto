@@ -1356,6 +1356,58 @@ function getEffectiveBaseBranch(projectPath: string, specId: string, projectMain
   return 'main';
 }
 
+/**
+ * Get the production branch if three-tier strategy is configured.
+ *
+ * The three-tier strategy:
+ *   production (stable) ← feature (integration) ← auto-claude/{spec} (worktrees)
+ *
+ * This reads from environment variables set in the Python backend's .env file.
+ * When three-tier is configured, worktrees merge to feature, user merges feature to production.
+ *
+ * @param projectPath - Path to the git repository
+ * @param baseBranch - The base branch being used for worktrees
+ * @returns Production branch name if three-tier is configured, undefined otherwise
+ */
+function getProductionBranch(projectPath: string, baseBranch: string): string | undefined {
+  // Check if PRODUCTION_BRANCH is explicitly set
+  const prodBranch = process.env.PRODUCTION_BRANCH;
+  if (prodBranch) {
+    try {
+      execFileSync(getToolPath('git'), ['rev-parse', '--verify', prodBranch], {
+        cwd: projectPath,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      return prodBranch;
+    } catch {
+      // Branch doesn't exist
+    }
+  }
+
+  // Auto-detect if FEATURE_BRANCH is set (indicates three-tier is intended)
+  if (process.env.FEATURE_BRANCH) {
+    // Look for common production branch names
+    for (const branch of ['production', 'main', 'master']) {
+      // Don't return the same branch as baseBranch
+      if (branch === baseBranch) continue;
+
+      try {
+        execFileSync(getToolPath('git'), ['rev-parse', '--verify', branch], {
+          cwd: projectPath,
+          encoding: 'utf-8',
+          stdio: ['pipe', 'pipe', 'pipe'],
+        });
+        return branch;
+      } catch {
+        // Branch doesn't exist, try next
+      }
+    }
+  }
+
+  return undefined;
+}
+
 // ============================================
 // Helper functions for TASK_WORKTREE_CREATE_PR
 // ============================================
@@ -1707,6 +1759,9 @@ export function registerWorktreeHandlers(
             // Ignore diff errors
           }
 
+          // Get production branch if three-tier strategy is configured
+          const productionBranch = getProductionBranch(project.path, baseBranch);
+
           return {
             success: true,
             data: {
@@ -1715,6 +1770,7 @@ export function registerWorktreeHandlers(
               branch,
               baseBranch,
               currentProjectBranch,
+              productionBranch,
               commitCount,
               filesChanged,
               additions,
@@ -2705,11 +2761,15 @@ export function registerWorktreeHandlers(
               // Ignore diff errors
             }
 
+            // Get production branch if three-tier strategy is configured
+            const productionBranch = getProductionBranch(project.path, baseBranch);
+
             worktrees.push({
               specName: entry,
               path: entryPath,
               branch,
               baseBranch,
+              productionBranch,
               commitCount,
               filesChanged,
               additions,

@@ -184,48 +184,86 @@ class WorktreeManager:
         self.worktrees_dir = project_dir / ".auto-claude" / "worktrees" / "tasks"
         self._merge_lock = asyncio.Lock()
 
+    def _branch_exists(self, branch: str) -> bool:
+        """Check if a branch exists in the repository."""
+        result = run_git(
+            ["rev-parse", "--verify", branch],
+            cwd=self.project_dir,
+        )
+        return result.returncode == 0
+
     def _detect_base_branch(self) -> str:
         """
         Detect the base branch for worktree creation.
 
         Priority order:
-        1. DEFAULT_BRANCH environment variable
-        2. Auto-detect main/master (if they exist)
-        3. Fall back to current branch (with warning)
+        1. FEATURE_BRANCH environment variable (three-tier strategy)
+        2. DEFAULT_BRANCH environment variable (legacy)
+        3. Auto-detect in priority order: feature > develop > main > master
+        4. Fall back to current branch (with warning)
+
+        The three-tier strategy supports:
+          production (stable) ← feature (integration) ← auto-claude/{spec} (worktrees)
 
         Returns:
             The detected base branch name
         """
-        # 1. Check for DEFAULT_BRANCH env var
+        # 1. Check for FEATURE_BRANCH env var (three-tier strategy)
+        feature_branch = os.getenv("FEATURE_BRANCH")
+        if feature_branch:
+            if self._branch_exists(feature_branch):
+                return feature_branch
+            else:
+                print(
+                    f"Warning: FEATURE_BRANCH '{feature_branch}' not found, auto-detecting..."
+                )
+
+        # 2. Check for DEFAULT_BRANCH env var (legacy support)
         env_branch = os.getenv("DEFAULT_BRANCH")
         if env_branch:
-            # Verify the branch exists
-            result = run_git(
-                ["rev-parse", "--verify", env_branch],
-                cwd=self.project_dir,
-            )
-            if result.returncode == 0:
+            if self._branch_exists(env_branch):
                 return env_branch
             else:
                 print(
                     f"Warning: DEFAULT_BRANCH '{env_branch}' not found, auto-detecting..."
                 )
 
-        # 2. Auto-detect main/master
-        for branch in ["main", "master"]:
-            result = run_git(
-                ["rev-parse", "--verify", branch],
-                cwd=self.project_dir,
-            )
-            if result.returncode == 0:
+        # 3. Auto-detect in priority order (includes 'feature' for three-tier)
+        for branch in ["feature", "develop", "main", "master"]:
+            if self._branch_exists(branch):
                 return branch
 
-        # 3. Fall back to current branch with warning
+        # 4. Fall back to current branch with warning
         current = self._get_current_branch()
-        print("Warning: Could not find 'main' or 'master' branch.")
+        print("Warning: Could not find 'feature', 'develop', 'main', or 'master' branch.")
         print(f"Warning: Using current branch '{current}' as base for worktree.")
-        print("Tip: Set DEFAULT_BRANCH=your-branch in .env to avoid this.")
+        print("Tip: Set FEATURE_BRANCH=your-branch in .env for three-tier strategy.")
         return current
+
+    def get_production_branch(self) -> str | None:
+        """
+        Get the production branch if three-tier strategy is configured.
+
+        The three-tier strategy:
+          production (stable) ← feature (integration) ← auto-claude/{spec} (worktrees)
+
+        Returns:
+            Production branch name if three-tier is configured, None otherwise
+        """
+        # Check if PRODUCTION_BRANCH is explicitly set
+        prod_branch = os.getenv("PRODUCTION_BRANCH")
+        if prod_branch and self._branch_exists(prod_branch):
+            return prod_branch
+
+        # Auto-detect if FEATURE_BRANCH is set (indicates three-tier is intended)
+        if os.getenv("FEATURE_BRANCH"):
+            # Look for common production branch names
+            for branch in ["production", "main", "master"]:
+                # Don't return the same branch as base_branch
+                if branch != self.base_branch and self._branch_exists(branch):
+                    return branch
+
+        return None
 
     def _get_current_branch(self) -> str:
         """Get the current git branch."""
