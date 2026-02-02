@@ -26,8 +26,8 @@ import type { AppUpdateInfo } from '../shared/types';
 import { compareVersions } from './updater/version-manager';
 
 // GitHub repo info for API calls
-const GITHUB_OWNER = 'AndyMik90';
-const GITHUB_REPO = 'Auto-Claude';
+const GITHUB_OWNER = 'ParkerM2';
+const GITHUB_REPO = 'Claude-Auto';
 
 // Debug mode - DEBUG_UPDATER=true or development mode
 const DEBUG_UPDATER = process.env.DEBUG_UPDATER === 'true' || process.env.NODE_ENV === 'development';
@@ -139,7 +139,18 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
 
   // Update available - new version found
   autoUpdater.on('update-available', (info) => {
-    console.warn('[app-updater] Update available:', info.version);
+    const currentVersion = autoUpdater.currentVersion.version;
+    const availableVersion = info.version;
+
+    // Only notify if the available version is actually newer (prevents downgrade prompts)
+    const isNewer = compareVersions(availableVersion, currentVersion) > 0;
+    console.warn(`[app-updater] Update check: ${availableVersion} vs current ${currentVersion} -> ${isNewer ? 'UPDATE AVAILABLE' : 'SKIPPING (not newer)'}`);
+
+    if (!isNewer) {
+      console.warn('[app-updater] Ignoring update notification - available version is not newer than current');
+      return;
+    }
+
     if (mainWindow) {
       mainWindow.webContents.send(IPC_CHANNELS.APP_UPDATE_AVAILABLE, {
         version: info.version,
@@ -151,7 +162,19 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
 
   // Update downloaded - ready to install
   autoUpdater.on('update-downloaded', (info) => {
-    console.warn('[app-updater] Update downloaded:', info.version);
+    const currentVersion = autoUpdater.currentVersion.version;
+    const downloadedVersion = info.version;
+
+    // Only offer to install if the downloaded version is actually newer (prevents downgrade installs)
+    const isNewer = compareVersions(downloadedVersion, currentVersion) > 0;
+    console.warn(`[app-updater] Update downloaded: ${downloadedVersion} vs current ${currentVersion} -> ${isNewer ? 'READY TO INSTALL' : 'SKIPPING (not newer)'}`);
+
+    if (!isNewer) {
+      console.warn('[app-updater] Ignoring downloaded update - version is not newer than current');
+      downloadedUpdateInfo = null;
+      return;
+    }
+
     // Store downloaded update info so it persists across Settings page navigations
     downloadedUpdateInfo = {
       version: info.version,
