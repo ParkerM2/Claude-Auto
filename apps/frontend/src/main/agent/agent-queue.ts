@@ -177,79 +177,38 @@ export class AgentQueueManager {
   }
 
   /**
-   * Start ideation generation process
+   * Start ideation generation process using Claude CLI.
+   *
+   * Uses Claude CLI with print mode (-p) and JSON output for programmatic
+   * ideation generation. This replaces the Python-based approach to work
+   * with OAuth authentication (Claude Pro/Max subscription).
+   *
+   * @param projectId - The project ID for event emission
+   * @param projectPath - Path to the project
+   * @param config - Ideation configuration
+   * @param _refresh - Unused, kept for API compatibility
    */
   async startIdeationGeneration(
     projectId: string,
     projectPath: string,
     config: IdeationConfig,
-    refresh: boolean = false
+    _refresh: boolean = false
   ): Promise<void> {
-    debugLog('[Agent Queue] Starting ideation generation:', {
+    debugLog('[Agent Queue] Starting CLI-based ideation generation:', {
       projectId,
       projectPath,
-      config,
-      refresh
+      config
     });
 
-    const autoBuildSource = this.processManager.getAutoBuildSourcePath();
-
-    if (!autoBuildSource) {
-      debugError('[Agent Queue] Auto-build source path not found');
-      this.emitter.emit('ideation-error', projectId, 'Auto-build source path not found. Please configure it in App Settings.');
+    // Validate enabled types
+    if (!config.enabledTypes || config.enabledTypes.length === 0) {
+      debugError('[Agent Queue] No ideation types enabled');
+      this.emitter.emit('ideation-error', projectId, 'No ideation types selected. Please select at least one type.');
       return;
     }
 
-    const ideationRunnerPath = path.join(autoBuildSource, 'runners', 'ideation_runner.py');
-
-    if (!existsSync(ideationRunnerPath)) {
-      debugError('[Agent Queue] Ideation runner not found at:', ideationRunnerPath);
-      this.emitter.emit('ideation-error', projectId, `Ideation runner not found at: ${ideationRunnerPath}`);
-      return;
-    }
-
-    const args = [ideationRunnerPath, '--project', projectPath];
-
-    // Add enabled types as comma-separated list
-    if (config.enabledTypes.length > 0) {
-      args.push('--types', config.enabledTypes.join(','));
-    }
-
-    // Add context flags (script uses --no-roadmap/--no-kanban negative flags)
-    if (!config.includeRoadmapContext) {
-      args.push('--no-roadmap');
-    }
-    if (!config.includeKanbanContext) {
-      args.push('--no-kanban');
-    }
-
-    // Add max ideas per type
-    if (config.maxIdeasPerType) {
-      args.push('--max-ideas', config.maxIdeasPerType.toString());
-    }
-
-    if (refresh) {
-      args.push('--refresh');
-    }
-
-    // Add append flag to preserve existing ideas
-    if (config.append) {
-      args.push('--append');
-    }
-
-    // Add model and thinking level from config
-    // Pass shorthand (opus/sonnet/haiku) - backend resolves using API profile env vars
-    if (config.model) {
-      args.push('--model', config.model);
-    }
-    if (config.thinkingLevel) {
-      args.push('--thinking-level', config.thinkingLevel);
-    }
-
-    debugLog('[Agent Queue] Spawning ideation process with args:', args);
-
-    // Use projectId as taskId for ideation operations
-    await this.spawnIdeationProcess(projectId, projectPath, args);
+    // Use CLI-based ideation spawning
+    await this.spawnIdeationCLIProcess(projectId, projectPath, config);
   }
 
   /**
