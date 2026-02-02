@@ -2612,6 +2612,197 @@ export function registerWorktreeHandlers(
   );
 
   /**
+   * Preview merge conflicts with AI-suggested resolution strategies
+   * This is the new endpoint for the merge conflict analysis feature.
+   * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_WORKTREE_PREVIEW_CONFLICTS,
+    async (_, taskId: string): Promise<IPCResult<WorktreeMergeResult>> => {
+      console.warn('[IPC] TASK_WORKTREE_PREVIEW_CONFLICTS called with taskId:', taskId);
+      try {
+        // Ensure Python environment is ready
+        if (!pythonEnvManager.isEnvReady()) {
+          console.warn('[IPC] Python environment not ready, initializing...');
+          const autoBuildSource = getEffectiveSourcePath();
+          if (autoBuildSource) {
+            const status = await pythonEnvManager.initialize(autoBuildSource);
+            if (!status.ready) {
+              console.error('[IPC] Python environment failed to initialize:', status.error);
+              return { success: false, error: `Python environment not ready: ${status.error || 'Unknown error'}` };
+            }
+          } else {
+            console.error('[IPC] Auto Claude source not found');
+            return { success: false, error: 'Python environment not ready and Auto Claude source not found' };
+          }
+        }
+
+        const { task, project } = findTaskAndProject(taskId);
+        if (!task || !project) {
+          console.error('[IPC] Task not found:', taskId);
+          return { success: false, error: 'Task not found' };
+        }
+        console.warn('[IPC] Found task:', task.specId, 'project:', project.name);
+
+        // Check for uncommitted changes in the main project (only if not a bare repo)
+        let hasUncommittedChanges = false;
+        let uncommittedFiles: string[] = [];
+        if (isGitWorkTree(project.path)) {
+          try {
+            const gitStatus = execFileSync(getToolPath('git'), ['status', '--porcelain'], {
+              cwd: project.path,
+              encoding: 'utf-8'
+            });
+
+            if (gitStatus && gitStatus.trim()) {
+              // Parse the status output to get file names
+              // Format: XY filename (where X and Y are status chars, then space, then filename)
+              uncommittedFiles = gitStatus
+                .split('\n')
+                .filter(line => line.trim())
+                .map(line => line.substring(3).trim()); // Skip 2 status chars + 1 space, trim any trailing whitespace
+
+              hasUncommittedChanges = uncommittedFiles.length > 0;
+            }
+          } catch (e) {
+            console.error('[IPC] Failed to check git status:', e);
+          }
+        } else {
+          console.warn('[IPC] Project is a bare repository - skipping uncommitted changes check');
+        }
+
+        const sourcePath = getEffectiveSourcePath();
+        if (!sourcePath) {
+          console.error('[IPC] Auto Claude source not found');
+          return { success: false, error: 'Auto Claude source not found' };
+        }
+
+        const runScript = path.join(sourcePath, 'run.py');
+        const specDir = path.join(project.path, project.autoBuildPath || '.auto-claude', 'specs', task.specId);
+        const args = [
+          runScript,
+          '--spec', task.specId,
+          '--project-dir', project.path,
+          '--merge-preview'
+        ];
+
+        // Add --base-branch with proper priority:
+        // 1. Task metadata baseBranch (explicit task-level override)
+        // 2. Project settings mainBranch (project-level default)
+        // This matches the logic in execution-handlers.ts
+        const taskBaseBranch = getTaskBaseBranch(specDir);
+        const projectMainBranch = project.settings?.mainBranch;
+        const effectiveBaseBranch = taskBaseBranch || projectMainBranch;
+
+        if (effectiveBaseBranch) {
+          args.push('--base-branch', effectiveBaseBranch);
+          console.warn('[IPC] Using base branch for preview:', effectiveBaseBranch,
+            `(source: ${taskBaseBranch ? 'task metadata' : 'project settings'})`);
+        }
+
+        // Use configured Python path (venv if ready, otherwise bundled/system)
+        const pythonPath = getConfiguredPythonPath();
+        console.warn('[IPC] Running merge preview:', pythonPath, args.join(' '));
+
+        // Get profile environment for consistency
+        const previewProfileEnv = getProfileEnv();
+        // Get Python environment for bundled packages
+        const previewPythonEnv = pythonEnvManagerSingleton.getPythonEnv();
+
+        return new Promise((resolve) => {
+          // Parse Python command to handle space-separated commands like "py -3"
+          const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
+          const previewProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
+            cwd: sourcePath,
+            env: { ...getIsolatedGitEnv(), ...previewPythonEnv, ...previewProfileEnv, PYTHONUNBUFFERED: '1', PYTHONUTF8: '1', DEBUG: 'true' }
+          });
+
+          let stdout = '';
+          let stderr = '';
+
+          previewProcess.stdout.on('data', (data: Buffer) => {
+            const chunk = data.toString();
+            stdout += chunk;
+            console.warn('[IPC] preview-conflicts stdout:', chunk);
+          });
+
+          previewProcess.stderr.on('data', (data: Buffer) => {
+            const chunk = data.toString();
+            stderr += chunk;
+            console.warn('[IPC] preview-conflicts stderr:', chunk);
+          });
+
+          previewProcess.on('close', (code: number) => {
+            console.warn('[IPC] preview-conflicts process exited with code:', code);
+            if (code === 0) {
+              try {
+                // Parse JSON output from Python
+                const result = JSON.parse(stdout.trim());
+                console.warn('[IPC] preview-conflicts result:', JSON.stringify(result, null, 2));
+                resolve({
+                  success: true,
+                  data: {
+                    success: result.success,
+                    message: result.error || 'Preview completed',
+                    preview: {
+                      files: result.files || [],
+                      conflicts: result.conflicts || [],
+                      summary: result.summary || {
+                        totalFiles: 0,
+                        conflictFiles: 0,
+                        totalConflicts: 0,
+                        autoMergeable: 0,
+                        hasGitConflicts: false
+                      },
+                      gitConflicts: result.gitConflicts || null,
+                      // Include uncommitted changes info for the frontend
+                      uncommittedChanges: hasUncommittedChanges ? {
+                        hasChanges: true,
+                        files: uncommittedFiles,
+                        count: uncommittedFiles.length
+                      } : null
+                    }
+                  }
+                });
+              } catch (parseError) {
+                console.error('[IPC] Failed to parse preview result:', parseError);
+                console.error('[IPC] stdout:', stdout);
+                console.error('[IPC] stderr:', stderr);
+                resolve({
+                  success: false,
+                  error: `Failed to parse preview result: ${stderr || stdout}`
+                });
+              }
+            } else {
+              console.error('[IPC] Preview failed with exit code:', code);
+              console.error('[IPC] stderr:', stderr);
+              console.error('[IPC] stdout:', stdout);
+              resolve({
+                success: false,
+                error: `Preview failed: ${stderr || stdout}`
+              });
+            }
+          });
+
+          previewProcess.on('error', (err: Error) => {
+            console.error('[IPC] preview-conflicts spawn error:', err);
+            resolve({
+              success: false,
+              error: `Failed to run preview: ${err.message}`
+            });
+          });
+        });
+      } catch (error) {
+        console.error('[IPC] TASK_WORKTREE_PREVIEW_CONFLICTS error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to preview merge'
+        };
+      }
+    }
+  );
+
+  /**
    * Discard the worktree changes
    * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
    */
