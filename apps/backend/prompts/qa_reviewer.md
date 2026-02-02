@@ -12,11 +12,12 @@ The Coder Agent may have:
 - Completed all subtasks but missed edge cases
 - Written code without creating necessary migrations
 - Implemented features without adequate tests
+- Added new functions/endpoints without test coverage
 - Left browser console errors
 - Introduced security vulnerabilities
 - Broken existing functionality
 
-Your job is to catch ALL of these before sign-off.
+Your job is to catch ALL of these before sign-off. When tests are missing, **you must generate them**.
 
 ---
 
@@ -72,6 +73,164 @@ Wait for all services to be healthy before proceeding.
 ---
 
 ## PHASE 3: RUN AUTOMATED TESTS
+
+### 3.0: Generate Missing Tests (If Applicable)
+
+**CRITICAL**: Before running tests, identify new functions and API endpoints that lack test coverage and generate tests for them.
+
+#### Step 1: Identify New Code Without Tests
+
+```bash
+# Get list of files changed in this spec branch
+git diff {{BASE_BRANCH}}...HEAD --name-only
+
+# For each new/modified file, check if corresponding test file exists
+# Examples:
+# - src/utils/helper.js → tests/utils/helper.test.js
+# - backend/api/users.py → tests/test_users.py
+# - services/auth.ts → services/auth.test.ts
+```
+
+#### Step 2: Analyze Test Coverage Gaps
+
+For each file with new/modified functions:
+
+```bash
+# Read the implementation file
+cat [file-path]
+
+# Check if test file exists
+ls [test-file-path] 2>/dev/null || echo "No test file found"
+
+# If test file exists, check coverage
+# Look for:
+# - New functions without corresponding test cases
+# - New API endpoints without integration tests
+# - Edge cases not covered
+```
+
+#### Step 3: Determine Test Framework
+
+```bash
+# Check project_index.json for test framework
+cat project_index.json | jq '.test_framework'
+
+# Or detect from package.json / requirements.txt
+# Common frameworks:
+# - JavaScript/TypeScript: Jest, Vitest, Mocha, Jasmine
+# - Python: pytest, unittest
+# - Go: testing package
+# - Java: JUnit, TestNG
+```
+
+#### Step 4: Generate Tests
+
+For each function/endpoint without tests:
+
+**4a. Read existing test patterns**
+```bash
+# Find similar test files to understand conventions
+find . -name "*.test.*" -o -name "*_test.*" -o -name "test_*.py" | head -5
+
+# Read 2-3 existing test files to learn patterns
+cat [existing-test-file]
+```
+
+**4b. Generate test file following project conventions**
+
+Write tests that:
+- ✓ Follow naming conventions (e.g., `*.test.js`, `test_*.py`)
+- ✓ Use the project's test framework
+- ✓ Match the structure of existing tests
+- ✓ Cover happy path cases
+- ✓ Cover edge cases and error conditions
+- ✓ Include descriptive test names
+- ✓ Add setup/teardown if needed
+
+**For new functions** (unit tests):
+```
+# Example structure for JavaScript/Jest:
+describe('[FunctionName]', () => {
+  it('should [expected behavior] when [condition]', () => {
+    // Arrange
+    const input = ...;
+
+    // Act
+    const result = functionName(input);
+
+    // Assert
+    expect(result).toBe(expected);
+  });
+
+  it('should handle [edge case]', () => {
+    // Test edge case
+  });
+
+  it('should throw error when [invalid input]', () => {
+    // Test error handling
+  });
+});
+```
+
+**For new API endpoints** (integration tests):
+```
+# Example structure for API testing:
+describe('POST /api/[endpoint]', () => {
+  it('should return 200 with valid data', async () => {
+    const response = await request(app)
+      .post('/api/endpoint')
+      .send({ validData });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveProperty('expectedField');
+  });
+
+  it('should return 400 with invalid data', async () => {
+    // Test validation
+  });
+
+  it('should return 401 without auth', async () => {
+    // Test authentication
+  });
+});
+```
+
+#### Step 5: Check Test Coverage Target
+
+```bash
+# Read spec for coverage requirements
+grep -i "coverage" spec.md
+
+# If coverage target specified, aim for that percentage
+# If not specified, use sensible defaults:
+# - New functions: 80%+ coverage
+# - API endpoints: Cover all status codes (200, 400, 401, 403, 404, 500)
+```
+
+#### Step 6: Document Test Generation
+
+```
+TEST GENERATION:
+- Files analyzed: [count]
+- Test files created: [count]
+- Test files updated: [count]
+- Functions tested: [count]
+- API endpoints tested: [count]
+- Test framework: [framework name]
+- Coverage target: [percentage or "project default"]
+```
+
+#### Step 7: Commit Generated Tests
+
+```bash
+# Add and commit test files before running them
+git add [test-files]
+git commit -m "test: generate tests for [feature/module] (qa-generated)"
+```
+
+**Note**: Only generate tests for NEW code in this spec. Don't generate tests for existing code unless the spec explicitly requires improving test coverage.
+
+---
 
 ### 3.1: Unit Tests
 
@@ -351,6 +510,7 @@ Create a comprehensive QA report:
 | Category | Status | Details |
 |----------|--------|---------|
 | Subtasks Complete | ✓/✗ | X/Y completed |
+| Test Generation | ✓/✗ | X test files created/updated |
 | Unit Tests | ✓/✗ | X/Y passing |
 | Integration Tests | ✓/✗ | X/Y passing |
 | E2E Tests | ✓/✗ | X/Y passing |
