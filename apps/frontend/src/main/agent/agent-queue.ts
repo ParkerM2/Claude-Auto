@@ -639,11 +639,17 @@ export class AgentQueueManager {
         // Emit type failure event
         this.emitter.emit('ideation-type-failed', projectId, result.type);
 
-        // Handle rate limit
-        if (result.wasRateLimited) {
+        // Handle rate limit - use detectRateLimit on rawOutput to get full detection details
+        if (result.wasRateLimited && result.rawOutput) {
+          const rateLimitDetection = detectRateLimit(result.rawOutput);
+          const rateLimitInfo = createSDKRateLimitInfo('ideation', rateLimitDetection, {
+            projectId
+          });
+          this.emitter.emit('sdk-rate-limit', rateLimitInfo);
+        } else if (result.wasRateLimited) {
+          // Fallback if no rawOutput available
           const rateLimitInfo = createSDKRateLimitInfo('ideation', {
-            isRateLimited: true,
-            resetTime: undefined
+            isRateLimited: true
           }, { projectId });
           this.emitter.emit('sdk-rate-limit', rateLimitInfo);
         }
