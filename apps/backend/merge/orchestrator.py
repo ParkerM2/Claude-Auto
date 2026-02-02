@@ -577,18 +577,47 @@ class MergeOrchestrator:
     def preview_merge(
         self,
         task_ids: list[str],
+        worktree_paths: dict[str, Path] | None = None,
+        target_branch: str = "main",
     ) -> dict[str, Any]:
         """
         Preview what a merge would look like without executing.
 
+        This performs a dry-run analysis of potential conflicts using semantic
+        understanding of code changes. It never writes files or modifies git state.
+
         Args:
             task_ids: List of task IDs to preview merging
+            worktree_paths: Optional dict mapping task_id -> worktree_path for evolution tracking
+            target_branch: Branch to merge into (for evolution tracking)
 
         Returns:
-            Dictionary with preview information
+            Dictionary with preview information including:
+                - tasks: list of task IDs
+                - files_to_merge: list of file paths that would be merged
+                - files_with_potential_conflicts: list of files with detected conflicts
+                - conflicts: detailed list of conflict information
+                - summary: aggregate statistics
         """
         debug_section(MODULE, "Preview Merge")
         debug(MODULE, "preview_merge() called", task_ids=task_ids)
+
+        # Refresh evolution data if worktree paths provided
+        if worktree_paths:
+            debug_detailed(MODULE, "Refreshing evolution data from worktrees...")
+            for task_id in task_ids:
+                worktree_path = worktree_paths.get(task_id)
+                if worktree_path and worktree_path.exists():
+                    try:
+                        self.evolution_tracker.refresh_from_git(
+                            task_id, worktree_path, target_branch=target_branch
+                        )
+                    except Exception as e:
+                        debug_warning(
+                            MODULE,
+                            f"Failed to refresh evolution data for {task_id}",
+                            error=str(e),
+                        )
 
         file_tasks = self.evolution_tracker.get_files_modified_by_tasks(task_ids)
         conflicting = self.evolution_tracker.get_conflicting_files(task_ids)
@@ -659,6 +688,46 @@ class MergeOrchestrator:
         debug_success(MODULE, "Preview complete", summary=preview["summary"])
 
         return preview
+
+    def preview_merge_for_spec(
+        self,
+        spec_name: str,
+        worktree_path: Path,
+        target_branch: str = "main",
+    ) -> dict[str, Any]:
+        """
+        Preview merge for a single spec using its worktree.
+
+        This is a convenience method that wraps preview_merge for the common
+        case of previewing a single spec's changes. It automatically extracts
+        the task ID from the spec name and refreshes evolution data.
+
+        Args:
+            spec_name: The spec identifier (e.g., "013-merge-conflict-analysis")
+            worktree_path: Path to the spec's worktree directory
+            target_branch: Branch to merge into
+
+        Returns:
+            Dictionary with preview information (same format as preview_merge)
+        """
+        debug_section(MODULE, f"Preview Merge for Spec: {spec_name}")
+        debug(
+            MODULE,
+            "preview_merge_for_spec() called",
+            spec_name=spec_name,
+            worktree_path=str(worktree_path),
+            target_branch=target_branch,
+        )
+
+        # For single-spec preview, use spec_name as task_id
+        task_id = spec_name
+        worktree_paths = {task_id: worktree_path}
+
+        return self.preview_merge(
+            task_ids=[task_id],
+            worktree_paths=worktree_paths,
+            target_branch=target_branch,
+        )
 
     def write_merged_files(
         self,
