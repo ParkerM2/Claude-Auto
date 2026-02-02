@@ -434,6 +434,273 @@ class PythonASTAnalyzer:
 # =============================================================================
 
 
+class JavaScriptTypeScriptAnalyzer:
+    """
+    Analyzes JavaScript/TypeScript code using regex to extract testable elements.
+
+    Since we don't have a full AST parser for JS/TS in Python without heavy
+    dependencies, we use regex-based parsing for basic extraction.
+    """
+
+    __test__ = False  # Prevent pytest from collecting this as a test class
+
+    def analyze(
+        self, code: str, language: Language, file_path: str | None = None
+    ) -> CodeAnalysis:
+        """
+        Analyze JavaScript/TypeScript code and extract testable elements.
+
+        Args:
+            code: JavaScript/TypeScript source code
+            language: Language.JAVASCRIPT or Language.TYPESCRIPT
+            file_path: Optional file path for context
+
+        Returns:
+            CodeAnalysis with extracted functions and classes
+        """
+        analysis = CodeAnalysis(
+            language=language,
+            file_path=file_path,
+        )
+
+        # Extract imports
+        analysis.imports = self._extract_imports(code)
+
+        # Detect test framework from imports
+        analysis.framework_detected = self._detect_framework(analysis.imports)
+
+        # Extract functions (regular and arrow functions)
+        analysis.functions = self._extract_functions(code)
+
+        # Extract classes
+        analysis.classes = self._extract_classes(code)
+
+        # Check if any functions/methods are async
+        analysis.has_async = any(f.is_async for f in analysis.functions) or any(
+            any(m.is_async for m in cls.methods) for cls in analysis.classes
+        )
+
+        return analysis
+
+    def _extract_imports(self, code: str) -> list[str]:
+        """Extract import statements from JavaScript/TypeScript code."""
+        imports = []
+
+        # Match: import X from 'module'
+        # Match: import { X, Y } from 'module'
+        # Match: import * as X from 'module'
+        import_pattern = r"import\s+(?:[\w{},\s*]+)\s+from\s+['\"]([^'\"]+)['\"]"
+        for match in re.finditer(import_pattern, code):
+            imports.append(match.group(1))
+
+        # Match: import 'module' (side-effect imports)
+        side_effect_pattern = r"import\s+['\"]([^'\"]+)['\"]"
+        for match in re.finditer(side_effect_pattern, code):
+            module = match.group(1)
+            if module not in imports:
+                imports.append(module)
+
+        return imports
+
+    def _detect_framework(self, imports: list[str]) -> TestFramework | None:
+        """Detect test framework from imports."""
+        if "vitest" in imports or any("vitest" in imp for imp in imports):
+            return TestFramework.VITEST
+        elif "jest" in imports or "@jest" in imports:
+            return TestFramework.JEST
+        return None
+
+    def _extract_functions(self, code: str) -> list[FunctionInfo]:
+        """Extract function declarations and expressions."""
+        functions = []
+
+        # Pattern for regular function declarations
+        # function myFunc(arg1: type, arg2): ReturnType
+        # async function myFunc(...)
+        func_pattern = r"(?:export\s+)?(async\s+)?function\s+(\w+)\s*\((.*?)\)(?:\s*:\s*([^{]+))?\s*\{"
+        for match in re.finditer(func_pattern, code, re.MULTILINE):
+            is_async = match.group(1) is not None  # Check if 'async' was captured
+            func_name = match.group(2)
+            params_str = match.group(3)
+            return_type = match.group(4).strip() if match.group(4) else None
+
+            # Parse parameters
+            parameters = self._parse_parameters(params_str)
+
+            functions.append(FunctionInfo(
+                name=func_name,
+                type=FunctionType.ASYNC_FUNCTION if is_async else FunctionType.FUNCTION,
+                parameters=parameters,
+                return_type=return_type,
+                is_async=is_async,
+                line_number=code[:match.start()].count('\n') + 1,
+            ))
+
+        # Pattern for arrow functions assigned to const/let/var
+        # const myFunc = (arg1, arg2) => { }
+        # const myFunc = async (arg1) => { }
+        arrow_pattern = r"(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(async\s+)?\((.*?)\)(?:\s*:\s*([^=]+?))?\s*=>"
+        for match in re.finditer(arrow_pattern, code, re.MULTILINE):
+            is_async = match.group(2) is not None  # Check if 'async' was captured
+            func_name = match.group(1)
+            params_str = match.group(3)
+            return_type = match.group(4).strip() if match.group(4) else None
+
+            # Parse parameters
+            parameters = self._parse_parameters(params_str)
+
+            functions.append(FunctionInfo(
+                name=func_name,
+                type=FunctionType.ASYNC_FUNCTION if is_async else FunctionType.FUNCTION,
+                parameters=parameters,
+                return_type=return_type,
+                is_async=is_async,
+                line_number=code[:match.start()].count('\n') + 1,
+            ))
+
+        return functions
+
+    def _extract_classes(self, code: str) -> list[ClassInfo]:
+        """Extract class declarations."""
+        classes = []
+
+        # Pattern for class declarations
+        # class MyClass extends BaseClass { }
+        class_pattern = r"(?:export\s+)?class\s+(\w+)(?:\s+extends\s+([\w.]+))?\s*\{"
+        for match in re.finditer(class_pattern, code, re.MULTILINE):
+            class_name = match.group(1)
+            base_class = match.group(2) if match.group(2) else None
+
+            # Find the class body (everything until the matching closing brace)
+            class_start = match.end()
+            brace_count = 1
+            class_end = class_start
+            for i in range(class_start, len(code)):
+                if code[i] == '{':
+                    brace_count += 1
+                elif code[i] == '}':
+                    brace_count -= 1
+                    if brace_count == 0:
+                        class_end = i
+                        break
+
+            class_body = code[class_start:class_end]
+
+            # Extract methods from class body
+            methods = self._extract_methods(class_body, class_name)
+
+            classes.append(ClassInfo(
+                name=class_name,
+                methods=methods,
+                base_classes=[base_class] if base_class else [],
+                line_number=code[:match.start()].count('\n') + 1,
+            ))
+
+        return classes
+
+    def _extract_methods(self, class_body: str, class_name: str) -> list[FunctionInfo]:
+        """Extract methods from class body."""
+        methods = []
+
+        # Pattern for method declarations
+        # methodName(arg1, arg2): ReturnType { }
+        # async methodName(arg1): ReturnType { }
+        method_pattern = r"(async\s+)?(\w+)\s*\((.*?)\)(?:\s*:\s*([^{]+))?\s*\{"
+        for match in re.finditer(method_pattern, class_body, re.MULTILINE):
+            is_async = match.group(1) is not None  # Check if 'async' was captured
+            method_name = match.group(2)
+
+            # Skip if this looks like a control structure (if, for, while, etc.)
+            if method_name in ('if', 'for', 'while', 'switch', 'catch'):
+                continue
+
+            params_str = match.group(3)
+            return_type = match.group(4).strip() if match.group(4) else None
+
+            # Parse parameters
+            parameters = self._parse_parameters(params_str)
+
+            methods.append(FunctionInfo(
+                name=method_name,
+                type=FunctionType.ASYNC_METHOD if is_async else FunctionType.METHOD,
+                parameters=parameters,
+                return_type=return_type,
+                is_async=is_async,
+                class_name=class_name,
+                line_number=class_body[:match.start()].count('\n') + 1,
+            ))
+
+        return methods
+
+    def _parse_parameters(self, params_str: str) -> list[Parameter]:
+        """Parse parameter string into Parameter objects."""
+        parameters = []
+
+        if not params_str.strip():
+            return parameters
+
+        # Split by comma, but be careful with nested types like Array<string, number>
+        params = []
+        current_param = ""
+        angle_depth = 0
+        paren_depth = 0
+
+        for char in params_str + ",":
+            if char == '<':
+                angle_depth += 1
+            elif char == '>':
+                angle_depth -= 1
+            elif char == '(':
+                paren_depth += 1
+            elif char == ')':
+                paren_depth -= 1
+            elif char == ',' and angle_depth == 0 and paren_depth == 0:
+                if current_param.strip():
+                    params.append(current_param.strip())
+                current_param = ""
+                continue
+            current_param += char
+
+        # Parse each parameter
+        for param in params:
+            # Handle destructured parameters like { x, y }
+            if param.startswith('{') or param.startswith('['):
+                # Simplified: just use the whole thing as the name
+                parameters.append(Parameter(
+                    name=param.split(':')[0].strip() if ':' in param else param.strip(),
+                    type_hint=None,
+                ))
+                continue
+
+            # Check for default value: param = defaultValue
+            has_default = '=' in param
+            if has_default:
+                param = param.split('=')[0].strip()
+
+            # Check for type annotation: param: Type
+            if ':' in param:
+                parts = param.split(':', 1)
+                param_name = parts[0].strip()
+                type_hint = parts[1].strip()
+            else:
+                param_name = param.strip()
+                type_hint = None
+
+            # Handle rest parameters: ...args
+            if param_name.startswith('...'):
+                param_name = param_name[3:].strip()
+                type_hint = f"...{type_hint}" if type_hint else "...any"
+
+            if param_name:  # Skip empty parameters
+                parameters.append(Parameter(
+                    name=param_name,
+                    type_hint=type_hint,
+                    is_optional=has_default,
+                ))
+
+        return parameters
+
+
 class TestGenerator:
     """
     Main test generator class.
@@ -447,6 +714,7 @@ class TestGenerator:
     def __init__(self):
         """Initialize test generator with language-specific analyzers."""
         self.python_analyzer = PythonASTAnalyzer()
+        self.js_ts_analyzer = JavaScriptTypeScriptAnalyzer()
 
     def analyze_code(
         self,
@@ -477,8 +745,9 @@ class TestGenerator:
 
         if language == Language.PYTHON:
             return self.python_analyzer.analyze(code, file_path)
+        elif language in (Language.JAVASCRIPT, Language.TYPESCRIPT):
+            return self.js_ts_analyzer.analyze(code, language, file_path)
         else:
-            # JavaScript/TypeScript analysis will be added in phase 2
             raise NotImplementedError(f"Analysis for {language} not yet implemented")
 
     def analyze_file(self, file_path: str | Path) -> CodeAnalysis:
@@ -561,8 +830,10 @@ class TestGenerator:
             return self._generate_pytest_tests(analysis)
         elif framework == TestFramework.UNITTEST:
             raise NotImplementedError("unittest generation not yet implemented")
-        elif framework in (TestFramework.VITEST, TestFramework.JEST):
-            raise NotImplementedError(f"{framework} generation not yet implemented")
+        elif framework == TestFramework.VITEST:
+            return self._generate_vitest_tests(analysis, is_react)
+        elif framework == TestFramework.JEST:
+            return self._generate_jest_tests(analysis, is_react)
         else:
             raise ValueError(f"Unsupported framework: {framework}")
 
@@ -849,3 +1120,292 @@ class TestGenerator:
                 lines.append("    # TODO: Add assertions")
 
         return lines
+
+    def _generate_vitest_tests(self, analysis: CodeAnalysis, is_react: bool = False) -> str:
+        """
+        Generate vitest test code from code analysis.
+
+        Args:
+            analysis: Code analysis results
+            is_react: Whether code contains React components
+
+        Returns:
+            Generated vitest test code
+        """
+        lines = []
+
+        # Add header comment
+        lines.append("/**")
+        lines.append(" * Generated test file")
+        if analysis.file_path:
+            lines.append(f" * Tests for: {analysis.file_path}")
+        lines.append(" */")
+        lines.append("")
+
+        # Add imports
+        imports = self._generate_vitest_imports(analysis, is_react)
+        lines.extend(imports)
+        lines.append("")
+
+        # Generate tests for top-level functions
+        for func in analysis.functions:
+            test_func = self._generate_vitest_function_test(func)
+            lines.extend(test_func)
+            lines.append("")
+
+        # Generate tests for classes
+        for cls in analysis.classes:
+            class_tests = self._generate_vitest_class_tests(cls)
+            lines.extend(class_tests)
+            lines.append("")
+
+        return "\n".join(lines)
+
+    def _generate_vitest_imports(self, analysis: CodeAnalysis, is_react: bool) -> list[str]:
+        """Generate import statements for vitest tests."""
+        imports = ["import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';"]
+
+        # Add React testing library imports if needed
+        if is_react:
+            imports.append("import { render, screen, fireEvent } from '@testing-library/react';")
+            imports.append("import '@testing-library/jest-dom/vitest';")
+
+        imports.append("")
+
+        # Add TODO comment to import the code being tested
+        if analysis.file_path:
+            imports.append(f"// TODO: Import functions/classes from '{analysis.file_path}'")
+        else:
+            imports.append("// TODO: Import functions/classes to test")
+
+        return imports
+
+    def _generate_vitest_function_test(self, func: FunctionInfo) -> list[str]:
+        """Generate vitest test for a function."""
+        lines = []
+
+        # Generate describe block
+        lines.append(f"describe('{func.name}', () => {{")
+
+        # Add test case
+        if func.is_async:
+            lines.append(f"  it('should work correctly', async () => {{")
+        else:
+            lines.append(f"  it('should work correctly', () => {{")
+
+        # Generate test body
+        if func.parameters:
+            # Arrange: Create test data
+            lines.append("    // Arrange")
+            for param in func.parameters:
+                if param.name.startswith("..."):
+                    continue
+                if param.type_hint:
+                    lines.append(f"    const {param.name} = null; // TODO: Provide test value for {param.type_hint}")
+                else:
+                    lines.append(f"    const {param.name} = null; // TODO: Provide test value")
+            lines.append("")
+
+            # Act: Call function
+            lines.append("    // Act")
+            param_names = [p.name for p in func.parameters if not p.name.startswith("...")]
+            params_str = ", ".join(param_names)
+            if func.is_async:
+                lines.append(f"    const result = await {func.name}({params_str});")
+            else:
+                lines.append(f"    const result = {func.name}({params_str});")
+            lines.append("")
+
+            # Assert: Check result
+            lines.append("    // Assert")
+            if func.return_type and func.return_type not in ("void", "undefined"):
+                lines.append("    expect(result).toBeDefined(); // TODO: Add specific assertions")
+            else:
+                lines.append("    // TODO: Add assertions")
+        else:
+            # Simple function with no parameters
+            lines.append("    // Act")
+            if func.is_async:
+                lines.append(f"    const result = await {func.name}();")
+            else:
+                lines.append(f"    const result = {func.name}();")
+            lines.append("")
+            lines.append("    // Assert")
+            if func.return_type and func.return_type not in ("void", "undefined"):
+                lines.append("    expect(result).toBeDefined(); // TODO: Add specific assertions")
+            else:
+                lines.append("    // TODO: Add assertions")
+
+        lines.append("  });")
+        lines.append("});")
+
+        return lines
+
+    def _generate_vitest_class_tests(self, cls: ClassInfo) -> list[str]:
+        """Generate vitest tests for a class and its methods."""
+        lines = []
+
+        # Generate describe block for class
+        lines.append(f"describe('{cls.name}', () => {{")
+
+        # Add beforeEach hook to create instance
+        lines.append("  let instance: any;")
+        lines.append("")
+        lines.append("  beforeEach(() => {")
+
+        # Find constructor parameters
+        constructor_method = None
+        for method in cls.methods:
+            if method.name == "constructor":
+                constructor_method = method
+                break
+
+        if constructor_method and constructor_method.parameters:
+            lines.append("    // Mock dependencies")
+            for param in constructor_method.parameters:
+                lines.append(f"    const {param.name} = vi.fn();")
+            param_names = [p.name for p in constructor_method.parameters]
+            params_str = ", ".join(param_names)
+            lines.append(f"    instance = new {cls.name}({params_str});")
+        else:
+            lines.append(f"    instance = new {cls.name}();")
+
+        lines.append("  });")
+        lines.append("")
+
+        # Generate tests for each method
+        for method in cls.methods:
+            # Skip constructor and private methods
+            if method.name == "constructor" or method.name.startswith("_"):
+                continue
+
+            test_lines = self._generate_vitest_method_test(cls, method)
+            # Indent all lines for describe block
+            indented_lines = ["  " + line if line else "" for line in test_lines]
+            lines.extend(indented_lines)
+            lines.append("")
+
+        lines.append("});")
+
+        return lines
+
+    def _generate_vitest_method_test(self, cls: ClassInfo, method: FunctionInfo) -> list[str]:
+        """Generate vitest test for a class method."""
+        lines = []
+
+        # Add test case
+        if method.is_async:
+            lines.append(f"it('should test {method.name}', async () => {{")
+        else:
+            lines.append(f"it('should test {method.name}', () => {{")
+
+        # Generate test body
+        if method.parameters:
+            # Arrange
+            lines.append("  // Arrange")
+            for param in method.parameters:
+                if param.name.startswith("..."):
+                    continue
+                if param.type_hint:
+                    lines.append(f"  const {param.name} = null; // TODO: Provide test value for {param.type_hint}")
+                else:
+                    lines.append(f"  const {param.name} = null; // TODO: Provide test value")
+            lines.append("")
+
+            # Act
+            lines.append("  // Act")
+            param_names = [p.name for p in method.parameters if not p.name.startswith("...")]
+            params_str = ", ".join(param_names)
+            if method.is_async:
+                lines.append(f"  const result = await instance.{method.name}({params_str});")
+            else:
+                lines.append(f"  const result = instance.{method.name}({params_str});")
+            lines.append("")
+
+            # Assert
+            lines.append("  // Assert")
+            if method.return_type and method.return_type not in ("void", "undefined"):
+                lines.append("  expect(result).toBeDefined(); // TODO: Add specific assertions")
+            else:
+                lines.append("  // TODO: Add assertions")
+        else:
+            # Simple method with no parameters
+            lines.append("  // Act")
+            if method.is_async:
+                lines.append(f"  const result = await instance.{method.name}();")
+            else:
+                lines.append(f"  const result = instance.{method.name}();")
+            lines.append("")
+            lines.append("  // Assert")
+            if method.return_type and method.return_type not in ("void", "undefined"):
+                lines.append("  expect(result).toBeDefined(); // TODO: Add specific assertions")
+            else:
+                lines.append("  // TODO: Add assertions")
+
+        lines.append("});")
+
+        return lines
+
+    def _generate_jest_tests(self, analysis: CodeAnalysis, is_react: bool = False) -> str:
+        """
+        Generate jest test code from code analysis.
+
+        Jest and vitest have very similar syntax, so we reuse the vitest logic
+        with minor adjustments.
+
+        Args:
+            analysis: Code analysis results
+            is_react: Whether code contains React components
+
+        Returns:
+            Generated jest test code
+        """
+        # Jest and vitest have nearly identical syntax, so we can reuse the generation logic
+        # The main difference is the imports
+        lines = []
+
+        # Add header comment
+        lines.append("/**")
+        lines.append(" * Generated test file")
+        if analysis.file_path:
+            lines.append(f" * Tests for: {analysis.file_path}")
+        lines.append(" */")
+        lines.append("")
+
+        # Add imports (Jest-specific)
+        imports = self._generate_jest_imports(analysis, is_react)
+        lines.extend(imports)
+        lines.append("")
+
+        # Generate tests for top-level functions (reuse vitest logic)
+        for func in analysis.functions:
+            test_func = self._generate_vitest_function_test(func)
+            lines.extend(test_func)
+            lines.append("")
+
+        # Generate tests for classes (reuse vitest logic)
+        for cls in analysis.classes:
+            class_tests = self._generate_vitest_class_tests(cls)
+            lines.extend(class_tests)
+            lines.append("")
+
+        return "\n".join(lines)
+
+    def _generate_jest_imports(self, analysis: CodeAnalysis, is_react: bool) -> list[str]:
+        """Generate import statements for jest tests."""
+        imports = ["import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';"]
+
+        # Add React testing library imports if needed
+        if is_react:
+            imports.append("import { render, screen, fireEvent } from '@testing-library/react';")
+            imports.append("import '@testing-library/jest-dom';")
+
+        imports.append("")
+
+        # Add TODO comment to import the code being tested
+        if analysis.file_path:
+            imports.append(f"// TODO: Import functions/classes from '{analysis.file_path}'")
+        else:
+            imports.append("// TODO: Import functions/classes to test")
+
+        return imports
