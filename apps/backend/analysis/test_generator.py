@@ -538,6 +538,312 @@ class TestGenerator:
             ValueError: If framework or language is not supported
             NotImplementedError: If framework support is not yet implemented
         """
-        # This method will be fully implemented in subtask-1-2
-        # For now, just ensure the class can be imported
-        raise NotImplementedError("Test generation will be implemented in subtask-1-2")
+        # Convert string inputs to enums
+        if isinstance(framework, str):
+            try:
+                framework = TestFramework(framework.lower())
+            except ValueError:
+                raise ValueError(f"Unsupported test framework: {framework}")
+
+        if isinstance(language, str):
+            try:
+                language = Language(language.lower())
+            except ValueError:
+                raise ValueError(f"Unsupported language: {language}")
+
+        # Analyze code to extract testable elements
+        analysis = self.analyze_code(code, language=language)
+
+        # Generate tests based on framework
+        if framework == TestFramework.PYTEST:
+            return self._generate_pytest_tests(analysis)
+        elif framework == TestFramework.UNITTEST:
+            raise NotImplementedError("unittest generation not yet implemented")
+        elif framework in (TestFramework.VITEST, TestFramework.JEST):
+            raise NotImplementedError(f"{framework} generation not yet implemented")
+        else:
+            raise ValueError(f"Unsupported framework: {framework}")
+
+    def _generate_pytest_tests(self, analysis: CodeAnalysis) -> str:
+        """
+        Generate pytest test code from code analysis.
+
+        Args:
+            analysis: Code analysis results
+
+        Returns:
+            Generated pytest test code
+        """
+        lines = []
+
+        # Add header comment
+        lines.append('"""')
+        lines.append("Generated test file")
+        if analysis.file_path:
+            lines.append(f"Tests for: {analysis.file_path}")
+        lines.append('"""')
+        lines.append("")
+
+        # Add imports
+        imports = self._generate_pytest_imports(analysis)
+        lines.extend(imports)
+        lines.append("")
+
+        # Add fixtures if needed
+        fixtures = self._generate_pytest_fixtures(analysis)
+        if fixtures:
+            lines.extend(fixtures)
+            lines.append("")
+
+        # Generate tests for top-level functions
+        for func in analysis.functions:
+            test_func = self._generate_pytest_function_test(func)
+            lines.extend(test_func)
+            lines.append("")
+
+        # Generate tests for classes
+        for cls in analysis.classes:
+            class_tests = self._generate_pytest_class_tests(cls)
+            lines.extend(class_tests)
+            lines.append("")
+
+        return "\n".join(lines)
+
+    def _generate_pytest_imports(self, analysis: CodeAnalysis) -> list[str]:
+        """Generate import statements for pytest tests."""
+        imports = [
+            "from unittest.mock import MagicMock, Mock, patch",
+            "",
+            "import pytest",
+        ]
+
+        # Add async support if needed
+        if analysis.has_async:
+            imports.append("import asyncio")
+
+        return imports
+
+    def _generate_pytest_fixtures(self, analysis: CodeAnalysis) -> list[str]:
+        """Generate pytest fixtures based on code analysis."""
+        fixtures = []
+
+        # Generate fixtures for classes that need instances
+        for cls in analysis.classes:
+            fixture_lines = self._generate_class_fixture(cls)
+            if fixture_lines:
+                fixtures.extend(fixture_lines)
+                fixtures.append("")
+
+        return fixtures
+
+    def _generate_class_fixture(self, cls: ClassInfo) -> list[str]:
+        """Generate a fixture for instantiating a class."""
+        fixture_name = cls.name.lower() + "_instance"
+        lines = [
+            "@pytest.fixture",
+            f"def {fixture_name}():",
+            f'    """Create a {cls.name} instance for testing."""',
+        ]
+
+        # Determine constructor parameters
+        init_method = None
+        for method in cls.methods:
+            if method.name == "__init__":
+                init_method = method
+                break
+
+        if init_method and init_method.parameters:
+            # Create mock parameters
+            lines.append("    # Mock dependencies")
+            for param in init_method.parameters:
+                if param.name not in ("self", "cls"):
+                    lines.append(f"    {param.name} = Mock()")
+
+            # Instantiate with mocks
+            param_names = [p.name for p in init_method.parameters if p.name not in ("self", "cls")]
+            params_str = ", ".join(param_names)
+            lines.append(f"    return {cls.name}({params_str})")
+        else:
+            # Simple instantiation
+            lines.append(f"    return {cls.name}()")
+
+        return lines
+
+    def _generate_pytest_function_test(self, func: FunctionInfo) -> list[str]:
+        """Generate pytest test for a function."""
+        lines = []
+
+        # Generate test function signature
+        test_name = f"test_{func.name}"
+
+        # Check if we need async test
+        if func.is_async:
+            lines.append("@pytest.mark.asyncio")
+            lines.append(f"async def {test_name}():")
+        else:
+            lines.append(f"def {test_name}():")
+
+        # Add docstring
+        lines.append(f'    """Test {func.name} function."""')
+
+        # Generate test body
+        if func.parameters:
+            # Arrange: Create test data
+            lines.append("    # Arrange")
+            for param in func.parameters:
+                if param.name.startswith("*"):
+                    continue
+                if param.type_hint:
+                    lines.append(f"    {param.name} = None  # TODO: Provide test value for {param.type_hint}")
+                else:
+                    lines.append(f"    {param.name} = None  # TODO: Provide test value")
+            lines.append("")
+
+            # Act: Call function
+            lines.append("    # Act")
+            param_names = [p.name for p in func.parameters if not p.name.startswith("*")]
+            params_str = ", ".join(param_names)
+            if func.is_async:
+                lines.append(f"    result = await {func.name}({params_str})")
+            else:
+                lines.append(f"    result = {func.name}({params_str})")
+            lines.append("")
+
+            # Assert: Check result
+            lines.append("    # Assert")
+            if func.return_type and func.return_type != "None":
+                lines.append(f"    assert result is not None  # TODO: Add specific assertions")
+            else:
+                lines.append("    # TODO: Add assertions")
+        else:
+            # Simple function with no parameters
+            lines.append("    # Act")
+            if func.is_async:
+                lines.append(f"    result = await {func.name}()")
+            else:
+                lines.append(f"    result = {func.name}()")
+            lines.append("")
+            lines.append("    # Assert")
+            if func.return_type and func.return_type != "None":
+                lines.append(f"    assert result is not None  # TODO: Add specific assertions")
+            else:
+                lines.append("    # TODO: Add assertions")
+
+        return lines
+
+    def _generate_pytest_class_tests(self, cls: ClassInfo) -> list[str]:
+        """Generate pytest tests for a class and its methods."""
+        lines = []
+
+        # Generate test class
+        lines.append(f"class Test{cls.name}:")
+        lines.append(f'    """Tests for {cls.name} class."""')
+        lines.append("")
+
+        # Generate tests for each method
+        for method in cls.methods:
+            # Skip private methods and __init__
+            if method.name.startswith("_") and method.name != "__init__":
+                continue
+
+            if method.name == "__init__":
+                # Test instantiation
+                test_lines = self._generate_init_test(cls, method)
+            else:
+                # Test regular method
+                test_lines = self._generate_method_test(cls, method)
+
+            # Indent all lines for class body
+            indented_lines = ["    " + line if line else "" for line in test_lines]
+            lines.extend(indented_lines)
+            lines.append("")
+
+        return lines
+
+    def _generate_init_test(self, cls: ClassInfo, method: FunctionInfo) -> list[str]:
+        """Generate test for class instantiation."""
+        lines = [
+            "def test_init(self):",
+            f'    """Test {cls.name} instantiation."""',
+        ]
+
+        if method.parameters:
+            lines.append("    # Arrange")
+            for param in method.parameters:
+                if param.name not in ("self", "cls"):
+                    lines.append(f"    {param.name} = Mock()")
+            lines.append("")
+            lines.append("    # Act")
+            param_names = [p.name for p in method.parameters if p.name not in ("self", "cls")]
+            params_str = ", ".join(param_names)
+            lines.append(f"    instance = {cls.name}({params_str})")
+        else:
+            lines.append("    # Act")
+            lines.append(f"    instance = {cls.name}()")
+
+        lines.append("")
+        lines.append("    # Assert")
+        lines.append("    assert instance is not None")
+
+        return lines
+
+    def _generate_method_test(self, cls: ClassInfo, method: FunctionInfo) -> list[str]:
+        """Generate test for a class method."""
+        lines = []
+
+        test_name = f"test_{method.name}"
+        fixture_name = cls.name.lower() + "_instance"
+
+        # Check if we need async test
+        if method.is_async:
+            lines.append("@pytest.mark.asyncio")
+            lines.append(f"async def {test_name}(self, {fixture_name}):")
+        else:
+            lines.append(f"def {test_name}(self, {fixture_name}):")
+
+        lines.append(f'    """Test {cls.name}.{method.name} method."""')
+
+        # Generate test body
+        if method.parameters:
+            # Arrange
+            lines.append("    # Arrange")
+            for param in method.parameters:
+                if param.name.startswith("*"):
+                    continue
+                if param.type_hint:
+                    lines.append(f"    {param.name} = None  # TODO: Provide test value for {param.type_hint}")
+                else:
+                    lines.append(f"    {param.name} = None  # TODO: Provide test value")
+            lines.append("")
+
+            # Act
+            lines.append("    # Act")
+            param_names = [p.name for p in method.parameters if not p.name.startswith("*")]
+            params_str = ", ".join(param_names)
+            if method.is_async:
+                lines.append(f"    result = await {fixture_name}.{method.name}({params_str})")
+            else:
+                lines.append(f"    result = {fixture_name}.{method.name}({params_str})")
+            lines.append("")
+
+            # Assert
+            lines.append("    # Assert")
+            if method.return_type and method.return_type != "None":
+                lines.append(f"    assert result is not None  # TODO: Add specific assertions")
+            else:
+                lines.append("    # TODO: Add assertions")
+        else:
+            # Simple method with no parameters
+            lines.append("    # Act")
+            if method.is_async:
+                lines.append(f"    result = await {fixture_name}.{method.name}()")
+            else:
+                lines.append(f"    result = {fixture_name}.{method.name}()")
+            lines.append("")
+            lines.append("    # Assert")
+            if method.return_type and method.return_type != "None":
+                lines.append(f"    assert result is not None  # TODO: Add specific assertions")
+            else:
+                lines.append("    # TODO: Add assertions")
+
+        return lines
