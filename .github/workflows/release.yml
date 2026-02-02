@@ -19,11 +19,31 @@ on:
         type: boolean
 
 jobs:
+  # Check if macOS signing is available
+  check-macos-signing:
+    runs-on: ubuntu-latest
+    outputs:
+      has_signing: ${{ steps.check.outputs.has_signing }}
+    steps:
+      - name: Check for macOS signing certificate
+        id: check
+        env:
+          MAC_CERT: ${{ secrets.MAC_CERTIFICATE }}
+        run: |
+          if [ -n "$MAC_CERT" ]; then
+            echo "has_signing=true" >> $GITHUB_OUTPUT
+            echo "✅ macOS signing certificate is configured"
+          else
+            echo "has_signing=false" >> $GITHUB_OUTPUT
+            echo "⚠️ macOS signing certificate not configured - skipping macOS builds"
+          fi
+
   # Intel build on Intel runner for native compilation
   # Note: macos-15-intel is the last Intel runner, supported until Fall 2027
   # Skipped if MAC_CERTIFICATE secret is not configured
   build-macos-intel:
-    if: ${{ secrets.MAC_CERTIFICATE != '' }}
+    needs: check-macos-signing
+    if: needs.check-macos-signing.outputs.has_signing == 'true'
     runs-on: macos-15-intel
     outputs:
       notarization_id: ${{ steps.notarize.outputs.notarization-id }}
@@ -96,7 +116,8 @@ jobs:
   # Apple Silicon build on ARM64 runner for native compilation
   # Skipped if MAC_CERTIFICATE secret is not configured
   build-macos-arm64:
-    if: ${{ secrets.MAC_CERTIFICATE != '' }}
+    needs: check-macos-signing
+    if: needs.check-macos-signing.outputs.has_signing == 'true'
     runs-on: macos-15
     outputs:
       notarization_id: ${{ steps.notarize.outputs.notarization-id }}
@@ -401,8 +422,8 @@ jobs:
   # Finalize macOS notarization (runs in parallel with Windows/Linux builds)
   # Skipped if macOS builds were skipped
   finalize-notarization:
-    if: ${{ secrets.MAC_CERTIFICATE != '' }}
-    needs: [build-macos-intel, build-macos-arm64]
+    needs: [check-macos-signing, build-macos-intel, build-macos-arm64]
+    if: needs.check-macos-signing.outputs.has_signing == 'true'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
