@@ -21,7 +21,9 @@ on:
 jobs:
   # Intel build on Intel runner for native compilation
   # Note: macos-15-intel is the last Intel runner, supported until Fall 2027
+  # Skipped if MAC_CERTIFICATE secret is not configured
   build-macos-intel:
+    if: ${{ secrets.MAC_CERTIFICATE != '' }}
     runs-on: macos-15-intel
     outputs:
       notarization_id: ${{ steps.notarize.outputs.notarization-id }}
@@ -92,7 +94,9 @@ jobs:
             apps/frontend/dist/*.blockmap
 
   # Apple Silicon build on ARM64 runner for native compilation
+  # Skipped if MAC_CERTIFICATE secret is not configured
   build-macos-arm64:
+    if: ${{ secrets.MAC_CERTIFICATE != '' }}
     runs-on: macos-15
     outputs:
       notarization_id: ${{ steps.notarize.outputs.notarization-id }}
@@ -395,7 +399,9 @@ jobs:
             apps/frontend/dist/*.blockmap
 
   # Finalize macOS notarization (runs in parallel with Windows/Linux builds)
+  # Skipped if macOS builds were skipped
   finalize-notarization:
+    if: ${{ secrets.MAC_CERTIFICATE != '' }}
     needs: [build-macos-intel, build-macos-arm64]
     runs-on: macos-latest
     steps:
@@ -437,7 +443,10 @@ jobs:
           path: arm64/*.dmg
 
   create-release:
-    needs: [build-macos-intel, build-macos-arm64, finalize-notarization, build-windows, build-linux]
+    # Only require Windows and Linux builds; macOS is optional
+    needs: [build-windows, build-linux]
+    # Run even if macOS builds were skipped
+    if: ${{ always() && needs.build-windows.result == 'success' && needs.build-linux.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -482,7 +491,9 @@ jobs:
 
       # Merge macOS manifests from Intel and ARM64 builds
       # See: https://github.com/electron-userland/electron-builder/issues/5592
+      # Skipped if macOS builds were not present
       - name: Merge macOS manifests
+        continue-on-error: true
         uses: ./.github/actions/merge-macos-manifests
         with:
           dist-path: dist
@@ -501,9 +512,8 @@ jobs:
           echo "Found $yml_count manifest file(s):"
           find release-assets -type f -name "*.yml" -exec basename {} \;
 
-          # Validate required manifests exist
+          # Validate required manifests exist (macOS is optional if builds were skipped)
           missing=""
-          [ ! -f "release-assets/latest-mac.yml" ] && missing="$missing latest-mac.yml"
           [ ! -f "release-assets/latest.yml" ] && missing="$missing latest.yml"
           [ ! -f "release-assets/latest-linux.yml" ] && missing="$missing latest-linux.yml"
 
@@ -514,10 +524,16 @@ jobs:
           fi
 
           echo ""
-          echo "All required manifests present:"
-          echo "  - latest-mac.yml (macOS)"
+          echo "Required manifests present:"
           echo "  - latest.yml (Windows)"
           echo "  - latest-linux.yml (Linux)"
+
+          # Check for optional macOS manifest
+          if [ -f "release-assets/latest-mac.yml" ]; then
+            echo "  - latest-mac.yml (macOS)"
+          else
+            echo "  - latest-mac.yml (macOS) - SKIPPED (no macOS builds)"
+          fi
 
           echo ""
           echo "All release assets:"
