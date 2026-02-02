@@ -24,8 +24,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import TypedDict, TypeVar
+from typing import Any, TypedDict, TypeVar
 
+from analysis.diff_analyzer import DiffAnalyzer
 from core.gh_executable import get_gh_executable, invalidate_gh_cache
 from core.git_executable import get_git_executable, get_isolated_git_env, run_git
 from debug import debug_warning
@@ -398,6 +399,50 @@ class WorktreeManager:
             is_active=True,
             **stats,
         )
+
+    def get_detailed_diff(self, spec_name: str) -> dict[str, Any]:
+        """
+        Get detailed line-by-line diff for a spec's worktree.
+
+        This method uses DiffAnalyzer to extract structured diff data including
+        file-level stats, hunks, and individual line changes for visualization.
+
+        Args:
+            spec_name: Name of the spec to get diff for
+
+        Returns:
+            Dictionary containing:
+            - files: List of file diffs with hunks and line-by-line changes
+            - total_additions: Total lines added across all files
+            - total_deletions: Total lines deleted across all files
+            - files_changed: Number of files changed
+            - base_ref: Base branch reference
+            - head_ref: Worktree branch reference
+            - errors: List of any errors encountered
+
+        Raises:
+            WorktreeError: If worktree doesn't exist for the spec
+        """
+        worktree_path = self.get_worktree_path(spec_name)
+        if not worktree_path.exists():
+            raise WorktreeError(f"Worktree does not exist for spec: {spec_name}")
+
+        # Get the worktree branch name
+        branch_name = self.get_branch_name(spec_name)
+
+        # Create diff analyzer for the worktree directory
+        analyzer = DiffAnalyzer(worktree_path)
+
+        # Get detailed diff between base branch and worktree branch
+        # The diff is run from within the worktree, so HEAD is the worktree branch
+        diff_result = analyzer.get_diff(
+            base_ref=self.base_branch,
+            head_ref="HEAD",
+            context_lines=3,
+        )
+
+        # Convert to dictionary for serialization
+        return diff_result.to_dict()
 
     def _check_branch_namespace_conflict(self) -> str | None:
         """
