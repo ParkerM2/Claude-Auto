@@ -176,7 +176,8 @@ def analyze_location_conflict(
     else:
         severity = assess_severity(change_types, changes)
 
-    return ConflictRegion(
+    # Create conflict region
+    conflict = ConflictRegion(
         file_path=file_path,
         location=location,
         tasks_involved=tasks,
@@ -186,6 +187,11 @@ def analyze_location_conflict(
         merge_strategy=final_strategy if all_compatible else MergeStrategy.AI_REQUIRED,
         reason=" | ".join(reasons) if reasons else "Changes are compatible",
     )
+
+    # Generate AI-suggested resolution strategies for this conflict
+    conflict.resolution_strategies = suggest_resolution_strategies(conflict)
+
+    return conflict
 
 
 def assess_severity(
