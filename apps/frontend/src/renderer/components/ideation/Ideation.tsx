@@ -1,5 +1,5 @@
 import { TabsContent } from '../ui/tabs';
-import { EnvConfigModal } from '../EnvConfigModal';
+import { EnvConfigModal } from '../modals/EnvConfigModal';
 import { IDEATION_TYPE_DESCRIPTIONS } from '../../../shared/constants';
 import { IdeationEmptyState } from './IdeationEmptyState';
 import { IdeationHeader } from './IdeationHeader';

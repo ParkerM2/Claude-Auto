@@ -1,5 +1,5 @@
 // Main export for the github-issues module
-export { GitHubIssues } from '../GitHubIssues';
+export { GitHubIssues } from './GitHubIssues';
 
 // Re-export types for external usage if needed
 export type {

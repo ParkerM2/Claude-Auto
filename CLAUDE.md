@@ -67,13 +67,13 @@ claude
 cd apps/backend
 
 # Create a spec interactively
-python spec_runner.py --interactive
+python runners/spec_runner.py --interactive
 
 # Create spec from task description
-python spec_runner.py --task "Add user authentication"
+python runners/spec_runner.py --task "Add user authentication"
 
 # Force complexity level (simple/standard/complex)
-python spec_runner.py --task "Fix button" --complexity simple
+python runners/spec_runner.py --task "Fix button" --complexity simple
 
 # Run autonomous build
 python run.py --spec 001
@@ -401,6 +401,72 @@ const { t } = useTranslation(['errors']);
 1. Add the translation key to ALL language files (at minimum: `en/*.json` and `fr/*.json`)
 2. Use `namespace:section.key` format (e.g., `navigation:items.githubPRs`)
 3. Never use hardcoded strings in JSX/TSX files
+
+### Frontend Component Organization
+
+**CRITICAL: Components in `apps/frontend/src/renderer/components/` follow feature-based organization.**
+
+Components are grouped by their domain/feature rather than by type. See `apps/frontend/src/renderer/components/README.md` for full documentation.
+
+**Directory Structure:**
+```
+components/
+├── auth/               # Authentication (AuthFailureModal, AuthStatusIndicator)
+├── changelog/          # Changelog feature
+├── file-explorer/      # File browsing (FileTree, FileAutocomplete, ImageUpload)
+├── git/                # Git setup modals
+├── github-issues/      # GitHub issues integration
+├── github-prs/         # GitHub PRs integration
+├── ideation/           # AI ideation feature
+├── insights/           # Project insights, competitor analysis
+├── jira-tickets/       # Jira integration
+├── kanban/             # Kanban board, TaskCard, TaskTableView
+├── layout/             # App layout (Sidebar, ProjectTabBar, WelcomeScreen)
+├── modals/             # Shared modal dialogs
+├── project/            # Project management
+├── project-settings/   # Per-project settings
+├── rate-limit/         # Rate limiting UI
+├── roadmap/            # Product roadmap feature
+├── settings/           # App-wide settings
+├── status/             # Status indicators
+├── task-detail/        # Task detail view
+├── task-form/          # Task form components
+├── task-wizard/        # Task creation/edit wizard
+├── terminal/           # Terminal emulator
+├── ui/                 # Primitive UI components (shadcn)
+├── updates/            # App update notifications
+├── workspace/          # Workspace management
+├── worktrees/          # Git worktree management
+└── AgentTools.tsx      # Large agent tools component (root-level)
+```
+
+**Naming Conventions:**
+- **Directories**: lowercase with hyphens (`file-explorer/`, `rate-limit/`)
+- **Components**: PascalCase (`AuthStatusIndicator.tsx`)
+- **Hooks**: camelCase with `use` prefix (`useTerminalEvents.ts`)
+- **Tests**: Same name with `.test.tsx` suffix, placed alongside component
+
+**When Adding New Components:**
+1. Identify the feature/domain it belongs to
+2. Add to existing directory or create new one if warranted
+3. Export from directory's `index.ts`
+4. Add tests alongside the component
+5. Update root `components/index.ts` if needed
+
+**Import Pattern:**
+```tsx
+// ✅ CORRECT - Import from feature directory
+import { Sidebar, WelcomeScreen } from './components/layout';
+import { KanbanBoard, TaskCard } from './components/kanban';
+
+// ✅ ALSO CORRECT - Import from root index
+import { Sidebar, KanbanBoard } from './components';
+
+// ❌ WRONG - Direct file imports
+import { Sidebar } from './components/layout/Sidebar';
+```
+
+**NEVER place new components directly in the root components/ directory.** Always use feature-based subdirectories.
 
 ### Cross-Platform Development
 

@@ -34,7 +34,7 @@ import { cn } from '../../lib/utils';
 import { calculateProgress } from '../../lib/utils';
 import { startTask, stopTask, submitReview, recoverStuckTask, deleteTask, useTaskStore } from '../../stores/task-store';
 import { TASK_STATUS_LABELS } from '../../../shared/constants';
-import { TaskEditDialog } from '../TaskEditDialog';
+import { TaskEditDialog } from '../task-wizard/TaskEditDialog';
 import { useTaskDetail } from './hooks/useTaskDetail';
 import { TaskMetadata } from './TaskMetadata';
 import { TaskWarnings } from './TaskWarnings';

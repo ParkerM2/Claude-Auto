@@ -2,6 +2,7 @@
   "refreshTasks": "Actualiser les tâches",
   "status": {
     "backlog": "Backlog",
+    "queue": "File d'attente",
     "todo": "À faire",
     "in_progress": "En cours",
     "review": "Révision",
@@ -20,7 +21,8 @@
     "viewPR": "Voir la PR",
     "moveTo": "Déplacer vers",
     "taskActions": "Actions de la tâche",
-    "selectTask": "Sélectionner la tâche : {{title}}"
+    "selectTask": "Sélectionner la tâche : {{title}}",
+    "openDetails": "Ouvrir les détails de la tâche"
   },
   "labels": {
     "running": "En cours",
@@ -310,6 +312,11 @@
   },
   "table": {
     "expandRow": "Développer la ligne : {{title}}",
+    "tabs": {
+      "overview": "Aperçu",
+      "subtasks": "Sous-tâches",
+      "logs": "Journaux"
+    },
     "columns": {
       "title": "Titre",
       "status": "Statut",

@@ -466,6 +466,82 @@ def check_test_discovery(spec_dir: Path) -> dict[str, Any] | None:
         return None
 
 
+# =============================================================================
+# SESSION ARTIFACT CLEANUP
+# =============================================================================
+
+# Patterns for generated session artifacts that should be cleaned up
+SESSION_ARTIFACT_PATTERNS = [
+    # Verification reports
+    "E2E_VERIFICATION_REPORT.md",
+    "VERIFICATION_REPORT.md",
+    # QA session summaries
+    "QA_FIX_SESSION_*_SUMMARY.md",
+    "QA_SESSION_*_SUMMARY.md",
+    # Browser verification files
+    "browser-verification-status.md",
+    "BROWSER_VERIFICATION.md",
+    # Generic session reports (but NOT qa_report.md which is intentional)
+    "*_SESSION_SUMMARY.md",
+    "*_SESSION_REPORT.md",
+]
+
+# Subdirectories to also check for artifacts
+SESSION_ARTIFACT_SUBDIRS = [
+    "apps/frontend",
+    "apps/backend",
+    "frontend",
+    "backend",
+    "src",
+]
+
+
+def cleanup_session_artifacts(project_dir: Path) -> list[Path]:
+    """
+    Remove generated session artifact files when QA is complete.
+
+    These are temporary files created during QA sessions that should not
+    be committed or left in the repository. They are NOT the same as
+    intentional QA files like qa_report.md or QA_FIX_REQUEST.md.
+
+    Args:
+        project_dir: Project root directory
+
+    Returns:
+        List of files that were removed
+    """
+    import fnmatch
+
+    removed_files = []
+
+    # Directories to check
+    dirs_to_check = [project_dir]
+    for subdir in SESSION_ARTIFACT_SUBDIRS:
+        subdir_path = project_dir / subdir
+        if subdir_path.exists() and subdir_path.is_dir():
+            dirs_to_check.append(subdir_path)
+
+    for check_dir in dirs_to_check:
+        try:
+            for item in check_dir.iterdir():
+                if not item.is_file():
+                    continue
+
+                # Check if file matches any artifact pattern
+                for pattern in SESSION_ARTIFACT_PATTERNS:
+                    if fnmatch.fnmatch(item.name, pattern):
+                        try:
+                            item.unlink()
+                            removed_files.append(item)
+                        except OSError:
+                            pass  # Ignore permission errors
+                        break
+        except OSError:
+            pass  # Ignore directory access errors
+
+    return removed_files
+
+
 def is_no_test_project(spec_dir: Path, project_dir: Path) -> bool:
     """
     Determine if this is a project with no test infrastructure.

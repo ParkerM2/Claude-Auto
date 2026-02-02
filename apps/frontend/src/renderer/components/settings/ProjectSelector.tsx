@@ -9,7 +9,7 @@ import {
 } from '../ui/select';
 import { Separator } from '../ui/separator';
 import { useProjectStore, removeProject } from '../../stores/project-store';
-import { AddProjectModal } from '../AddProjectModal';
+import { AddProjectModal } from '../modals/AddProjectModal';
 import type { Project } from '../../../shared/types';
 
 interface ProjectSelectorProps {

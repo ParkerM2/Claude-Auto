@@ -86,30 +86,44 @@ src/
 │   └── api/                 # IPC API modules
 │
 ├── renderer/                # React frontend
-│   ├── features/            # Feature modules (self-contained)
-│   │   ├── tasks/           # Task management, kanban, creation
-│   │   ├── terminals/       # Terminal emulation
-│   │   ├── projects/        # Project management, file explorer
-│   │   ├── settings/        # App and project settings
-│   │   ├── roadmap/         # Roadmap generation
+│   ├── components/          # Feature-based component organization
+│   │   ├── auth/            # Authentication components
+│   │   ├── changelog/       # Changelog feature
+│   │   ├── file-explorer/   # File browsing components
+│   │   ├── git/             # Git setup modals
+│   │   ├── github-issues/   # GitHub issues integration
+│   │   ├── github-prs/      # GitHub PRs integration
 │   │   ├── ideation/        # AI-powered brainstorming
 │   │   ├── insights/        # Code analysis
-│   │   ├── changelog/       # Release management
-│   │   ├── github/          # GitHub integration
-│   │   ├── agents/          # Claude profile management
-│   │   ├── worktrees/       # Git worktree management
-│   │   └── onboarding/      # First-time setup wizard
+│   │   ├── jira-tickets/    # Jira integration
+│   │   ├── kanban/          # Kanban board, task cards
+│   │   ├── layout/          # App layout (Sidebar, tabs)
+│   │   ├── modals/          # Shared modal dialogs
+│   │   ├── onboarding/      # First-time setup wizard
+│   │   ├── project/         # Project management
+│   │   ├── project-settings/# Per-project settings
+│   │   ├── rate-limit/      # Rate limiting UI
+│   │   ├── roadmap/         # Roadmap generation
+│   │   ├── settings/        # App-wide settings
+│   │   ├── status/          # Status indicators
+│   │   ├── task-detail/     # Task detail view
+│   │   ├── task-form/       # Task form components
+│   │   ├── task-wizard/     # Task creation wizard
+│   │   ├── terminal/        # Terminal emulator
+│   │   ├── ui/              # Primitive UI components (shadcn)
+│   │   ├── updates/         # App update notifications
+│   │   ├── workspace/       # Workspace management
+│   │   └── worktrees/       # Git worktree management
 │   │
-│   ├── shared/              # Shared resources
-│   │   ├── components/      # Reusable UI components
-│   │   ├── hooks/           # Shared React hooks
-│   │   └── lib/             # Utilities and helpers
-│   │
-│   └── hooks/               # App-level hooks
+│   ├── hooks/               # App-level React hooks
+│   ├── lib/                 # Utilities and helpers
+│   ├── stores/              # Zustand state stores
+│   └── styles/              # Global styles
 │
 └── shared/                  # Shared between main/renderer
     ├── types/               # TypeScript type definitions
     ├── constants/           # Application constants
+    ├── i18n/                # Internationalization (translations)
     └── utils/               # Shared utilities
 ```
 

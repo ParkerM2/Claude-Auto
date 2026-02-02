@@ -27,32 +27,32 @@ import {
   DialogHeader,
   DialogTitle
 } from './components/ui/dialog';
-import { Sidebar, type SidebarView } from './components/Sidebar';
-import { KanbanBoard } from './components/KanbanBoard';
+import { Sidebar, type SidebarView } from './components/layout/Sidebar';
+import { KanbanBoard } from './components/kanban/KanbanBoard';
 import { TaskDetailModal } from './components/task-detail/TaskDetailModal';
-import { TaskCreationWizard } from './components/TaskCreationWizard';
+import { TaskCreationWizard } from './components/task-wizard/TaskCreationWizard';
 import { AppSettingsDialog, type AppSection } from './components/settings/AppSettings';
 import type { ProjectSettingsSection } from './components/settings/ProjectSettingsContent';
-import { TerminalGrid } from './components/TerminalGrid';
-import { Roadmap } from './components/Roadmap';
-import { Context } from './components/Context';
-import { Ideation } from './components/Ideation';
-import { Insights } from './components/Insights';
-import { GitHubIssues } from './components/GitHubIssues';
+import { TerminalGrid } from './components/terminal/TerminalGrid';
+import { Roadmap } from './components/roadmap/Roadmap';
+import { Context } from './components/context/Context';
+import { Ideation } from './components/ideation/Ideation';
+import { Insights } from './components/insights/Insights';
+import { GitHubIssues } from './components/github-issues/GitHubIssues';
 import { GitHubPRs } from './components/github-prs';
 import { JiraTickets } from './components/jira-tickets';
-import { Changelog } from './components/Changelog';
-import { Worktrees } from './components/Worktrees';
+import { Changelog } from './components/changelog/Changelog';
+import { Worktrees } from './components/worktrees/Worktrees';
 import { AgentTools } from './components/AgentTools';
-import { WelcomeScreen } from './components/WelcomeScreen';
-import { RateLimitModal } from './components/RateLimitModal';
-import { SDKRateLimitModal } from './components/SDKRateLimitModal';
-import { AuthFailureModal } from './components/AuthFailureModal';
-import { VersionWarningModal } from './components/VersionWarningModal';
+import { WelcomeScreen } from './components/layout/WelcomeScreen';
+import { RateLimitModal } from './components/rate-limit/RateLimitModal';
+import { SDKRateLimitModal } from './components/rate-limit/SDKRateLimitModal';
+import { AuthFailureModal } from './components/auth/AuthFailureModal';
+import { VersionWarningModal } from './components/modals/VersionWarningModal';
 import { OnboardingWizard } from './components/onboarding';
-import { AppUpdateNotification } from './components/AppUpdateNotification';
-import { ProactiveSwapListener } from './components/ProactiveSwapListener';
-import { GitHubSetupModal } from './components/GitHubSetupModal';
+import { AppUpdateNotification } from './components/updates/AppUpdateNotification';
+import { ProactiveSwapListener } from './components/layout/ProactiveSwapListener';
+import { GitHubSetupModal } from './components/git/GitHubSetupModal';
 import { useProjectStore, loadProjects, addProject, initializeProject, removeProject } from './stores/project-store';
 import { useTaskStore, loadTasks } from './stores/task-store';
 import { useSettingsStore, loadSettings, loadProfiles, saveSettings } from './stores/settings-store';
@@ -60,14 +60,14 @@ import { useClaudeProfileStore } from './stores/claude-profile-store';
 import { useTerminalStore, restoreTerminalSessions } from './stores/terminal-store';
 import { initializeGitHubListeners } from './stores/github';
 import { initDownloadProgressListener } from './stores/download-store';
-import { GlobalDownloadIndicator } from './components/GlobalDownloadIndicator';
+import { GlobalDownloadIndicator } from './components/status/GlobalDownloadIndicator';
 import { useIpcListeners } from './hooks/useIpc';
 import { useGlobalTerminalListeners } from './hooks/useGlobalTerminalListeners';
 import { useTerminalProfileChange } from './hooks/useTerminalProfileChange';
 import { COLOR_THEMES, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT } from '../shared/constants';
 import type { Task, Project, ColorTheme } from '../shared/types';
-import { ProjectTabBar } from './components/ProjectTabBar';
-import { AddProjectModal } from './components/AddProjectModal';
+import { ProjectTabBar } from './components/layout/ProjectTabBar';
+import { AddProjectModal } from './components/modals/AddProjectModal';
 import { ViewStateProvider } from './contexts/ViewStateContext';
 
 // Version constant for version-specific warnings (e.g., reauthentication notices)
@@ -492,17 +492,65 @@ export function App() {
     };
 
     // Apply color theme via data-theme attribute
-    // Validate colorTheme against known themes, fallback to 'default' if invalid
-    const validThemeIds = COLOR_THEMES.map((t) => t.id);
+    // Validate colorTheme: built-in themes from COLOR_THEMES, or custom-{id} format
+    const validBuiltInThemeIds = COLOR_THEMES.map((t) => t.id);
     const rawColorTheme = settings.colorTheme ?? 'default';
-    const colorTheme: ColorTheme = validThemeIds.includes(rawColorTheme as ColorTheme)
-      ? (rawColorTheme as ColorTheme)
-      : 'default';
+    const isCustomTheme = rawColorTheme.startsWith('custom-');
+    const isValidBuiltIn = validBuiltInThemeIds.includes(rawColorTheme as typeof validBuiltInThemeIds[number]);
+
+    // Find custom theme CSS if it's a custom theme
+    let customThemeCss: string | undefined;
+    let customThemeId: string | undefined;
+    if (isCustomTheme) {
+      customThemeId = rawColorTheme.replace('custom-', '');
+      const customTheme = settings.customThemes?.find(t => t.id === customThemeId);
+      customThemeCss = customTheme?.css;
+    }
+
+    // Determine the effective theme
+    const colorTheme = isCustomTheme && customThemeCss
+      ? rawColorTheme
+      : isValidBuiltIn
+        ? rawColorTheme
+        : 'default';
 
     if (colorTheme === 'default') {
       root.removeAttribute('data-theme');
+    } else if (isCustomTheme && customThemeCss) {
+      // For custom themes, use a generic data-theme value
+      root.setAttribute('data-theme', 'custom');
     } else {
       root.setAttribute('data-theme', colorTheme);
+    }
+
+    // Inject custom CSS when a custom theme is active
+    const customStyleId = 'custom-theme-styles';
+    const existingCustomStyle = document.getElementById(customStyleId);
+
+    if (isCustomTheme && customThemeCss) {
+      // Transform CSS to use [data-theme="custom"] selector for proper specificity
+      // tweakcn.com outputs :root {...} and .dark {...} but our themes use [data-theme="name"]
+      let transformedCss = customThemeCss;
+
+      // Replace :root with [data-theme="custom"] for higher specificity
+      transformedCss = transformedCss.replace(/:root\s*\{/g, '[data-theme="custom"] {');
+
+      // Replace .dark with [data-theme="custom"].dark for dark mode
+      transformedCss = transformedCss.replace(/\.dark\s*\{/g, '[data-theme="custom"].dark {');
+
+      // Create or update the custom style tag
+      const styleTag = existingCustomStyle || document.createElement('style');
+      styleTag.id = customStyleId;
+      styleTag.textContent = transformedCss;
+
+      if (!existingCustomStyle) {
+        document.head.appendChild(styleTag);
+      }
+    } else {
+      // Remove custom styles when switching to predefined theme
+      if (existingCustomStyle) {
+        existingCustomStyle.remove();
+      }
     }
 
     applyTheme();
@@ -519,7 +567,7 @@ export function App() {
     return () => {
       mediaQuery.removeEventListener('change', handleChange);
     };
-  }, [settings.theme, settings.colorTheme]);
+  }, [settings.theme, settings.colorTheme, settings.customThemes]);
 
   // Apply UI scale
   useEffect(() => {

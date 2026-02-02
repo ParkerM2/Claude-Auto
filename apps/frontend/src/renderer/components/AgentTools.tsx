@@ -48,7 +48,7 @@ import {
 import { useSettingsStore } from '../stores/settings-store';
 import { useProjectStore } from '../stores/project-store';
 import type { ProjectEnvConfig, AgentMcpOverrides, AgentMcpOverride, CustomMcpServer, McpHealthCheckResult, McpHealthStatus } from '../../shared/types';
-import { CustomMcpDialog } from './CustomMcpDialog';
+import { CustomMcpDialog } from './modals/CustomMcpDialog';
 import { useTranslation } from 'react-i18next';
 import {
   AVAILABLE_MODELS,

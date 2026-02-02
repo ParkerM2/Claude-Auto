@@ -17,11 +17,11 @@ import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Checkbox } from '../ui/checkbox';
 import { Button } from '../ui/button';
-import { AgentProfileSelector } from '../AgentProfileSelector';
+import { AgentProfileSelector } from '../settings/AgentProfileSelector';
 import { ClassificationFields } from './ClassificationFields';
 import { useImageUpload, type FileReferenceData } from './useImageUpload';
-import { createThumbnail } from '../ImageUpload';
-import { ScreenshotCapture } from '../ScreenshotCapture';
+import { createThumbnail } from '../file-explorer/ImageUpload';
+import { ScreenshotCapture } from '../file-explorer/ScreenshotCapture';
 import { cn } from '../../lib/utils';
 import { MAX_IMAGES_PER_TASK } from '../../../shared/constants';
 import type {

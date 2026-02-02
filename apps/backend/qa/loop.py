@@ -36,6 +36,7 @@ from .criteria import (
 )
 from .fixer import run_qa_fixer_session
 from .report import (
+    cleanup_session_artifacts,
     create_manual_test_plan,
     escalate_to_human,
     get_iteration_history,
@@ -275,6 +276,18 @@ async def run_qa_validation_loop(
             print("=" * 70)
             print("\nAll acceptance criteria verified.")
             print("The implementation is production-ready.")
+
+            # Clean up generated session artifacts before human review
+            removed_artifacts = cleanup_session_artifacts(project_dir)
+            if removed_artifacts:
+                debug(
+                    "qa_loop",
+                    "Cleaned up session artifacts",
+                    removed_count=len(removed_artifacts),
+                    removed_files=[str(f.name) for f in removed_artifacts],
+                )
+                print(f"\n🧹 Cleaned up {len(removed_artifacts)} session artifact(s)")
+
             print("\nNext steps:")
             print("  1. Review the auto-claude/* branch")
             print("  2. Create a PR and merge to main")

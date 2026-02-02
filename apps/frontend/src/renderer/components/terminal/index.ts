@@ -1,5 +1,7 @@
-// Export main component
-export { Terminal } from '../Terminal';
+// Export main components
+export { Terminal } from './Terminal';
+export { TerminalGrid } from './TerminalGrid';
+export { SortableTerminalWrapper } from './SortableTerminalWrapper';
 
 // Export sub-components (in case they need to be used elsewhere)
 export { TerminalHeader } from './TerminalHeader';
