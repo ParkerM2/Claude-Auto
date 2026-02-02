@@ -14,6 +14,7 @@ Key Features:
 """
 
 import json
+import logging
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime
@@ -23,7 +24,10 @@ from typing import Optional
 
 from .pattern_detector import PatternDetector
 from .recovery_config import RecoveryConfig, load_config
+from .recovery_learner import RecoveryLearner
 from .recovery_strategies import StrategyRegistry, suggest_strategies
+
+logger = logging.getLogger(__name__)
 
 
 class FailureType(Enum):
@@ -92,6 +96,9 @@ class RecoveryManager:
 
         # Initialize strategy registry
         self.strategy_registry = StrategyRegistry()
+
+        # Initialize recovery learner
+        self.learner = RecoveryLearner(spec_dir=spec_dir, project_dir=project_dir)
 
         # Ensure memory directory exists
         self.memory_dir.mkdir(parents=True, exist_ok=True)
@@ -580,6 +587,26 @@ class RecoveryManager:
             if strategy_suggestions:
                 hints.append("\n📋 Recommended Recovery Strategies:")
                 hints.extend(strategy_suggestions)
+
+            # Add learned insights from RecoveryLearner
+            try:
+                # Get the subtask description from the plan if available
+                from .utils import find_subtask_in_plan, load_implementation_plan
+                plan = load_implementation_plan(self.spec_dir)
+                subtask = find_subtask_in_plan(plan, subtask_id) if plan else None
+                subtask_description = subtask.get("description", "") if subtask else None
+
+                learned_insights = self.learner.get_learned_insights(
+                    failure_type=failure_type.value,
+                    subtask_description=subtask_description,
+                    limit=5,
+                )
+
+                if learned_insights:
+                    hints.extend(learned_insights)
+            except Exception as e:
+                # Don't fail if learner insights fail
+                logger.debug(f"Failed to get learned insights: {e}")
 
         return hints
 

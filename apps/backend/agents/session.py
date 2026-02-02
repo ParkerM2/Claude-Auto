@@ -127,6 +127,40 @@ async def post_session_processing(
             approach=f"Implemented: {subtask.get('description', 'subtask')[:100]}",
         )
 
+        # Record successful recovery if there were previous failed attempts
+        attempt_count = recovery_manager.get_attempt_count(subtask_id)
+        if attempt_count > 1:
+            # This subtask succeeded after previous failures - learn from it!
+            subtask_history = recovery_manager.get_subtask_history(subtask_id)
+            attempts = subtask_history.get("attempts", [])
+
+            # Get the last failed attempt to determine failure type and strategy
+            last_failed = None
+            for attempt in reversed(attempts[:-1]):  # Exclude current success
+                if not attempt.get("success"):
+                    last_failed = attempt
+                    break
+
+            if last_failed:
+                error_msg = last_failed.get("error", "")
+                failure_type = recovery_manager.classify_failure(error_msg, subtask_id)
+
+                # Extract strategy from approach (simplified - can be enhanced)
+                approach = f"Implemented: {subtask.get('description', 'subtask')[:100]}"
+
+                try:
+                    recovery_manager.learner.record_successful_recovery(
+                        subtask_id=subtask_id,
+                        subtask_description=subtask.get("description", ""),
+                        failure_type=failure_type.value,
+                        strategy_used=approach,
+                        attempts_before_success=attempt_count,
+                        error_message=error_msg[:200] if error_msg else None,
+                    )
+                    print_status("Recorded recovery pattern for learning", "success")
+                except Exception as e:
+                    logger.debug(f"Failed to record recovery learning: {e}")
+
         # Record good commit for rollback safety
         if commit_after and commit_after != commit_before:
             recovery_manager.record_good_commit(commit_after, subtask_id)
