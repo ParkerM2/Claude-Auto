@@ -17,6 +17,14 @@ import { pythonEnvManager } from '../python-env-manager';
 import { transformIdeaFromSnakeCase, transformSessionFromSnakeCase } from '../ipc-handlers/ideation/transformers';
 import { transformRoadmapFromSnakeCase } from '../ipc-handlers/roadmap/transformers';
 import type { RawIdea } from '../ipc-handlers/ideation/types';
+import {
+  IdeationCLISpawner,
+  buildIdeationUserPrompt,
+  type IdeationCLIConfig,
+  type IdeationCLIResult
+} from './ideation-cli';
+import { parseCLIOutput } from './parsers/ideation-cli-parser';
+import type { IdeationType } from '../../shared/types';
 
 /** Maximum length for status messages displayed in progress UI */
 const STATUS_MESSAGE_MAX_LENGTH = 200;
@@ -41,6 +49,7 @@ export class AgentQueueManager {
   private events: AgentEvents;
   private processManager: AgentProcessManager;
   private emitter: EventEmitter;
+  private ideationCLISpawner: IdeationCLISpawner;
 
   constructor(
     state: AgentState,
@@ -52,6 +61,25 @@ export class AgentQueueManager {
     this.events = events;
     this.processManager = processManager;
     this.emitter = emitter;
+    this.ideationCLISpawner = new IdeationCLISpawner();
+    this.setupCLISpawnerEvents();
+  }
+
+  /**
+   * Set up event listeners for the CLI spawner.
+   * Forwards CLI events to the main emitter with appropriate transformations.
+   */
+  private setupCLISpawnerEvents(): void {
+    // Forward CLI output as log messages
+    this.ideationCLISpawner.on('cli-output', (type: IdeationType, output: string) => {
+      debugLog('[Agent Queue] CLI output for type:', type);
+      // Output is logged for debugging but not emitted as logs to avoid noise
+    });
+
+    // Forward CLI errors
+    this.ideationCLISpawner.on('cli-error', (type: IdeationType, error: string) => {
+      debugError('[Agent Queue] CLI error for type:', type, error);
+    });
   }
 
   /**
@@ -549,6 +577,272 @@ export class AgentQueueManager {
       this.state.deleteProcess(projectId);
       this.emitter.emit('ideation-error', projectId, err.message);
     });
+  }
+
+  /**
+   * Spawn Claude CLI processes for ideation generation.
+   *
+   * Uses the Claude CLI with print mode (-p) and JSON output format for each
+   * enabled ideation type. Processes run in parallel for efficiency.
+   *
+   * This method is designed to replace Python-based ideation with CLI-based
+   * approach that uses OAuth authentication (Claude Pro/Max subscription).
+   *
+   * @param projectId - The project ID for event emission
+   * @param projectPath - Path to the project for context
+   * @param config - Ideation configuration with enabled types
+   * @returns Promise that resolves when all CLI processes complete
+   */
+  async spawnIdeationCLIProcess(
+    projectId: string,
+    projectPath: string,
+    config: IdeationConfig
+  ): Promise<void> {
+    debugLog('[Agent Queue] Spawning CLI-based ideation:', {
+      projectId,
+      projectPath,
+      enabledTypes: config.enabledTypes
+    });
+
+    // Kill any existing CLI processes for this project
+    this.ideationCLISpawner.killAll();
+
+    // Build CLI configs for each enabled type
+    const cliConfigs: IdeationCLIConfig[] = config.enabledTypes.map((type) => ({
+      projectPath,
+      type,
+      // System prompt will be loaded from prompts module in phase 4
+      // For now, use a basic prompt that instructs JSON output
+      systemPrompt: this.buildIdeationSystemPrompt(type),
+      userPrompt: buildIdeationUserPrompt(type, projectPath, config),
+      maxIdeas: config.maxIdeasPerType,
+      model: config.model
+    }));
+
+    // Track progress
+    const totalTypes = cliConfigs.length;
+    const completedTypes = new Set<IdeationType>();
+    let allIdeas: Idea[] = [];
+
+    // Emit initial progress
+    this.emitter.emit('ideation-progress', projectId, {
+      phase: 'generating',
+      progress: 5,
+      message: `Starting ideation for ${totalTypes} types...`,
+      completedTypes: []
+    });
+
+    // Spawn all CLI processes in parallel
+    const results = await this.ideationCLISpawner.spawnParallel(cliConfigs);
+
+    // Process results
+    for (const result of results) {
+      if (result.success && result.ideas) {
+        // Parse and transform the ideas using the proper parser
+        const parseResult = parseCLIOutput(result.rawOutput || '', result.type);
+
+        if (parseResult.success) {
+          completedTypes.add(result.type);
+          allIdeas = allIdeas.concat(parseResult.ideas);
+
+          debugLog('[Agent Queue] CLI ideation type complete:', {
+            type: result.type,
+            ideasCount: parseResult.ideas.length
+          });
+
+          // Emit per-type completion event
+          this.emitter.emit('ideation-type-complete', projectId, result.type, parseResult.ideas);
+
+          // Emit progress update
+          const progressPercent = Math.round((completedTypes.size / totalTypes) * 90) + 5;
+          this.emitter.emit('ideation-progress', projectId, {
+            phase: 'generating',
+            progress: progressPercent,
+            message: `Completed ${result.type}`,
+            completedTypes: Array.from(completedTypes)
+          });
+        } else {
+          debugError('[Agent Queue] CLI ideation parse failed:', {
+            type: result.type,
+            error: parseResult.error
+          });
+          this.emitter.emit('ideation-type-failed', projectId, result.type);
+        }
+      } else {
+        // Handle failure
+        debugError('[Agent Queue] CLI ideation type failed:', {
+          type: result.type,
+          error: result.error,
+          wasRateLimited: result.wasRateLimited,
+          wasAuthFailure: result.wasAuthFailure
+        });
+
+        // Emit type failure event
+        this.emitter.emit('ideation-type-failed', projectId, result.type);
+
+        // Handle rate limit
+        if (result.wasRateLimited) {
+          const rateLimitInfo = createSDKRateLimitInfo('ideation', {
+            isRateLimited: true,
+            resetTime: undefined
+          }, { projectId });
+          this.emitter.emit('sdk-rate-limit', rateLimitInfo);
+        }
+
+        // Handle auth failure - emit error immediately
+        if (result.wasAuthFailure) {
+          this.emitter.emit('ideation-error', projectId,
+            'Authentication failed. Please ensure you are logged in to Claude CLI.');
+          return;
+        }
+      }
+    }
+
+    // Determine final outcome
+    const successfulTypes = results.filter((r) => r.success).length;
+
+    if (successfulTypes === 0) {
+      // All types failed
+      this.emitter.emit('ideation-error', projectId,
+        'All ideation types failed. Check logs for details.');
+      return;
+    }
+
+    // Emit completion
+    this.emitter.emit('ideation-progress', projectId, {
+      phase: 'complete',
+      progress: 100,
+      message: 'Ideation generation complete',
+      completedTypes: Array.from(completedTypes)
+    });
+
+    // Build a session-like structure for compatibility
+    const session = {
+      projectId,
+      ideas: allIdeas,
+      generatedAt: new Date().toISOString(),
+      enabledTypes: Array.from(completedTypes)
+    };
+
+    debugLog('[Agent Queue] CLI ideation complete:', {
+      totalIdeas: allIdeas.length,
+      successfulTypes,
+      failedTypes: totalTypes - successfulTypes
+    });
+
+    this.emitter.emit('ideation-complete', projectId, session);
+  }
+
+  /**
+   * Build the system prompt for a specific ideation type.
+   *
+   * Note: In phase 4, this will be replaced with loading prompts from
+   * apps/backend/prompts/ideation_*.md files.
+   *
+   * @param type - The ideation type
+   * @returns System prompt string
+   */
+  private buildIdeationSystemPrompt(type: IdeationType): string {
+    const prompts: Record<IdeationType, string> = {
+      'code_improvements': `You are a senior software engineer analyzing code for improvements.
+Identify opportunities to improve code quality, readability, and maintainability.
+Return a JSON object with an "ideas" array where each idea has:
+- id: unique string
+- type: "code_improvements"
+- title: short descriptive title
+- description: detailed description of the improvement
+- rationale: why this improvement is valuable
+- estimatedEffort: "small" | "medium" | "large"
+- affectedFiles: array of file paths affected`,
+
+      'ui_ux_improvements': `You are a UX expert analyzing the application for user experience improvements.
+Identify opportunities to improve usability, accessibility, and user delight.
+Return a JSON object with an "ideas" array where each idea has:
+- id: unique string
+- type: "ui_ux_improvements"
+- title: short descriptive title
+- description: detailed description of the improvement
+- rationale: why this improvement is valuable
+- category: "usability" | "accessibility" | "visual" | "interaction" | "navigation"
+- affectedComponents: array of component names affected
+- userBenefit: expected benefit to users`,
+
+      'documentation_gaps': `You are a technical writer analyzing documentation gaps.
+Identify missing or incomplete documentation that would help developers.
+Return a JSON object with an "ideas" array where each idea has:
+- id: unique string
+- type: "documentation_gaps"
+- title: short descriptive title
+- description: what documentation is missing
+- rationale: why this documentation is needed
+- targetAudience: "developers" | "users" | "contributors"
+- priority: "low" | "medium" | "high"`,
+
+      'security_hardening': `You are a security expert analyzing the codebase for vulnerabilities.
+Identify security improvements and potential vulnerabilities to address.
+Return a JSON object with an "ideas" array where each idea has:
+- id: unique string
+- type: "security_hardening"
+- title: short descriptive title
+- description: the security issue or improvement
+- rationale: why this is important
+- severity: "low" | "medium" | "high" | "critical"
+- affectedFiles: array of file paths affected
+- remediation: how to fix the issue`,
+
+      'performance_optimizations': `You are a performance engineer analyzing the codebase.
+Identify opportunities to improve application performance.
+Return a JSON object with an "ideas" array where each idea has:
+- id: unique string
+- type: "performance_optimizations"
+- title: short descriptive title
+- description: the performance issue or optimization
+- rationale: why this matters
+- impact: "low" | "medium" | "high"
+- expectedImprovement: what improvement to expect`,
+
+      'code_quality': `You are a code quality expert analyzing the codebase.
+Identify code smells, anti-patterns, and quality improvements.
+Return a JSON object with an "ideas" array where each idea has:
+- id: unique string
+- type: "code_quality"
+- title: short descriptive title
+- description: the quality issue
+- rationale: why this matters
+- category: "code_smells" | "anti_patterns" | "testing" | "architecture"
+- severity: "minor" | "moderate" | "major"
+- affectedFiles: array of file paths affected`
+    };
+
+    return prompts[type] || prompts['code_improvements'];
+  }
+
+  /**
+   * Stop CLI-based ideation for a project.
+   *
+   * @param projectId - The project ID (used for event emission)
+   * @returns true if processes were killed
+   */
+  stopIdeationCLI(projectId: string): boolean {
+    debugLog('[Agent Queue] Stopping CLI ideation for project:', projectId);
+
+    const activeCount = this.ideationCLISpawner.getActiveCount();
+    if (activeCount > 0) {
+      this.ideationCLISpawner.killAll();
+      this.emitter.emit('ideation-stopped', projectId);
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if CLI-based ideation is running.
+   *
+   * @returns true if any CLI processes are active
+   */
+  isIdeationCLIRunning(): boolean {
+    return this.ideationCLISpawner.getActiveCount() > 0;
   }
 
   /**
