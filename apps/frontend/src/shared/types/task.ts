@@ -411,6 +411,15 @@ export type ConflictSeverity = 'none' | 'low' | 'medium' | 'high' | 'critical';
 // Type of conflict
 export type ConflictType = 'semantic' | 'git';
 
+/**
+ * AI-suggested resolution strategy for a merge conflict
+ */
+export interface ResolutionStrategy {
+  id: string;              // Unique identifier for this strategy
+  description: string;     // Human-readable description
+  recommended?: boolean;   // True if this is the AI's recommended approach
+}
+
 // Information about a detected conflict
 export interface MergeConflict {
   file: string;
@@ -421,6 +430,7 @@ export interface MergeConflict {
   strategy?: string;
   reason: string;
   type?: ConflictType; // 'semantic' = parallel task conflict, 'git' = branch divergence
+  resolutionStrategies?: string[];  // AI-suggested resolution strategies from backend
 }
 
 // Path-mapped file that needs AI merge due to rename
