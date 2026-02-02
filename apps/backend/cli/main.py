@@ -175,6 +175,11 @@ Environment Variables:
         action="store_true",
         help="Push branch and create a GitHub Pull Request",
     )
+    build_group.add_argument(
+        "--preview-merge",
+        action="store_true",
+        help="Analyze potential merge conflicts before merging",
+    )
 
     # PR options
     parser.add_argument(
