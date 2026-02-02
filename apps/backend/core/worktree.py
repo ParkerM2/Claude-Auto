@@ -24,7 +24,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import TypedDict, TypeVar
+from typing import Any, TypedDict, TypeVar
 
 from core.gh_executable import get_gh_executable, invalidate_gh_cache
 from core.git_executable import get_git_executable, get_isolated_git_env, run_git
@@ -626,6 +626,112 @@ class WorktreeManager:
             print(f"Deleted branch: {branch_name}")
 
         self._run_git(["worktree", "prune"])
+
+    def preview_merge(self, spec_name: str) -> dict[str, Any]:
+        """
+        Preview a merge without actually performing it, detecting potential conflicts.
+
+        This runs a dry-run merge to identify conflicts before the actual merge,
+        allowing users to see what conflicts would occur and prepare resolution strategies.
+
+        Args:
+            spec_name: The spec folder name
+
+        Returns:
+            Dictionary containing:
+                - success: bool - Whether the preview succeeded
+                - has_conflicts: bool - Whether conflicts were detected
+                - conflicts: list - List of conflicted files (if any)
+                - error: str - Error message (if preview failed)
+        """
+        info = self.get_worktree_info(spec_name)
+        if not info:
+            return {
+                "success": False,
+                "has_conflicts": False,
+                "conflicts": [],
+                "error": f"No worktree found for spec: {spec_name}",
+            }
+
+        # Save current branch to restore later
+        current_branch = self._get_current_branch()
+
+        try:
+            # Switch to base branch if needed
+            if current_branch != self.base_branch:
+                result = self._run_git(["checkout", self.base_branch])
+                if result.returncode != 0:
+                    new_branch = self._get_current_branch()
+                    if new_branch != self.base_branch:
+                        return {
+                            "success": False,
+                            "has_conflicts": False,
+                            "conflicts": [],
+                            "error": f"Could not checkout base branch: {result.stderr[:100]}",
+                        }
+
+            # Perform a test merge with --no-commit --no-ff
+            # This stages the merge but doesn't commit, allowing us to detect conflicts
+            merge_args = ["merge", "--no-commit", "--no-ff", info.branch]
+            result = self._run_git(merge_args)
+
+            # Parse the merge result
+            output = (result.stdout + result.stderr).lower()
+
+            if result.returncode != 0:
+                # Check if it's "already up to date"
+                if "already up to date" in output or "already up-to-date" in output:
+                    return {
+                        "success": True,
+                        "has_conflicts": False,
+                        "conflicts": [],
+                        "message": "Branch is already up to date",
+                    }
+
+                # Check for conflicts
+                if "conflict" in output:
+                    # Get list of conflicted files
+                    status_result = self._run_git(["status", "--porcelain"])
+                    conflicts = []
+                    for line in status_result.stdout.strip().split("\n"):
+                        if line.startswith("UU ") or line.startswith("AA ") or line.startswith("DD "):
+                            # Extract filename (skip status prefix)
+                            conflicts.append(line[3:].strip())
+
+                    # Abort the merge to clean up
+                    self._run_git(["merge", "--abort"])
+
+                    return {
+                        "success": True,
+                        "has_conflicts": True,
+                        "conflicts": conflicts,
+                        "message": f"Found {len(conflicts)} conflicted file(s)",
+                    }
+
+                # Other error
+                self._run_git(["merge", "--abort"])
+                return {
+                    "success": False,
+                    "has_conflicts": False,
+                    "conflicts": [],
+                    "error": f"Merge preview failed: {result.stderr[:200]}",
+                }
+
+            # No conflicts - merge succeeded
+            # Abort the merge since this is just a preview
+            self._run_git(["merge", "--abort"])
+
+            return {
+                "success": True,
+                "has_conflicts": False,
+                "conflicts": [],
+                "message": "No conflicts detected - merge can proceed safely",
+            }
+
+        finally:
+            # Always restore original branch
+            if current_branch != self.base_branch:
+                self._run_git(["checkout", current_branch])
 
     def merge_worktree(
         self, spec_name: str, delete_after: bool = False, no_commit: bool = False
