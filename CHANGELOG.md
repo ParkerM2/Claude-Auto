@@ -1,3 +1,26 @@
+## 2.7.6 - Component Organization & Updater Fix
+
+### ✨ New Features
+
+- Automatic cleanup of QA session artifacts when tasks complete
+- Custom theme support with hex color input in settings
+
+### 🛠️ Improvements
+
+- Reorganized 69 frontend components into 14 feature-based directories for better maintainability
+- Added frontend component organization guidelines to CLAUDE.md and agent prompts
+- Updated GitHub repo for auto-updater to use fork instead of upstream
+- Added version comparison to prevent updater from prompting downgrades
+- Fixed path aliases in tsconfig.json and electron.vite.config.ts
+
+### 🐛 Bug Fixes
+
+- Fixed updater incorrectly prompting to downgrade to older versions
+- Fixed CreateSpecButton using incorrect API path for Jira import
+- Added missing French translation for "queue" status
+
+---
+
 ## 2.7.5 - Security & Platform Improvements
 
 ### ✨ New Features
