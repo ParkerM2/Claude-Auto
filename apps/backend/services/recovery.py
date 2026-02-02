@@ -21,6 +21,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
+from .pattern_detector import PatternDetector
 from .recovery_config import RecoveryConfig, load_config
 
 
@@ -77,6 +78,16 @@ class RecoveryManager:
 
         # Load or use provided config
         self.config = config if config is not None else load_config()
+
+        # Initialize pattern detector if enabled
+        self.pattern_detector = None
+        if self.config.enable_pattern_detection:
+            self.pattern_detector = PatternDetector(
+                loop_threshold=self.config.circular_fix_threshold,
+                thrashing_threshold=4,  # Use reasonable default
+                repeated_failure_threshold=self.config.circular_fix_threshold,
+                timeout_minutes=self.config.recovery_timeout // 60,  # Convert seconds to minutes
+            )
 
         # Ensure memory directory exists
         self.memory_dir.mkdir(parents=True, exist_ok=True)
