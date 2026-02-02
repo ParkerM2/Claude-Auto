@@ -3,10 +3,10 @@
   "version": "2.7.6",
   "type": "module",
   "description": "Desktop UI for Auto Claude autonomous coding framework",
-  "homepage": "https://github.com/AndyMik90/Auto-Claude",
+  "homepage": "https://github.com/ParkerM2/Claude-Auto",
   "repository": {
     "type": "git",
-    "url": "https://github.com/AndyMik90/Auto-Claude.git"
+    "url": "https://github.com/ParkerM2/Claude-Auto.git"
   },
   "main": "./out/main/index.cjs",
   "author": {
@@ -148,8 +148,8 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "AndyMik90",
-        "repo": "Auto-Claude"
+        "owner": "ParkerM2",
+        "repo": "Claude-Auto"
       }
     ],
     "directories": {
