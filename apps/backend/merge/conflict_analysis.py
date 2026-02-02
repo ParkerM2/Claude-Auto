@@ -286,6 +286,137 @@ def detect_implicit_conflicts(
     return conflicts
 
 
+def suggest_resolution_strategies(conflict: ConflictRegion) -> list[str]:
+    """
+    Generate AI-suggested resolution strategies for a conflict.
+
+    Analyzes the conflict characteristics and suggests practical approaches
+    for resolving it based on severity, change types, and merge strategy.
+
+    Args:
+        conflict: The conflict region to analyze
+
+    Returns:
+        List of human-readable resolution strategy suggestions
+    """
+    strategies = []
+
+    debug_detailed(
+        MODULE,
+        f"Generating strategies for conflict at {conflict.location}",
+        severity=conflict.severity.value,
+        can_auto_merge=conflict.can_auto_merge,
+        tasks=conflict.tasks_involved,
+    )
+
+    # If auto-mergeable, explain the automatic strategy
+    if conflict.can_auto_merge and conflict.merge_strategy:
+        if conflict.merge_strategy == MergeStrategy.COMBINE_IMPORTS:
+            strategies.append(
+                "Auto-merge: Combine all imports from both tasks into a single import list"
+            )
+        elif conflict.merge_strategy == MergeStrategy.HOOKS_FIRST:
+            strategies.append(
+                "Auto-merge: Add React hooks at function start, followed by other changes"
+            )
+        elif conflict.merge_strategy == MergeStrategy.APPEND_FUNCTIONS:
+            strategies.append(
+                "Auto-merge: Append all new functions after existing code"
+            )
+        elif conflict.merge_strategy == MergeStrategy.APPEND_METHODS:
+            strategies.append(
+                "Auto-merge: Add all new methods to the class in order"
+            )
+        elif conflict.merge_strategy == MergeStrategy.COMBINE_PROPS:
+            strategies.append(
+                "Auto-merge: Merge JSX/object properties from both tasks"
+            )
+        else:
+            strategies.append(
+                f"Auto-merge: Apply {conflict.merge_strategy.value} strategy"
+            )
+        return strategies
+
+    # Generate strategies based on severity
+    if conflict.severity == ConflictSeverity.CRITICAL:
+        strategies.append(
+            "Manual review: Both tasks modify the same code lines - requires careful human review"
+        )
+        strategies.append(
+            "Use git diff: Compare both versions and manually combine the logic"
+        )
+        strategies.append(
+            f"Coordinate with task owners: Review intent of tasks {' and '.join(conflict.tasks_involved)}"
+        )
+
+    elif conflict.severity == ConflictSeverity.HIGH:
+        strategies.append(
+            "AI-assisted merge: Use AI to intelligently combine structural changes"
+        )
+        strategies.append(
+            "Sequential merge: Apply one task first, then manually apply the second"
+        )
+        strategies.append(
+            "Refactor approach: Consider redesigning the affected code to accommodate both changes"
+        )
+
+    elif conflict.severity == ConflictSeverity.MEDIUM:
+        strategies.append(
+            "AI merge: Let AI analyze and combine the function/method modifications"
+        )
+        strategies.append(
+            "Manual merge: Review and combine changes while preserving both functionalities"
+        )
+
+    else:  # LOW severity
+        strategies.append(
+            "AI auto-merge: Low-risk conflict that AI can likely resolve automatically"
+        )
+        strategies.append(
+            "Quick review: Verify merged result maintains both task intents"
+        )
+
+    # Add change-type specific strategies
+    change_types_set = set(conflict.change_types)
+
+    if ChangeType.REMOVE_FUNCTION in change_types_set or ChangeType.REMOVE_CLASS in change_types_set:
+        strategies.append(
+            "Conflict resolution: One task removes code another modifies - determine if removal is still valid"
+        )
+
+    if ChangeType.RENAME_FUNCTION in change_types_set:
+        strategies.append(
+            "Update references: Ensure function calls use the correct name after merge"
+        )
+
+    if {ChangeType.WRAP_JSX, ChangeType.UNWRAP_JSX} & change_types_set:
+        strategies.append(
+            "JSX structure: Carefully review JSX nesting changes to maintain valid structure"
+        )
+
+    if {ChangeType.ADD_IMPORT, ChangeType.REMOVE_IMPORT} & change_types_set:
+        strategies.append(
+            "Import cleanup: Ensure imports match the actual usage in merged code"
+        )
+
+    # If no strategies generated yet, provide generic fallback
+    if not strategies:
+        strategies.append(
+            "Manual review: Carefully examine both changes and combine them appropriately"
+        )
+        strategies.append(
+            "AI assistance: Use AI to suggest a merged version incorporating both changes"
+        )
+
+    debug_detailed(
+        MODULE,
+        f"Generated {len(strategies)} strategies for conflict",
+        location=conflict.location,
+    )
+
+    return strategies
+
+
 def analyze_compatibility(
     change_a: SemanticChange,
     change_b: SemanticChange,
