@@ -119,6 +119,7 @@ class MergeOrchestrator:
         enable_ai: bool = True,
         ai_resolver: AIResolver | None = None,
         dry_run: bool = False,
+        conflict_resolutions: dict[str, str] | None = None,
     ):
         """
         Initialize the merge orchestrator.
@@ -129,6 +130,8 @@ class MergeOrchestrator:
             enable_ai: Whether to use AI for ambiguous conflicts
             ai_resolver: Optional pre-configured AI resolver
             dry_run: If True, don't write any files
+            conflict_resolutions: Optional dict mapping conflict keys to user-selected strategies
+                                 Format: {"file_path:location": "strategy_name"}
         """
         debug_section(MODULE, "Initializing MergeOrchestrator")
         debug(
@@ -137,12 +140,14 @@ class MergeOrchestrator:
             project_dir=str(project_dir),
             enable_ai=enable_ai,
             dry_run=dry_run,
+            has_conflict_resolutions=conflict_resolutions is not None,
         )
 
         self.project_dir = Path(project_dir).resolve()
         self.storage_dir = storage_dir or (self.project_dir / ".auto-claude")
         self.enable_ai = enable_ai
         self.dry_run = dry_run
+        self.conflict_resolutions = conflict_resolutions or {}
 
         # Initialize components
         debug_detailed(MODULE, "Initializing sub-components...")
@@ -190,6 +195,7 @@ class MergeOrchestrator:
                 auto_merger=self.auto_merger,
                 ai_resolver=self.ai_resolver if self.enable_ai else None,
                 enable_ai=self.enable_ai,
+                user_selected_strategies=self.conflict_resolutions,
             )
         return self._conflict_resolver
 

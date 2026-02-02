@@ -1,46 +1,70 @@
 {
   "files_to_modify": {
     "backend": [
-      "apps/backend/analysis/analyzers/__init__.py",
-      "apps/backend/analysis/__init__.py"
-    ]
-  },
-  "files_to_create": {
-    "backend": [
-      "apps/backend/analysis/analyzers/code_quality_analyzer.py",
-      "apps/backend/analysis/code_quality_tracker.py"
+      "apps/backend/run.py",
+      "apps/backend/cli/main.py",
+      "apps/backend/core/worktree.py",
+      "apps/backend/merge/orchestrator.py",
+      "apps/backend/merge/types.py",
+      "apps/backend/merge/conflict_analysis.py"
     ],
-    "tests": [
-      "tests/test_code_quality_analyzer.py"
+    "frontend": [
+      "apps/frontend/src/shared/types/task.ts",
+      "apps/frontend/src/shared/types/ipc.ts",
+      "apps/frontend/src/shared/constants/ipc.ts",
+      "apps/frontend/src/main/ipc-handlers/task/worktree-handlers.ts",
+      "apps/frontend/src/renderer/components/task-detail/task-review/ConflictDetailsDialog.tsx",
+      "apps/frontend/src/renderer/components/task-detail/task-review/MergePreviewSummary.tsx",
+      "apps/frontend/src/renderer/components/task-detail/task-review/WorkspaceStatus.tsx",
+      "apps/frontend/src/renderer/components/task-detail/TaskReview.tsx",
+      "apps/frontend/src/shared/i18n/locales/en/tasks.json",
+      "apps/frontend/src/shared/i18n/locales/fr/tasks.json"
     ]
   },
   "files_to_reference": [
-    "apps/backend/analysis/security_scanner.py",
-    "apps/backend/analysis/analyzers/base.py",
-    "apps/backend/analysis/analyzers/framework_analyzer.py",
-    "apps/backend/analysis/risk_classifier.py"
+    "apps/backend/run.py",
+    "apps/backend/merge/orchestrator.py",
+    "apps/backend/merge/conflict_analysis.py",
+    "apps/backend/merge/types.py",
+    "apps/backend/core/worktree.py",
+    "apps/frontend/src/renderer/components/task-detail/task-review/ConflictDetailsDialog.tsx",
+    "apps/frontend/src/renderer/components/task-detail/task-review/MergePreviewSummary.tsx",
+    "apps/frontend/src/main/ipc-handlers/task/worktree-handlers.ts"
   ],
   "patterns": {
-    "analyzer_pattern": "All analyzers inherit from BaseAnalyzer and use _exists, _read_file, _read_json methods",
-    "dataclass_pattern": "Use @dataclass for structured results with type hints",
-    "tool_integration": "External tools invoked via subprocess with JSON output parsing (see security_scanner.py)",
-    "module_exports": "__init__.py files use __all__ for explicit exports"
+    "backend_cli_pattern": "CLI commands in run.py use argparse with subcommands. Add new --preview-merge flag following existing --merge pattern.",
+    "backend_merge_pattern": "MergeOrchestrator already has dry_run parameter. Use it for preview mode without writing files.",
+    "backend_dataclass_pattern": "Merge types use @dataclass with type hints. ConflictRegion is in types.py.",
+    "frontend_ipc_pattern": "IPC handlers in worktree-handlers.ts spawn Python subprocess with run.py. Follow existing mergeWorktree handler pattern.",
+    "frontend_types_pattern": "Types in shared/types/task.ts follow TypeScript interface conventions. MergeConflict interface already exists.",
+    "frontend_component_pattern": "ConflictDetailsDialog uses AlertDialog from shadcn/ui. Add strategy selection using RadioGroup or Select components.",
+    "frontend_i18n_pattern": "All user-facing text must use t() from react-i18next. Translation keys in locales/en/ and locales/fr/."
   },
   "existing_implementations": {
-    "description": "Found existing analysis module with security_scanner.py, risk_classifier.py. Frontend already has CodeQualityIdea type with metrics field (complexity, lineCount, duplicateLines, testCoverage) and CodeQualityDetails.tsx component to display them.",
+    "description": "Found comprehensive merge infrastructure: orchestrator.py coordinates merge pipeline, conflict_analysis.py detects conflicts, ai_resolver/ provides AI-powered resolution. Frontend already has ConflictDetailsDialog showing basic conflict info.",
     "relevant_files": [
-      "apps/backend/analysis/security_scanner.py",
-      "apps/backend/analysis/analyzers/base.py",
-      "apps/frontend/src/shared/types/insights.ts",
-      "apps/frontend/src/renderer/components/ideation/details/CodeQualityDetails.tsx"
+      "apps/backend/merge/orchestrator.py",
+      "apps/backend/merge/conflict_analysis.py",
+      "apps/backend/merge/ai_resolver/",
+      "apps/backend/merge/types.py",
+      "apps/backend/core/worktree.py",
+      "apps/frontend/src/renderer/components/task-detail/task-review/ConflictDetailsDialog.tsx",
+      "apps/frontend/src/renderer/components/task-detail/task-review/MergePreviewSummary.tsx",
+      "apps/frontend/src/main/ipc-handlers/task/worktree-handlers.ts"
     ],
-    "frontend_ready": true,
-    "frontend_notes": "UI already supports displaying metrics - just need backend to compute them"
+    "gap_analysis": {
+      "missing_preview_endpoint": "Backend needs --preview-merge CLI flag to run conflict analysis WITHOUT merging",
+      "missing_ai_strategies": "Backend needs to generate AI-suggested resolution strategies for each conflict",
+      "missing_strategy_selection": "Frontend needs UI to display strategies and allow user to select per conflict",
+      "missing_strategy_application": "Backend needs to accept and apply user-selected strategies during merge"
+    }
   },
   "technology_decisions": {
-    "python_metrics_tool": "radon",
-    "rationale": "Radon is the standard Python tool for cyclomatic complexity, maintainability index, and code metrics",
-    "storage": "JSON files in .auto-claude/metrics/ directory for trend tracking",
-    "sonarqube": "Optional integration via API if SONARQUBE_URL environment variable is set"
+    "backend_cli": "Add --preview-merge flag to run.py CLI using argparse",
+    "backend_preview": "Use MergeOrchestrator with dry_run=True to analyze conflicts without writing files",
+    "backend_strategies": "Add resolution_strategies field to ConflictRegion dataclass with list of suggested strategies",
+    "frontend_ipc": "Add previewMergeConflicts IPC handler that spawns Python subprocess with --preview-merge flag",
+    "frontend_ui": "Use RadioGroup or Select from shadcn/ui for strategy selection in ConflictDetailsDialog",
+    "frontend_i18n": "Add translation keys in tasks.json namespace for all new UI text"
   }
 }

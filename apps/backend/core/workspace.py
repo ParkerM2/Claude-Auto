@@ -151,6 +151,7 @@ def merge_existing_build(
     no_commit: bool = False,
     use_smart_merge: bool = True,
     base_branch: str | None = None,
+    conflict_resolutions: str | None = None,
 ) -> bool:
     """
     Merge an existing build into the project using intent-aware merge.
@@ -170,6 +171,8 @@ def merge_existing_build(
         no_commit: If True, merge changes but don't commit (stage only for review in IDE)
         use_smart_merge: If True, use intent-aware merge (default True)
         base_branch: The branch the task was created from (for comparison). If None, auto-detect.
+        conflict_resolutions: JSON string with user-selected conflict resolution strategies
+                             Format: '{"file_path:location": "strategy_name"}'
 
     Returns:
         True if merge succeeded
@@ -413,17 +416,33 @@ def _try_smart_merge_inner(
         except Exception as e:
             debug_warning(MODULE, f"Could not capture worktree state: {e}")
 
+        # Parse conflict resolutions JSON if provided
+        conflict_resolutions_dict = None
+        if conflict_resolutions:
+            try:
+                conflict_resolutions_dict = json.loads(conflict_resolutions)
+                debug(
+                    MODULE,
+                    "Parsed user-selected conflict resolutions",
+                    count=len(conflict_resolutions_dict),
+                )
+            except json.JSONDecodeError as e:
+                debug_warning(MODULE, f"Invalid conflict resolutions JSON: {e}")
+                print(warning(f"  Invalid conflict resolutions format: {e}"))
+
         # Initialize the orchestrator
         debug(
             MODULE,
             "Initializing MergeOrchestrator",
             project_dir=str(project_dir),
             enable_ai=True,
+            has_user_strategies=conflict_resolutions_dict is not None,
         )
         orchestrator = MergeOrchestrator(
             project_dir,
             enable_ai=True,  # Enable AI for ambiguous conflicts
             dry_run=False,
+            conflict_resolutions=conflict_resolutions_dict,
         )
 
         # Refresh evolution data from the worktree

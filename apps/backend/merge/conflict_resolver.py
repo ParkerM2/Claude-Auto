@@ -41,6 +41,7 @@ class ConflictResolver:
         auto_merger: AutoMerger,
         ai_resolver: AIResolver | None = None,
         enable_ai: bool = True,
+        user_selected_strategies: dict[str, str] | None = None,
     ):
         """
         Initialize the conflict resolver.
@@ -49,10 +50,13 @@ class ConflictResolver:
             auto_merger: AutoMerger instance for deterministic resolution
             ai_resolver: Optional AIResolver instance for AI-based resolution
             enable_ai: Whether to use AI for ambiguous conflicts
+            user_selected_strategies: Optional dict mapping conflict keys to user-selected strategies
+                                     Format: {"file_path:location": "strategy_name"}
         """
         self.auto_merger = auto_merger
         self.ai_resolver = ai_resolver
         self.enable_ai = enable_ai
+        self.user_selected_strategies = user_selected_strategies or {}
 
     def resolve_conflicts(
         self,
@@ -80,7 +84,80 @@ class ConflictResolver:
         tokens_used = 0
 
         for conflict in conflicts:
-            # Try auto-merge first
+            # Check for user-selected strategy first
+            conflict_key = f"{file_path}:{conflict.location}"
+            user_strategy = self.user_selected_strategies.get(conflict_key)
+
+            if user_strategy:
+                # User explicitly selected a strategy for this conflict
+                logger.info(
+                    f"Applying user-selected strategy '{user_strategy}' for {conflict_key}"
+                )
+
+                # Parse user strategy - could be one of:
+                # 1. A MergeStrategy enum value (e.g., "combine_imports")
+                # 2. A suggested resolution strategy string (e.g., "auto_merge", "use_ai", "manual_review")
+                # 3. A task ID to prefer (e.g., "task-001")
+
+                # Try to match as MergeStrategy first
+                from .types import MergeStrategy as MS
+
+                try:
+                    merge_strategy = MS(user_strategy)
+                    # Apply the selected merge strategy
+                    context = MergeContext(
+                        file_path=file_path,
+                        baseline_content=merged_content,
+                        task_snapshots=task_snapshots,
+                        conflict=conflict,
+                    )
+
+                    result = self.auto_merger.merge(context, merge_strategy)
+
+                    if result.success:
+                        merged_content = result.merged_content or merged_content
+                        resolved.append(conflict)
+                        logger.info(f"Successfully applied user strategy: {user_strategy}")
+                        continue
+                    else:
+                        logger.warning(
+                            f"User-selected strategy '{user_strategy}' failed, falling back"
+                        )
+                except (ValueError, KeyError):
+                    # Not a MergeStrategy enum value - treat as resolution approach
+                    if user_strategy in ["use_ai", "ai_merge", "ai_required"]:
+                        # User wants AI resolution
+                        if self.enable_ai and self.ai_resolver:
+                            conflict_baseline = extract_location_content(
+                                baseline_content, conflict.location
+                            )
+
+                            ai_result = self.ai_resolver.resolve_conflict(
+                                conflict=conflict,
+                                baseline_code=conflict_baseline,
+                                task_snapshots=task_snapshots,
+                            )
+
+                            ai_calls += ai_result.ai_calls_made
+                            tokens_used += ai_result.tokens_used
+
+                            if ai_result.success:
+                                merged_content = apply_ai_merge(
+                                    merged_content,
+                                    conflict.location,
+                                    ai_result.merged_content or "",
+                                )
+                                resolved.append(conflict)
+                                continue
+                    elif user_strategy in ["manual_review", "human_required", "skip"]:
+                        # User wants manual review - mark as remaining
+                        logger.info(
+                            f"User selected manual review for {conflict_key}, marking for human review"
+                        )
+                        remaining.append(conflict)
+                        continue
+
+            # Try auto-merge first (if no user strategy or user strategy failed)
             if conflict.can_auto_merge and conflict.merge_strategy:
                 context = MergeContext(
                     file_path=file_path,
