@@ -19,6 +19,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
+from typing import Optional
+
+from .recovery_config import RecoveryConfig, load_config
 
 
 class FailureType(Enum):
@@ -52,19 +55,28 @@ class RecoveryManager:
     - Escalate stuck subtasks for human intervention
     """
 
-    def __init__(self, spec_dir: Path, project_dir: Path):
+    def __init__(
+        self,
+        spec_dir: Path,
+        project_dir: Path,
+        config: Optional[RecoveryConfig] = None,
+    ):
         """
         Initialize recovery manager.
 
         Args:
             spec_dir: Spec directory containing memory/
             project_dir: Root project directory for git operations
+            config: Optional RecoveryConfig instance (defaults to load_config())
         """
         self.spec_dir = spec_dir
         self.project_dir = project_dir
         self.memory_dir = spec_dir / "memory"
         self.attempt_history_file = self.memory_dir / "attempt_history.json"
         self.build_commits_file = self.memory_dir / "build_commits.json"
+
+        # Load or use provided config
+        self.config = config if config is not None else load_config()
 
         # Ensure memory directory exists
         self.memory_dir.mkdir(parents=True, exist_ok=True)
@@ -257,9 +269,12 @@ class RecoveryManager:
         if len(attempts) < 2:
             return False
 
-        # Check if last 3 attempts used similar approaches
+        # Check if last N attempts used similar approaches (where N = circular_fix_threshold)
         # Simple similarity check: look for repeated keywords
-        recent_attempts = attempts[-3:] if len(attempts) >= 3 else attempts
+        threshold = self.config.circular_fix_threshold
+        recent_attempts = (
+            attempts[-threshold:] if len(attempts) >= threshold else attempts
+        )
 
         # Extract key terms from current approach (ignore common words)
         stop_words = {
@@ -302,8 +317,10 @@ class RecoveryManager:
                 if similarity > 0.3:
                     similar_count += 1
 
-        # If 2+ recent attempts were similar to current approach, it's circular
-        return similar_count >= 2
+        # If threshold-1 or more recent attempts were similar to current approach, it's circular
+        # (e.g., if threshold is 3, need 2+ similar attempts)
+        min_similar = max(2, self.config.circular_fix_threshold - 1)
+        return similar_count >= min_similar
 
     def determine_recovery_action(
         self, failure_type: FailureType, subtask_id: str
@@ -337,12 +354,13 @@ class RecoveryManager:
                 )
 
         elif failure_type == FailureType.VERIFICATION_FAILED:
-            # Verification failed: retry with different approach if < 3 attempts
-            if attempt_count < 3:
+            # Verification failed: retry with different approach if < max_retry_attempts
+            max_attempts = self.config.max_retry_attempts
+            if attempt_count < max_attempts:
                 return RecoveryAction(
                     action="retry",
                     target=subtask_id,
-                    reason=f"Verification failed, retry with different approach (attempt {attempt_count + 1}/3)",
+                    reason=f"Verification failed, retry with different approach (attempt {attempt_count + 1}/{max_attempts})",
                 )
             else:
                 return RecoveryAction(
@@ -368,12 +386,13 @@ class RecoveryManager:
             )
 
         else:  # UNKNOWN
-            # Unknown error: retry once, then escalate
-            if attempt_count < 2:
+            # Unknown error: retry based on config, then escalate
+            max_attempts = self.config.max_retry_attempts_unknown
+            if attempt_count < max_attempts:
                 return RecoveryAction(
                     action="retry",
                     target=subtask_id,
-                    reason=f"Unknown error, retrying (attempt {attempt_count + 1}/2)",
+                    reason=f"Unknown error, retrying (attempt {attempt_count + 1}/{max_attempts})",
                 )
             else:
                 return RecoveryAction(
