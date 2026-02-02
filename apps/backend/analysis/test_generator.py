@@ -640,10 +640,12 @@ class JavaScriptTypeScriptAnalyzer:
             return parameters
 
         # Split by comma, but be careful with nested types like Array<string, number>
+        # and nested braces in destructured parameters like { name, email }
         params = []
         current_param = ""
         angle_depth = 0
         paren_depth = 0
+        brace_depth = 0
 
         for char in params_str + ",":
             if char == '<':
@@ -654,7 +656,11 @@ class JavaScriptTypeScriptAnalyzer:
                 paren_depth += 1
             elif char == ')':
                 paren_depth -= 1
-            elif char == ',' and angle_depth == 0 and paren_depth == 0:
+            elif char == '{':
+                brace_depth += 1
+            elif char == '}':
+                brace_depth -= 1
+            elif char == ',' and angle_depth == 0 and paren_depth == 0 and brace_depth == 0:
                 if current_param.strip():
                     params.append(current_param.strip())
                 current_param = ""
@@ -663,8 +669,32 @@ class JavaScriptTypeScriptAnalyzer:
 
         # Parse each parameter
         for param in params:
-            # Handle destructured parameters like { x, y }
-            if param.startswith('{') or param.startswith('['):
+            # Handle destructured parameters like { x, y } or { x, y }: Type
+            if param.startswith('{'):
+                # Extract type annotation if present
+                type_hint = None
+                destructured_part = param
+                if '}:' in param:
+                    parts = param.split('}:', 1)
+                    destructured_part = parts[0] + '}'
+                    type_hint = parts[1].strip()
+
+                # Extract individual properties from destructured object
+                # Remove braces and split by comma
+                inner = destructured_part.strip()[1:-1]  # Remove { and }
+                prop_names = [p.strip().split(':')[0].strip() for p in inner.split(',') if p.strip()]
+
+                # Add each destructured property as a separate parameter
+                for prop_name in prop_names:
+                    if prop_name:
+                        parameters.append(Parameter(
+                            name=prop_name,
+                            type_hint=type_hint,
+                        ))
+                continue
+
+            # Handle array destructured parameters like [x, y]
+            if param.startswith('['):
                 # Simplified: just use the whole thing as the name
                 parameters.append(Parameter(
                     name=param.split(':')[0].strip() if ':' in param else param.strip(),
@@ -1149,7 +1179,7 @@ class TestGenerator:
 
         # Generate tests for top-level functions
         for func in analysis.functions:
-            test_func = self._generate_vitest_function_test(func)
+            test_func = self._generate_vitest_function_test(func, is_react=is_react)
             lines.extend(test_func)
             lines.append("")
 
@@ -1180,8 +1210,82 @@ class TestGenerator:
 
         return imports
 
-    def _generate_vitest_function_test(self, func: FunctionInfo) -> list[str]:
+    def _is_react_component(self, func: FunctionInfo) -> bool:
+        """
+        Detect if a function is a React component.
+
+        React components:
+        - Start with uppercase letter (PascalCase naming convention)
+        - Usually return JSX (but we can't reliably detect that without parsing)
+        """
+        return func.name[0].isupper() if func.name else False
+
+    def _generate_vitest_react_component_test(self, func: FunctionInfo) -> list[str]:
+        """Generate vitest test for a React component using testing-library."""
+        lines = []
+
+        # Generate describe block
+        lines.append(f"describe('{func.name}', () => {{")
+
+        # Add basic rendering test
+        lines.append(f"  it('should render successfully', () => {{")
+        lines.append("    // Arrange & Act")
+
+        if func.parameters:
+            # Component has props
+            lines.append("    const props = {")
+            for param in func.parameters:
+                if param.name.startswith("..."):
+                    continue
+                if param.type_hint:
+                    lines.append(f"      {param.name}: null, // TODO: Provide test value for {param.type_hint}")
+                else:
+                    lines.append(f"      {param.name}: null, // TODO: Provide test value")
+            lines.append("    };")
+            lines.append(f"    render(<{func.name} {{...props}} />);")
+        else:
+            # Component has no props
+            lines.append(f"    render(<{func.name} />);")
+
+        lines.append("")
+        lines.append("    // Assert")
+        lines.append("    // TODO: Add assertions using screen.getByText(), screen.getByRole(), etc.")
+        lines.append("    expect(document.body).toBeTruthy();")
+        lines.append("  });")
+
+        # Add props rendering test if component has parameters
+        if func.parameters:
+            lines.append("")
+            lines.append(f"  it('should render with props', () => {{")
+            lines.append("    // Arrange")
+            lines.append("    const props = {")
+            for param in func.parameters:
+                if param.name.startswith("..."):
+                    continue
+                if param.type_hint:
+                    lines.append(f"      {param.name}: null, // TODO: Provide test value for {param.type_hint}")
+                else:
+                    lines.append(f"      {param.name}: null, // TODO: Provide test value")
+            lines.append("    };")
+            lines.append("")
+            lines.append("    // Act")
+            lines.append(f"    render(<{func.name} {{...props}} />);")
+            lines.append("")
+            lines.append("    // Assert")
+            lines.append("    // TODO: Verify component renders correctly with props")
+            lines.append("    expect(document.body).toBeTruthy();")
+            lines.append("  });")
+
+        lines.append("});")
+
+        return lines
+
+    def _generate_vitest_function_test(self, func: FunctionInfo, is_react: bool = False) -> list[str]:
         """Generate vitest test for a function."""
+        # Check if this is a React component
+        if is_react and self._is_react_component(func):
+            return self._generate_vitest_react_component_test(func)
+
         lines = []
 
         # Generate describe block
@@ -1379,7 +1483,7 @@ class TestGenerator:
 
         # Generate tests for top-level functions (reuse vitest logic)
         for func in analysis.functions:
-            test_func = self._generate_vitest_function_test(func)
+            test_func = self._generate_vitest_function_test(func, is_react=is_react)
             lines.extend(test_func)
             lines.append("")
 
