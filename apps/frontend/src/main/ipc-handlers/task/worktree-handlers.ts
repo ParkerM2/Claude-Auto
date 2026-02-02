@@ -1891,7 +1891,7 @@ export function registerWorktreeHandlers(
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_WORKTREE_MERGE,
-    async (_, taskId: string, options?: { noCommit?: boolean }): Promise<IPCResult<WorktreeMergeResult>> => {
+    async (_, taskId: string, options?: { noCommit?: boolean; conflictResolutions?: Record<string, string> }): Promise<IPCResult<WorktreeMergeResult>> => {
       const isDebugMode = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development';
       const debug = (...args: unknown[]) => {
         if (isDebugMode) {
@@ -2011,6 +2011,13 @@ export function registerWorktreeHandlers(
           args.push('--base-branch', effectiveBaseBranch);
           debug('Using base branch:', effectiveBaseBranch,
             `(source: ${taskBaseBranch ? 'task metadata' : 'project settings'})`);
+        }
+
+        // Add --conflict-resolutions if user has selected custom strategies
+        if (options?.conflictResolutions) {
+          const resolutionsJson = JSON.stringify(options.conflictResolutions);
+          args.push('--conflict-resolutions', resolutionsJson);
+          debug('Using conflict resolutions:', resolutionsJson);
         }
 
         // Use configured Python path (venv if ready, otherwise bundled/system)
