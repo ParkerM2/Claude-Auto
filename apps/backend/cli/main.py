@@ -211,6 +211,12 @@ Environment Variables:
         action="store_true",
         help="Preview merge conflicts without actually merging (returns JSON)",
     )
+    parser.add_argument(
+        "--conflict-resolutions",
+        type=str,
+        metavar="JSON",
+        help="With --merge: JSON string with user-selected conflict resolution strategies",
+    )
 
     # QA options
     parser.add_argument(
@@ -434,6 +440,7 @@ def _run_cli() -> None:
             spec_dir.name,
             no_commit=args.no_commit,
             base_branch=args.base_branch,
+            conflict_resolutions=args.conflict_resolutions,
         )
         if not success:
             sys.exit(1)
