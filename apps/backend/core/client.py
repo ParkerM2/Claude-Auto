@@ -136,6 +136,7 @@ from agents.tools_pkg import (
     get_required_mcp_servers,
     is_tools_available,
 )
+from agents.tools_pkg.tools import create_test_generation_tools
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 from claude_agent_sdk.types import HookMatcher
 from core.auth import (
