@@ -1887,6 +1887,116 @@ export function registerWorktreeHandlers(
   );
 
   /**
+   * Get detailed line-by-line diff for worktree visualization
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_WORKTREE_DETAILED_DIFF,
+    async (_, taskId: string): Promise<IPCResult<any>> => {
+      try {
+        const { task, project } = findTaskAndProject(taskId);
+        if (!task || !project) {
+          return { success: false, error: 'Task not found' };
+        }
+
+        // Find worktree at .auto-claude/worktrees/tasks/{spec-name}/
+        const worktreePath = findTaskWorktree(project.path, task.specId);
+
+        if (!worktreePath) {
+          return { success: false, error: 'No worktree found for this task' };
+        }
+
+        // Get effective source path for run.py
+        const sourcePath = getEffectiveSourcePath();
+        if (!sourcePath) {
+          return { success: false, error: 'Auto Claude source not found' };
+        }
+
+        const runScript = path.join(sourcePath, 'run.py');
+        const args = [
+          runScript,
+          '--spec', task.specId,
+          '--project-dir', project.path,
+          '--get-detailed-diff'
+        ];
+
+        // Use configured Python path
+        const pythonPath = getConfiguredPythonPath();
+        console.warn('[IPC] Running detailed diff:', pythonPath, args.join(' '));
+
+        // Get Python environment for bundled packages
+        const pythonEnv = pythonEnvManagerSingleton.getPythonEnv();
+        const profileEnv = getProfileEnv();
+
+        return new Promise((resolve) => {
+          // Parse Python command to handle space-separated commands like "py -3"
+          const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
+          const diffProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
+            cwd: sourcePath,
+            env: {
+              ...getIsolatedGitEnv(),
+              ...pythonEnv,
+              ...profileEnv,
+              PYTHONUNBUFFERED: '1',
+              PYTHONUTF8: '1'
+            },
+            stdio: ['ignore', 'pipe', 'pipe']
+          });
+
+          let stdout = '';
+          let stderr = '';
+
+          diffProcess.stdout.on('data', (data: Buffer) => {
+            stdout += data.toString();
+          });
+
+          diffProcess.stderr.on('data', (data: Buffer) => {
+            stderr += data.toString();
+          });
+
+          diffProcess.on('close', (code: number) => {
+            if (code === 0) {
+              try {
+                const result = JSON.parse(stdout);
+                if (result.success) {
+                  resolve({ success: true, data: result });
+                } else {
+                  resolve({ success: false, error: result.error || 'Failed to get detailed diff' });
+                }
+              } catch (parseError) {
+                console.error('[IPC] Failed to parse detailed diff output:', stdout);
+                resolve({
+                  success: false,
+                  error: `Failed to parse diff output: ${parseError instanceof Error ? parseError.message : String(parseError)}`
+                });
+              }
+            } else {
+              console.error('[IPC] Detailed diff process failed:', stderr);
+              resolve({
+                success: false,
+                error: `Detailed diff failed with code ${code}: ${stderr || 'Unknown error'}`
+              });
+            }
+          });
+
+          diffProcess.on('error', (error: Error) => {
+            console.error('[IPC] Failed to spawn detailed diff process:', error);
+            resolve({
+              success: false,
+              error: `Failed to spawn process: ${error.message}`
+            });
+          });
+        });
+      } catch (error) {
+        console.error('Failed to get detailed worktree diff:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get detailed worktree diff'
+        };
+      }
+    }
+  );
+
+  /**
    * Merge the worktree changes into the main branch
    */
   ipcMain.handle(
