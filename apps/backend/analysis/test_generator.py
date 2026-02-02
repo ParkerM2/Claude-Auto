@@ -53,6 +53,8 @@ class Language(str, Enum):
 class TestFramework(str, Enum):
     """Supported test frameworks."""
 
+    __test__ = False  # Prevent pytest from collecting this as a test class
+
     PYTEST = "pytest"
     UNITTEST = "unittest"
     VITEST = "vitest"
