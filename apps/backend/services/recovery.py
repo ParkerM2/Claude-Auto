@@ -23,6 +23,7 @@ from typing import Optional
 
 from .pattern_detector import PatternDetector
 from .recovery_config import RecoveryConfig, load_config
+from .recovery_strategies import StrategyRegistry, suggest_strategies
 
 
 class FailureType(Enum):
@@ -88,6 +89,9 @@ class RecoveryManager:
                 repeated_failure_threshold=self.config.circular_fix_threshold,
                 timeout_minutes=self.config.recovery_timeout // 60,  # Convert seconds to minutes
             )
+
+        # Initialize strategy registry
+        self.strategy_registry = StrategyRegistry()
 
         # Ensure memory directory exists
         self.memory_dir.mkdir(parents=True, exist_ok=True)
@@ -557,6 +561,25 @@ class RecoveryManager:
             hints.append(
                 "Consider: different library, different pattern, or simpler implementation"
             )
+
+        # Add strategy suggestions based on failure patterns
+        last_attempt = attempts[-1]
+        if not last_attempt.get("success"):
+            error = last_attempt.get("error", "")
+            failure_type = self.classify_failure(error, subtask_id)
+
+            # Get strategy suggestions
+            strategy_suggestions = suggest_strategies(
+                failure_type=failure_type.value,
+                error=error,
+                subtask_id=subtask_id,
+                attempt_count=len(attempts),
+                last_good_commit=self.get_last_good_commit(),
+            )
+
+            if strategy_suggestions:
+                hints.append("\n📋 Recommended Recovery Strategies:")
+                hints.extend(strategy_suggestions)
 
         return hints
 
