@@ -21,7 +21,8 @@
     "viewPR": "View PR",
     "moveTo": "Move to",
     "taskActions": "Task actions",
-    "selectTask": "Select task: {{title}}"
+    "selectTask": "Select task: {{title}}",
+    "openDetails": "Open task details"
   },
   "labels": {
     "running": "Running",
@@ -311,6 +312,11 @@
   },
   "table": {
     "expandRow": "Expand row: {{title}}",
+    "tabs": {
+      "overview": "Overview",
+      "subtasks": "Subtasks",
+      "logs": "Logs"
+    },
     "columns": {
       "title": "Title",
       "status": "Status",

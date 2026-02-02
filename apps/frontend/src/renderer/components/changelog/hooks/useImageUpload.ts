@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, type DragEvent, type ClipboardEvent } from 'react';
-import { blobToBase64, isValidImageMimeType, resolveFilename } from '../../ImageUpload';
+import { blobToBase64, isValidImageMimeType, resolveFilename } from '../../file-explorer/ImageUpload';
 import { ALLOWED_IMAGE_TYPES_DISPLAY } from '../../../../shared/constants';
 
 interface UseImageUploadOptions {

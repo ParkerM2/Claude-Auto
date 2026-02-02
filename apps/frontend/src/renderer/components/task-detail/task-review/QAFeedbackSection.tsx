@@ -9,7 +9,7 @@ import {
   createThumbnail,
   isValidImageMimeType,
   resolveFilename
-} from '../../ImageUpload';
+} from '../../file-explorer/ImageUpload';
 import { cn } from '../../../lib/utils';
 import type { ImageAttachment } from '../../../../shared/types';
 import {

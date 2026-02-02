@@ -19,7 +19,7 @@ export function CreateSpecButton({ ticket, projectId }: CreateSpecButtonProps) {
       setIsCreating(true);
       setIsSuccess(false);
 
-      const result = await window.api.jira.importAsSpec(projectId, ticket.key);
+      const result = await window.electronAPI.jira.importAsSpec(projectId, ticket.key);
 
       if (result.success) {
         setIsSuccess(true);

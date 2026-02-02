@@ -11,7 +11,7 @@ import {
   createThumbnail,
   isValidImageMimeType,
   resolveFilename
-} from '../ImageUpload';
+} from '../file-explorer/ImageUpload';
 import type { ImageAttachment } from '../../../shared/types';
 import {
   MAX_IMAGES_PER_TASK,

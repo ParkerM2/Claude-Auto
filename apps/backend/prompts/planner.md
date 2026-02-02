@@ -363,6 +363,32 @@ Use ONLY these values for the `type` field in phases:
 3. **Clear verification** - Every subtask must have a way to verify it works
 4. **Explicit dependencies** - Phases block until dependencies complete
 
+### Frontend Component Path Guidelines
+
+**CRITICAL for Auto Claude frontend**: Components in `apps/frontend/src/renderer/components/` follow feature-based organization.
+
+**When planning frontend subtasks for this project:**
+- **NEVER specify components at root level** - Always use feature subdirectories
+- **Use existing directories** if the feature exists: `auth/`, `kanban/`, `layout/`, `settings/`, `modals/`, etc.
+- **Create new directory** if adding a new feature area
+
+**Example - CORRECT:**
+```json
+{
+  "files_to_create": ["src/components/kanban/NewKanbanFeature.tsx"],
+  "patterns_from": ["src/components/kanban/TaskCard.tsx"]
+}
+```
+
+**Example - WRONG:**
+```json
+{
+  "files_to_create": ["src/components/NewKanbanFeature.tsx"]
+}
+```
+
+**Reference:** See `apps/frontend/src/renderer/components/README.md` for the full directory structure and conventions.
+
 ### Verification Types
 
 | Type | When to Use | Format |

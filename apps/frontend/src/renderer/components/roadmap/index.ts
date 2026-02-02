@@ -1,3 +1,9 @@
+// Main components
+export { Roadmap } from './Roadmap';
+export { RoadmapGenerationProgress } from './RoadmapGenerationProgress';
+export { RoadmapKanbanView } from './RoadmapKanbanView';
+
+// Sub-components
 export { RoadmapHeader } from './RoadmapHeader';
 export { RoadmapEmptyState } from './RoadmapEmptyState';
 export { RoadmapTabs } from './RoadmapTabs';

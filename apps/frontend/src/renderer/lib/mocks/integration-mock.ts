@@ -202,6 +202,10 @@ export const integrationMock = {
     getIssue: async () => ({
       success: false,
       error: 'Not available in browser mock'
+    }),
+    importAsSpec: async () => ({
+      success: false,
+      error: 'Not available in browser mock'
     })
   }
 };

@@ -478,6 +478,35 @@ Use the Task tool to spawn a subagent:
 4. **One service only** - This subtask is scoped to one service
 5. **No console errors** - Clean implementation
 
+### Frontend Component Rules (When Working on Frontend)
+
+**CRITICAL**: Components in `apps/frontend/src/renderer/components/` follow feature-based organization.
+
+**Directory Structure:**
+- Components are grouped by feature/domain (`auth/`, `kanban/`, `layout/`, `settings/`, etc.)
+- Each directory has an `index.ts` that exports public components
+- Tests live alongside components (`Component.test.tsx`)
+
+**When Creating New Components:**
+1. **NEVER place components at root level** - Always use feature subdirectories
+2. **Add to existing directory** if the feature/domain exists
+3. **Create new directory** if creating a new feature area
+4. **Export from index.ts** - Add export to the directory's index.ts
+5. **Update root index.ts** if needed (for new directories)
+
+**Example:**
+```bash
+# ✅ CORRECT - Component in feature directory
+apps/frontend/src/renderer/components/auth/NewAuthComponent.tsx
+# Then export from: components/auth/index.ts
+# Then re-export from: components/index.ts (if new directory)
+
+# ❌ WRONG - Component at root level
+apps/frontend/src/renderer/components/NewAuthComponent.tsx
+```
+
+**Reference:** See `apps/frontend/src/renderer/components/README.md` for full documentation.
+
 ### Subtask-Specific Guidance
 
 **For Investigation Subtasks:**

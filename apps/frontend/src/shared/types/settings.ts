@@ -7,7 +7,17 @@ import type { ChangelogFormat, ChangelogAudience, ChangelogEmojiLevel } from './
 import type { SupportedLanguage } from '../constants/i18n';
 
 // Color theme types for multi-theme support
-export type ColorTheme = 'default' | 'dusk' | 'lime' | 'ocean' | 'retro' | 'neo' | 'forest';
+// Built-in themes are predefined, custom themes use 'custom-{id}' format
+export type BuiltInColorTheme = 'default' | 'dusk' | 'lime' | 'ocean' | 'retro' | 'neo' | 'forest';
+export type ColorTheme = BuiltInColorTheme | `custom-${string}`;
+
+// Custom theme entry for user-created themes
+export interface CustomThemeEntry {
+  id: string;           // Unique ID (UUID)
+  name: string;         // User-provided name
+  css: string;          // CSS content from tweakcn.com
+  createdAt: number;    // Timestamp
+}
 
 // Developer tools preferences - IDE and terminal selection
 // Comprehensive list based on Stack Overflow Developer Survey 2024, JetBrains Survey, and market research
@@ -219,6 +229,13 @@ export interface AgentProfile {
 export interface AppSettings {
   theme: 'light' | 'dark' | 'system';
   colorTheme?: ColorTheme;
+  // Multiple custom themes support
+  customThemes?: CustomThemeEntry[];
+  // Legacy single custom theme (deprecated, kept for migration)
+  /** @deprecated Use customThemes array instead */
+  customThemeName?: string;
+  /** @deprecated Use customThemes array instead */
+  customThemeCss?: string;
   defaultModel: string;
   agentFramework: string;
   pythonPath?: string;

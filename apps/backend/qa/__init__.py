@@ -46,10 +46,12 @@ from .loop import MAX_QA_ITERATIONS, run_qa_validation_loop
 from .report import (
     ISSUE_SIMILARITY_THRESHOLD,
     RECURRING_ISSUE_THRESHOLD,
+    SESSION_ARTIFACT_PATTERNS,
     _issue_similarity,
     # Private functions exposed for testing
     _normalize_issue_key,
     check_test_discovery,
+    cleanup_session_artifacts,
     create_manual_test_plan,
     escalate_to_human,
     get_iteration_history,
@@ -90,6 +92,8 @@ __all__ = [
     "create_manual_test_plan",
     "check_test_discovery",
     "is_no_test_project",
+    "cleanup_session_artifacts",
+    "SESSION_ARTIFACT_PATTERNS",
     "_normalize_issue_key",
     "_issue_similarity",
     # Agent sessions
