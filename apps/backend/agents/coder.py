@@ -17,13 +17,6 @@ from jira_updater import (
     jira_task_started,
     jira_task_stuck,
 )
-from linear_updater import (
-    LinearTaskState,
-    is_linear_enabled,
-    linear_build_complete,
-    linear_task_started,
-    linear_task_stuck,
-)
 from phase_config import get_phase_model, get_phase_thinking_budget
 from phase_event import ExecutionPhase, emit_phase
 from progress import (
@@ -123,19 +116,6 @@ async def run_autonomous_agent(
         in_progress=subtasks["in_progress"],
     )
 
-    # Check Linear integration status
-    linear_task = None
-    if is_linear_enabled():
-        linear_task = LinearTaskState.load(spec_dir)
-        if linear_task and linear_task.task_id:
-            print_status("Linear integration: ENABLED", "success")
-            print_key_value("Task", linear_task.task_id)
-            print_key_value("Status", linear_task.status)
-            print()
-        else:
-            print_status("Linear enabled but no task created for this spec", "warning")
-            print()
-
     # Check Jira integration status
     jira_enabled = is_jira_enabled()
     if jira_enabled:
@@ -193,11 +173,6 @@ async def run_autonomous_agent(
             task_logger.start_phase(
                 LogPhase.PLANNING, "Starting implementation planning..."
             )
-
-        # Update Linear to "In Progress" when build starts
-        if linear_task and linear_task.task_id:
-            print_status("Updating Linear task to In Progress...", "progress")
-            await linear_task_started(spec_dir)
 
         # Update Jira to "In Progress" when build starts
         if jira_enabled:
@@ -480,9 +455,6 @@ async def run_autonomous_agent(
         # === POST-SESSION PROCESSING (100% reliable) ===
         # Only run post-session processing for coding sessions.
         if subtask_id and current_log_phase == LogPhase.CODING:
-            linear_is_enabled = (
-                linear_task is not None and linear_task.task_id is not None
-            )
             success = await post_session_processing(
                 spec_dir=spec_dir,
                 project_dir=project_dir,
@@ -491,7 +463,6 @@ async def run_autonomous_agent(
                 commit_before=commit_before,
                 commit_count_before=commit_count_before,
                 recovery_manager=recovery_manager,
-                linear_enabled=linear_is_enabled,
                 status_manager=status_manager,
                 source_spec_dir=source_spec_dir,
             )
@@ -508,15 +479,6 @@ async def run_autonomous_agent(
                     "error",
                 )
                 print(muted("Consider: manual intervention or skipping this subtask"))
-
-                # Record stuck subtask in Linear (if enabled)
-                if linear_is_enabled:
-                    await linear_task_stuck(
-                        spec_dir=spec_dir,
-                        subtask_id=subtask_id,
-                        attempt_count=attempt_count,
-                    )
-                    print_status("Linear notified of stuck subtask", "info")
 
                 # Record stuck subtask in Jira (if enabled)
                 if jira_enabled:
@@ -544,10 +506,6 @@ async def run_autonomous_agent(
                     success=True,
                     message="All subtasks completed successfully",
                 )
-
-            if linear_task and linear_task.task_id:
-                await linear_build_complete(spec_dir)
-                print_status("Linear notified: build complete, ready for QA", "success")
 
             # Update Jira to "Done" when build completes
             if jira_enabled:

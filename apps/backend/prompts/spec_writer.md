@@ -253,7 +253,108 @@ If any section is missing, add it immediately.
 
 ---
 
-## PHASE 4: SIGNAL COMPLETION
+## PHASE 4: GENERATE E2E TEST PLAN (IF UI/FRONTEND CHANGES)
+
+**IMPORTANT**: If this spec involves UI changes (frontend, Electron, web), generate an E2E test plan for the QA agent.
+
+Check if E2E testing is needed:
+- Does the task modify UI components?
+- Does it add new pages/routes?
+- Does it change user interactions?
+- Is it an Electron or web frontend project?
+
+If YES to any, create `e2e_test_plan.yaml`:
+
+```bash
+cat > e2e_test_plan.yaml << 'E2E_EOF'
+# E2E Test Plan for QA Agent
+# This file tells the QA agent exactly how to test the new feature via Electron MCP
+
+feature_name: "[Feature name from requirements]"
+description: "[What was implemented]"
+
+# How to navigate to the new feature
+navigation:
+  - step: "Start from main view"
+    action: "take_screenshot"
+    name: "initial-state"
+
+  - step: "Navigate to feature"
+    action: "click_by_text"
+    target: "[Button/Link text to click]"
+    # Or use: action: "navigate_to_hash", route: "#/route-name"
+
+  - step: "Verify navigation"
+    action: "take_screenshot"
+    name: "feature-view"
+
+# Test interactions with the new feature
+test_scenarios:
+  - name: "[Test scenario name]"
+    description: "[What this test verifies]"
+    steps:
+      - action: "get_page_structure"
+        description: "Verify expected elements exist"
+
+      - action: "click_by_text"
+        target: "[Button to click]"
+        description: "[What should happen]"
+
+      - action: "fill_input"
+        selector: "[input selector or placeholder]"
+        value: "[test value to enter]"
+        description: "[What this input is for]"
+
+      - action: "take_screenshot"
+        name: "[screenshot-name]"
+        description: "Capture state after interaction"
+
+      - action: "check_logs"
+        expect_no_errors: true
+        description: "Verify no console errors"
+
+    expected_outcome: "[What the test should verify]"
+
+  - name: "[Another test scenario]"
+    steps:
+      # ... more steps
+    expected_outcome: "[Expected result]"
+
+# Things to verify in console logs
+console_checks:
+  - check: "No runtime errors"
+    filter: "error"
+    expect: "empty"
+
+  - check: "No React warnings"
+    filter: "warn"
+    pattern: "Warning:"
+    expect: "none"
+
+# Visual verification points
+visual_checks:
+  - element: "[CSS selector or text]"
+    verify: "[What to check - visible, contains text, etc.]"
+
+# Cleanup/reset steps (optional)
+cleanup:
+  - action: "send_keyboard_shortcut"
+    text: "Escape"
+    description: "Close any open dialogs"
+
+E2E_EOF
+```
+
+**Guidelines for E2E Test Plan:**
+1. **Be specific** - Use exact button text, selectors, route names from your spec
+2. **Test the happy path** - Primary user flow first
+3. **Test edge cases** - Empty states, validation errors, etc.
+4. **Verify console** - Always check for errors after interactions
+5. **Screenshot key states** - Before, during, and after interactions
+
+---
+
+## PHASE 5: SIGNAL COMPLETION
 
 ```
 === SPEC DOCUMENT CREATED ===
@@ -263,6 +364,7 @@ Sections: [list of sections]
 Length: [line count] lines
 
 Required sections: ✓ All present
+E2E Test Plan: [Created / Not needed (no UI changes)]
 
 Next phase: Implementation Planning
 ```
@@ -276,6 +378,7 @@ Next phase: Implementation Planning
 3. **Use information from input files** - Don't make up data
 4. **Be specific about files** - Use exact paths from context.json
 5. **Include QA criteria** - The QA agent needs this for validation
+6. **Create e2e_test_plan.yaml for UI changes** - The QA agent uses this for Electron/browser testing
 
 ---
 

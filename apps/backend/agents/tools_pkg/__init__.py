@@ -39,7 +39,6 @@ from .models import (
     CONTEXT7_TOOLS,
     ELECTRON_TOOLS,
     GRAPHITI_MCP_TOOLS,
-    LINEAR_TOOLS,
     PUPPETEER_TOOLS,
     # Auto-Claude tool names
     TOOL_GET_BUILD_PROGRESS,

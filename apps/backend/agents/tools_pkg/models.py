@@ -9,7 +9,7 @@ the Claude Agent SDK client. Tool lists are organized by category:
 
 - Base tools: Core file operations (Read, Write, Edit, etc.)
 - Web tools: Documentation and research (WebFetch, WebSearch)
-- MCP tools: External integrations (Context7, Linear, Graphiti, etc.)
+- MCP tools: External integrations (Context7, Graphiti, etc.)
 - Auto-Claude tools: Custom build management tools
 """
 
@@ -47,26 +47,6 @@ TOOL_UPDATE_QA_STATUS = "mcp__auto-claude__update_qa_status"
 CONTEXT7_TOOLS = [
     "mcp__context7__resolve-library-id",
     "mcp__context7__get-library-docs",
-]
-
-# Linear MCP tools for project management (when LINEAR_API_KEY is set)
-LINEAR_TOOLS = [
-    "mcp__linear-server__list_teams",
-    "mcp__linear-server__get_team",
-    "mcp__linear-server__list_projects",
-    "mcp__linear-server__get_project",
-    "mcp__linear-server__create_project",
-    "mcp__linear-server__update_project",
-    "mcp__linear-server__list_issues",
-    "mcp__linear-server__get_issue",
-    "mcp__linear-server__create_issue",
-    "mcp__linear-server__update_issue",
-    "mcp__linear-server__list_comments",
-    "mcp__linear-server__create_comment",
-    "mcp__linear-server__list_issue_statuses",
-    "mcp__linear-server__list_issue_labels",
-    "mcp__linear-server__list_users",
-    "mcp__linear-server__get_user",
 ]
 
 # Graphiti MCP tools for knowledge graph memory (when GRAPHITI_MCP_URL is set)
@@ -186,12 +166,10 @@ AGENT_CONFIGS = {
     },
     # ═══════════════════════════════════════════════════════════════════════
     # BUILD PHASES (Full tools + Graphiti memory)
-    # Note: "linear" is conditional on project setting "update_linear_with_tasks"
     # ═══════════════════════════════════════════════════════════════════════
     "planner": {
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7", "graphiti", "auto-claude"],
-        "mcp_servers_optional": ["linear"],  # Only if project setting enabled
         "auto_claude_tools": [
             TOOL_GET_BUILD_PROGRESS,
             TOOL_GET_SESSION_CONTEXT,
@@ -202,7 +180,6 @@ AGENT_CONFIGS = {
     "coder": {
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7", "graphiti", "auto-claude"],
-        "mcp_servers_optional": ["linear"],
         "auto_claude_tools": [
             TOOL_UPDATE_SUBTASK_STATUS,
             TOOL_GET_BUILD_PROGRESS,
@@ -220,7 +197,6 @@ AGENT_CONFIGS = {
         # Note: Reviewer writes to spec directory only (qa_report.md, implementation_plan.json)
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7", "graphiti", "auto-claude", "browser"],
-        "mcp_servers_optional": ["linear"],  # For updating issue status
         "auto_claude_tools": [
             TOOL_GET_BUILD_PROGRESS,
             TOOL_UPDATE_QA_STATUS,
@@ -231,7 +207,6 @@ AGENT_CONFIGS = {
     "qa_fixer": {
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7", "graphiti", "auto-claude", "browser"],
-        "mcp_servers_optional": ["linear"],
         "auto_claude_tools": [
             TOOL_UPDATE_SUBTASK_STATUS,
             TOOL_GET_BUILD_PROGRESS,
@@ -335,6 +310,17 @@ AGENT_CONFIGS = {
         "auto_claude_tools": [],
         "thinking_default": "none",  # Simple status checking, no extended thinking
     },
+    # ═══════════════════════════════════════════════════════════════════════
+    # DOCUMENTATION GENERATION
+    # ═══════════════════════════════════════════════════════════════════════
+    "claude_md_generator": {
+        # CLAUDE.md generator - text-only generation, no file system access needed
+        # Receives project context as input, outputs markdown content
+        "tools": [],  # Text-only generation
+        "mcp_servers": [],
+        "auto_claude_tools": [],
+        "thinking_default": "medium",  # Some thinking for quality documentation
+    },
 }
 
 
@@ -384,7 +370,6 @@ def _map_mcp_server_name(
         "context7": "context7",
         "graphiti-memory": "graphiti",
         "graphiti": "graphiti",
-        "linear": "linear",
         "electron": "electron",
         "puppeteer": "puppeteer",
         "auto-claude": "auto-claude",
@@ -402,7 +387,6 @@ def _map_mcp_server_name(
 def get_required_mcp_servers(
     agent_type: str,
     project_capabilities: dict | None = None,
-    linear_enabled: bool = False,
     mcp_config: dict | None = None,
 ) -> list[str]:
     """
@@ -410,7 +394,6 @@ def get_required_mcp_servers(
 
     Handles dynamic server selection:
     - "browser" → electron (if is_electron) or puppeteer (if is_web_frontend)
-    - "linear" → only if in mcp_servers_optional AND linear_enabled is True
     - "graphiti" → only if GRAPHITI_MCP_URL is set
     - Respects per-project MCP config overrides from .auto-claude/.env
     - Applies per-agent ADD/REMOVE overrides from AGENT_MCP_<agent>_ADD/REMOVE
@@ -418,9 +401,8 @@ def get_required_mcp_servers(
     Args:
         agent_type: The agent type identifier
         project_capabilities: Dict from detect_project_capabilities() or None
-        linear_enabled: Whether Linear integration is enabled for this project
         mcp_config: Per-project MCP server toggles from .auto-claude/.env
-                   Keys: CONTEXT7_ENABLED, LINEAR_MCP_ENABLED, ELECTRON_MCP_ENABLED,
+                   Keys: CONTEXT7_ENABLED, ELECTRON_MCP_ENABLED,
                          PUPPETEER_MCP_ENABLED, AGENT_MCP_<agent>_ADD/REMOVE
 
     Returns:
@@ -438,14 +420,6 @@ def get_required_mcp_servers(
         context7_enabled = mcp_config.get("CONTEXT7_ENABLED", "true")
         if str(context7_enabled).lower() == "false":
             servers = [s for s in servers if s != "context7"]
-
-    # Handle optional servers (e.g., Linear if project setting enabled)
-    optional = config.get("mcp_servers_optional", [])
-    if "linear" in optional and linear_enabled:
-        # Also check per-project LINEAR_MCP_ENABLED override
-        linear_mcp_enabled = mcp_config.get("LINEAR_MCP_ENABLED", "true")
-        if str(linear_mcp_enabled).lower() != "false":
-            servers.append("linear")
 
     # Handle dynamic "browser" → electron/puppeteer based on project type and config
     if "browser" in servers:

@@ -11,6 +11,9 @@ import os
 import re
 import subprocess
 from pathlib import Path
+from typing import Optional
+
+import yaml
 
 from .project_context import (
     detect_project_capabilities,
@@ -429,6 +432,130 @@ def _load_prompt_file(filename: str) -> str:
     return prompt_file.read_text(encoding="utf-8")
 
 
+def _load_e2e_test_plan(spec_dir: Path) -> Optional[str]:
+    """
+    Load the E2E test plan from the spec directory if it exists.
+
+    The E2E test plan (e2e_test_plan.yaml) is generated during spec creation
+    and contains feature-specific testing instructions for the QA agent.
+
+    Args:
+        spec_dir: Directory containing the spec files
+
+    Returns:
+        Formatted E2E test plan for injection into QA prompt, or None if not found
+    """
+    e2e_plan_file = Path(spec_dir) / "e2e_test_plan.yaml"
+
+    if not e2e_plan_file.exists():
+        return None
+
+    try:
+        content = e2e_plan_file.read_text(encoding="utf-8")
+        plan = yaml.safe_load(content)
+
+        if not plan:
+            return None
+
+        # Format the plan for the QA agent
+        formatted = """## FEATURE-SPECIFIC E2E TEST PLAN
+
+**IMPORTANT**: This test plan was generated during spec creation and contains
+specific instructions for testing the newly implemented feature via Electron MCP tools.
+
+"""
+        # Add feature info
+        if plan.get("feature_name"):
+            formatted += f"**Feature**: {plan['feature_name']}\n"
+        if plan.get("description"):
+            formatted += f"**Description**: {plan['description']}\n"
+        formatted += "\n"
+
+        # Add navigation steps
+        if plan.get("navigation"):
+            formatted += "### Navigation to Feature\n\n"
+            formatted += "Follow these steps to navigate to the feature being tested:\n\n"
+            for i, step in enumerate(plan["navigation"], 1):
+                action = step.get("action", "unknown")
+                desc = step.get("step", step.get("description", ""))
+                target = step.get("target", step.get("route", step.get("name", "")))
+
+                formatted += f"{i}. **{desc}**\n"
+                formatted += f"   - Action: `{action}`"
+                if target:
+                    formatted += f" → `{target}`"
+                formatted += "\n"
+            formatted += "\n"
+
+        # Add test scenarios
+        if plan.get("test_scenarios"):
+            formatted += "### Test Scenarios\n\n"
+            formatted += "Execute these scenarios to verify the feature works correctly:\n\n"
+
+            for scenario in plan["test_scenarios"]:
+                name = scenario.get("name", "Unnamed Test")
+                desc = scenario.get("description", "")
+                expected = scenario.get("expected_outcome", "")
+
+                formatted += f"#### {name}\n\n"
+                if desc:
+                    formatted += f"{desc}\n\n"
+
+                if scenario.get("steps"):
+                    formatted += "**Steps:**\n"
+                    for j, step in enumerate(scenario["steps"], 1):
+                        action = step.get("action", "unknown")
+                        step_desc = step.get("description", "")
+                        target = step.get("target", step.get("selector", step.get("value", "")))
+
+                        formatted += f"{j}. `{action}`"
+                        if target:
+                            formatted += f" → `{target}`"
+                        if step_desc:
+                            formatted += f" - {step_desc}"
+                        formatted += "\n"
+                    formatted += "\n"
+
+                if expected:
+                    formatted += f"**Expected Outcome:** {expected}\n\n"
+
+        # Add console checks
+        if plan.get("console_checks"):
+            formatted += "### Console Log Verification\n\n"
+            for check in plan["console_checks"]:
+                check_name = check.get("check", "Log check")
+                expect = check.get("expect", "no errors")
+                formatted += f"- {check_name}: Expect {expect}\n"
+            formatted += "\n"
+
+        # Add visual checks
+        if plan.get("visual_checks"):
+            formatted += "### Visual Verification\n\n"
+            for check in plan["visual_checks"]:
+                element = check.get("element", "")
+                verify = check.get("verify", "")
+                formatted += f"- Element `{element}`: {verify}\n"
+            formatted += "\n"
+
+        formatted += """---
+
+**IMPORTANT**: Use the Electron MCP tools to execute these tests:
+- `mcp__electron__take_screenshot` - Capture screenshots at each step
+- `mcp__electron__send_command_to_electron` - Click, fill inputs, navigate
+- `mcp__electron__read_electron_logs` - Check for console errors
+
+Document your test results in the QA report.
+
+---
+
+"""
+        return formatted
+
+    except (yaml.YAMLError, OSError) as e:
+        # Log but don't fail if E2E plan can't be loaded
+        return f"\n<!-- E2E test plan could not be loaded: {e} -->\n"
+
+
 def get_qa_reviewer_prompt(spec_dir: Path, project_dir: Path) -> str:
     """
     Load the QA reviewer prompt with project-specific MCP tools dynamically injected.
@@ -522,6 +649,12 @@ This shows only changes made in the spec branch since it diverged from `{base_br
         )
 
     spec_context += "---\n\n"
+
+    # Load and inject feature-specific E2E test plan if available
+    # This provides the QA agent with exact steps to test the implemented feature
+    e2e_test_plan = _load_e2e_test_plan(spec_dir)
+    if e2e_test_plan and capabilities.get("is_electron"):
+        spec_context += e2e_test_plan
 
     # Find injection point in base prompt (after PHASE 4, before PHASE 5)
     injection_marker = (
