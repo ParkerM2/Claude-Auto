@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Eye,
   EyeOff,
@@ -9,7 +10,8 @@ import {
   AlertCircle,
   Github,
   RefreshCw,
-  GitBranch
+  GitBranch,
+  FlaskConical
 } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -22,7 +24,8 @@ import {
   SelectTrigger,
   SelectValue
 } from '../ui/select';
-import type { ProjectEnvConfig, GitHubSyncStatus, Project, ProjectSettings as ProjectSettingsType } from '../../../shared/types';
+import { E2ESettingsPanel } from './E2ESettingsPanel';
+import type { ProjectEnvConfig, GitHubSyncStatus, Project, ProjectSettings as ProjectSettingsType, E2ETestingConfig } from '../../../shared/types';
 
 interface IntegrationSettingsProps {
   envConfig: ProjectEnvConfig | null;
@@ -40,6 +43,12 @@ interface IntegrationSettingsProps {
   isCheckingGitHub: boolean;
   githubExpanded: boolean;
   onGitHubToggle: () => void;
+
+  // E2E Testing state
+  e2eExpanded: boolean;
+  onE2EToggle: () => void;
+  e2ePassword?: string;
+  onE2EPasswordChange?: (password: string) => void;
 }
 
 export function IntegrationSettings({
@@ -53,8 +62,13 @@ export function IntegrationSettings({
   gitHubConnectionStatus,
   isCheckingGitHub,
   githubExpanded,
-  onGitHubToggle
+  onGitHubToggle,
+  e2eExpanded,
+  onE2EToggle,
+  e2ePassword,
+  onE2EPasswordChange
 }: IntegrationSettingsProps) {
+  const { t } = useTranslation(['settings']);
   // Branch selection state
   const [branches, setBranches] = useState<string[]>([]);
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
@@ -279,6 +293,48 @@ export function IntegrationSettings({
                 </div>
               </>
             )}
+          </div>
+        )}
+      </section>
+
+      <Separator />
+
+      {/* E2E Testing Section */}
+      <section className="space-y-3">
+        <button
+          onClick={onE2EToggle}
+          className="w-full flex items-center justify-between text-sm font-semibold text-foreground hover:text-foreground/80"
+        >
+          <div className="flex items-center gap-2">
+            <FlaskConical className="h-4 w-4" />
+            {t('e2e.sectionTitle')}
+            {envConfig.e2eTestingConfig?.enabled && (
+              <span className="px-2 py-0.5 text-xs bg-success/10 text-success rounded-full">
+                Enabled
+              </span>
+            )}
+          </div>
+          {e2eExpanded ? (
+            <ChevronUp className="h-4 w-4" />
+          ) : (
+            <ChevronDown className="h-4 w-4" />
+          )}
+        </button>
+
+        {e2eExpanded && (
+          <div className="space-y-4 pl-6 pt-2">
+            <p className="text-xs text-muted-foreground">
+              {t('e2e.sectionDescription')}
+            </p>
+            <E2ESettingsPanel
+              config={envConfig.e2eTestingConfig || {
+                enabled: false,
+                browserMode: 'auto'
+              }}
+              onConfigChange={(config: E2ETestingConfig) => updateEnvConfig({ e2eTestingConfig: config })}
+              onPasswordChange={onE2EPasswordChange}
+              storedPassword={e2ePassword}
+            />
           </div>
         )}
       </section>

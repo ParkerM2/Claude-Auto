@@ -90,6 +90,39 @@ ELECTRON_TOOLS = [
     "mcp__electron__read_electron_logs",  # Read console logs from Electron app
 ]
 
+# Chrome DevTools MCP tools for browser automation (when CHROME_DEVTOOLS_MCP_ENABLED is set)
+# Uses Chrome DevTools Protocol for direct browser interaction with external web apps.
+# Connects to existing Chrome browser via --autoConnect flag (Chrome 144+ required).
+# These tools are only available to QA agents (qa_reviewer, qa_fixer), not Coder/Planner.
+# NOTE: Screenshots must be compressed to stay under Claude SDK's 1MB JSON message buffer limit.
+# The MCP server provides 20 tools across 4 categories: Navigation (7), Input (7), Debugging (4), Network (2)
+CHROME_DEVTOOLS_TOOLS = [
+    # Navigation tools (7)
+    "mcp__chrome-devtools__navigate_page",  # Navigate to URL
+    "mcp__chrome-devtools__new_page",  # Open new tab
+    "mcp__chrome-devtools__list_pages",  # List open tabs
+    "mcp__chrome-devtools__select_page",  # Switch to tab
+    "mcp__chrome-devtools__close_page",  # Close tab
+    "mcp__chrome-devtools__navigate_page_history",  # Back/forward navigation
+    "mcp__chrome-devtools__wait_for",  # Wait for selector/condition
+    # Input tools (7)
+    "mcp__chrome-devtools__click",  # Click element
+    "mcp__chrome-devtools__fill",  # Fill single input field
+    "mcp__chrome-devtools__fill_form",  # Fill multiple form fields
+    "mcp__chrome-devtools__hover",  # Hover over element
+    "mcp__chrome-devtools__drag",  # Drag element
+    "mcp__chrome-devtools__handle_dialog",  # Accept/dismiss dialogs
+    "mcp__chrome-devtools__upload_file",  # File upload
+    # Debugging tools (4)
+    "mcp__chrome-devtools__take_screenshot",  # Capture screenshot
+    "mcp__chrome-devtools__take_snapshot",  # DOM snapshot
+    "mcp__chrome-devtools__evaluate_script",  # Execute JavaScript
+    "mcp__chrome-devtools__list_console_messages",  # Console logs
+    # Network tools (2)
+    "mcp__chrome-devtools__list_network_requests",  # List network requests
+    "mcp__chrome-devtools__get_network_request",  # Get request details
+]
+
 # =============================================================================
 # Configuration
 # =============================================================================
@@ -372,6 +405,7 @@ def _map_mcp_server_name(
         "graphiti": "graphiti",
         "electron": "electron",
         "puppeteer": "puppeteer",
+        "chrome-devtools": "chrome-devtools",
         "auto-claude": "auto-claude",
     }
     # Check if it's a known mapping
@@ -421,15 +455,24 @@ def get_required_mcp_servers(
         if str(context7_enabled).lower() == "false":
             servers = [s for s in servers if s != "context7"]
 
-    # Handle dynamic "browser" → electron/puppeteer based on project type and config
+    # Handle optional servers (e.g., Linear if project setting enabled)
+    optional = config.get("mcp_servers_optional", [])
+    if "linear" in optional and linear_enabled:
+        # Also check per-project LINEAR_MCP_ENABLED override
+        linear_mcp_enabled = mcp_config.get("LINEAR_MCP_ENABLED", "true")
+        if str(linear_mcp_enabled).lower() != "false":
+            servers.append("linear")
+
+    # Handle dynamic "browser" → electron/chrome-devtools/puppeteer based on project type and config
     if "browser" in servers:
         servers = [s for s in servers if s != "browser"]
         if project_capabilities:
             is_electron = project_capabilities.get("is_electron", False)
             is_web_frontend = project_capabilities.get("is_web_frontend", False)
 
-            # Check per-project overrides (default false for both)
+            # Check per-project overrides (default false for all)
             electron_enabled = mcp_config.get("ELECTRON_MCP_ENABLED", "false")
+            chrome_devtools_enabled = mcp_config.get("CHROME_DEVTOOLS_MCP_ENABLED", "false")
             puppeteer_enabled = mcp_config.get("PUPPETEER_MCP_ENABLED", "false")
 
             # Electron: enabled by project config OR global env var
@@ -437,9 +480,11 @@ def get_required_mcp_servers(
                 str(electron_enabled).lower() == "true" or is_electron_mcp_enabled()
             ):
                 servers.append("electron")
-            # Puppeteer: enabled by project config (no global env var)
+            # Web frontend (non-Electron): chrome-devtools has priority over puppeteer
             elif is_web_frontend and not is_electron:
-                if str(puppeteer_enabled).lower() == "true":
+                if str(chrome_devtools_enabled).lower() == "true":
+                    servers.append("chrome-devtools")
+                elif str(puppeteer_enabled).lower() == "true":
                     servers.append("puppeteer")
 
     # Filter graphiti if not enabled

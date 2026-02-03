@@ -601,9 +601,19 @@ import { findExecutable, getMyToolPaths } from './platform';
 const toolPath = await findExecutable('mytool', getMyToolPaths());
 ```
 
-### End-to-End Testing (Electron App)
+### End-to-End Testing
 
-**IMPORTANT: When bug fixing or implementing new features in the frontend, AI agents can perform automated E2E testing using the Electron MCP server.**
+**IMPORTANT: When bug fixing or implementing new features, AI agents can perform automated E2E testing using browser automation MCP servers.**
+
+Auto Claude supports three browser automation modes for different project types:
+
+| Mode | MCP Server | Use Case | Env Variable |
+|------|------------|----------|--------------|
+| Electron | `electron` | Desktop Electron apps | `ELECTRON_MCP_ENABLED=true` |
+| Chrome DevTools | `chrome-devtools` | External React/web apps | `CHROME_DEVTOOLS_MCP_ENABLED=true` |
+| Puppeteer | `puppeteer` | Web apps (headless) | `PUPPETEER_MCP_ENABLED=true` |
+
+#### Electron App Testing
 
 The Electron MCP server allows QA agents to interact with the running Electron app via Chrome DevTools Protocol:
 
@@ -619,7 +629,7 @@ The Electron MCP server allows QA agents to interact with the running Electron a
    ELECTRON_DEBUG_PORT=9222  # Default port
    ```
 
-**Available Testing Capabilities:**
+**Available Electron MCP Tools:**
 
 QA agents (`qa_reviewer` and `qa_fixer`) automatically get access to Electron MCP tools:
 
@@ -645,12 +655,77 @@ QA agents (`qa_reviewer` and `qa_fixer`) automatically get access to Electron MC
 4. **Logging**
    - `mcp__electron__read_electron_logs` - Read console logs for debugging
 
-**Example E2E Test Flow:**
+#### Chrome DevTools MCP (External Web Apps)
+
+The Chrome DevTools MCP server enables QA agents to test external React/web applications by connecting to an existing Chrome browser session. This is ideal for testing web apps that run outside of Electron.
+
+**Setup:**
+1. Start Chrome with remote debugging enabled:
+   ```bash
+   # Windows
+   chrome.exe --remote-debugging-port=9222
+
+   # macOS
+   /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222
+
+   # Linux
+   google-chrome --remote-debugging-port=9222
+   ```
+
+2. Navigate to your web application in Chrome
+
+3. Enable Chrome DevTools MCP in `apps/backend/.env`:
+   ```bash
+   CHROME_DEVTOOLS_MCP_ENABLED=true
+   ```
+
+**Available Chrome DevTools MCP Tools:**
+
+1. **Navigation Tools**
+   - `mcp__chrome-devtools__navigate_page` - Navigate to URL
+   - `mcp__chrome-devtools__new_page` - Open new tab
+   - `mcp__chrome-devtools__list_pages` - List open tabs
+   - `mcp__chrome-devtools__select_page` - Switch to tab
+   - `mcp__chrome-devtools__close_page` - Close tab
+   - `mcp__chrome-devtools__navigate_page_history` - Back/forward navigation
+   - `mcp__chrome-devtools__wait_for` - Wait for selector/condition
+
+2. **Input Tools**
+   - `mcp__chrome-devtools__click` - Click element
+   - `mcp__chrome-devtools__fill` - Fill single input
+   - `mcp__chrome-devtools__fill_form` - Fill multiple form fields
+   - `mcp__chrome-devtools__hover` - Hover over element
+   - `mcp__chrome-devtools__drag` - Drag element
+   - `mcp__chrome-devtools__handle_dialog` - Accept/dismiss dialogs
+   - `mcp__chrome-devtools__upload_file` - File upload
+
+3. **Debugging Tools**
+   - `mcp__chrome-devtools__take_screenshot` - Capture screenshot
+   - `mcp__chrome-devtools__take_snapshot` - DOM snapshot
+   - `mcp__chrome-devtools__evaluate_script` - Execute JavaScript
+   - `mcp__chrome-devtools__list_console_messages` - Console logs
+
+4. **Network Tools**
+   - `mcp__chrome-devtools__list_network_requests` - List network requests
+   - `mcp__chrome-devtools__get_network_request` - Get request details
+
+**Chrome DevTools vs Electron MCP:**
+
+| Feature | Chrome DevTools MCP | Electron MCP |
+|---------|---------------------|--------------|
+| Use case | External web apps | This Electron app |
+| Connection | Existing Chrome browser | Running Electron instance |
+| Network inspection | Yes | No |
+| Tab management | Yes | No |
+| Dialog handling | Yes | Limited |
+| Best for | React/Vue/Angular apps | Auto Claude frontend |
+
+#### Example E2E Test Flow
 
 ```python
 # 1. Agent takes screenshot to see current state
 agent: "Take a screenshot to see the current UI"
-# Uses: mcp__electron__take_screenshot
+# Uses: mcp__electron__take_screenshot (or mcp__chrome-devtools__take_screenshot)
 
 # 2. Agent inspects page structure
 agent: "Get page structure to find available buttons"
@@ -669,18 +744,31 @@ agent: "Click Submit and verify success"
 # Uses: click_by_text → take_screenshot → verify result
 ```
 
-**When to Use E2E Testing:**
+#### When to Use E2E Testing
 
 - **Bug Fixes**: Reproduce the bug, apply fix, verify it's resolved
 - **New Features**: Implement feature, test the UI flow end-to-end
 - **UI Changes**: Verify visual changes and interactions work correctly
 - **Form Validation**: Test form submission, validation, error handling
+- **Authentication Flows**: Test login/logout with stored credentials
+
+#### E2E Testing Configuration
+
+**Browser Mode Selection:**
+
+The client automatically selects the appropriate browser MCP based on project type:
+
+| Project Type | Default MCP | Override |
+|--------------|-------------|----------|
+| Electron app | `electron` | Set `ELECTRON_MCP_ENABLED=true` |
+| Web frontend | `chrome-devtools` | Set `CHROME_DEVTOOLS_MCP_ENABLED=true` |
+| Web app (headless) | `puppeteer` | Set `PUPPETEER_MCP_ENABLED=true` |
 
 **Configuration in `core/client.py`:**
 
-The client automatically enables Electron MCP tools for QA agents when:
-- Project is detected as Electron (`is_electron` capability)
-- `ELECTRON_MCP_ENABLED=true` is set
+The client automatically enables browser MCP tools for QA agents when:
+- Project type is detected (`is_electron`, `is_web_frontend` capabilities)
+- Corresponding env variable is set (e.g., `CHROME_DEVTOOLS_MCP_ENABLED=true`)
 - Agent type is `qa_reviewer` or `qa_fixer`
 
 **Note:** Screenshots are automatically compressed (1280x720, quality 60, JPEG) to stay under Claude SDK's 1MB JSON message buffer limit.

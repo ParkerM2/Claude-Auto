@@ -12,6 +12,7 @@ import { JiraAPI, createJiraAPI } from './modules/jira-api';
 import { DebugAPI, createDebugAPI } from './modules/debug-api';
 import { ClaudeCodeAPI, createClaudeCodeAPI } from './modules/claude-code-api';
 import { McpAPI, createMcpAPI } from './modules/mcp-api';
+import { E2ECredentialAPI, createE2ECredentialAPI } from './modules/e2e-credential-api';
 import { ProfileAPI, createProfileAPI } from './profile-api';
 import { ScreenshotAPI, createScreenshotAPI } from './screenshot-api';
 import { ClaudeMdAPI, createClaudeMdAPI } from './modules/claude-md-api';
@@ -29,6 +30,7 @@ export interface ElectronAPI extends
   DebugAPI,
   ClaudeCodeAPI,
   McpAPI,
+  E2ECredentialAPI,
   ProfileAPI,
   ScreenshotAPI {
   github: GitHubAPI;
@@ -47,6 +49,7 @@ export const createElectronAPI = (): ElectronAPI => ({
   ...createDebugAPI(),
   ...createClaudeCodeAPI(),
   ...createMcpAPI(),
+  ...createE2ECredentialAPI(),
   ...createProfileAPI(),
   ...createScreenshotAPI(),
   github: createGitHubAPI(),
@@ -70,6 +73,7 @@ export {
   createDebugAPI,
   createClaudeCodeAPI,
   createMcpAPI,
+  createE2ECredentialAPI,
   createScreenshotAPI,
   createClaudeMdAPI
 };
@@ -90,6 +94,7 @@ export type {
   DebugAPI,
   ClaudeCodeAPI,
   McpAPI,
+  E2ECredentialAPI,
   ScreenshotAPI,
   ClaudeMdAPI
 };

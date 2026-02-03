@@ -493,5 +493,9 @@ export const IPC_CHANNELS = {
   // CLAUDE.md events (main -> renderer)
   CLAUDE_MD_PROGRESS: 'claudeMd:progress',   // Progress updates during generation
   CLAUDE_MD_COMPLETE: 'claudeMd:complete',   // Generation complete
-  CLAUDE_MD_ERROR: 'claudeMd:error'          // Generation failed
+  CLAUDE_MD_ERROR: 'claudeMd:error',         // Generation failed
+
+  // E2E Testing credential operations (secure storage via Electron safeStorage API)
+  E2E_STORE_CREDENTIAL: 'e2e:store-credential',
+  E2E_RETRIEVE_CREDENTIAL: 'e2e:retrieve-credential'
 } as const;

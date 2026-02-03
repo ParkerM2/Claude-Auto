@@ -1,10 +1,10 @@
-import { ipcMain } from 'electron';
+import { ipcMain, safeStorage } from 'electron';
 import type { BrowserWindow } from 'electron';
 import { IPC_CHANNELS, DEFAULT_APP_SETTINGS } from '../../shared/constants';
 import type { IPCResult, ProjectEnvConfig, ClaudeAuthResult, AppSettings } from '../../shared/types';
 import path from 'path';
 import { app } from 'electron';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { spawn } from 'child_process';
 import { projectStore } from '../project-store';
 import { parseEnvFile } from './utils';
@@ -689,6 +689,100 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to invoke Claude setup'
+        };
+      }
+    }
+  );
+
+  // ============================================
+  // E2E Testing Credential Storage Operations
+  // Uses Electron's secure storage API for encryption
+  // ============================================
+
+  /**
+   * Get the path for storing encrypted E2E credentials for a project.
+   * Credentials are stored in the project's .auto-claude directory.
+   */
+  const getE2ECredentialPath = (projectPath: string): string => {
+    const autoClaudeDir = path.join(projectPath, '.auto-claude');
+    if (!existsSync(autoClaudeDir)) {
+      mkdirSync(autoClaudeDir, { recursive: true });
+    }
+    return path.join(autoClaudeDir, '.e2e-credentials');
+  };
+
+  /**
+   * Store encrypted E2E credential for a project.
+   * Uses Electron's secure storage API for encryption.
+   */
+  ipcMain.handle(
+    'e2e:store-credential',
+    async (_, projectPath: string, password: string): Promise<IPCResult<boolean>> => {
+      try {
+        if (!projectPath || typeof projectPath !== 'string') {
+          return { success: false, error: 'Project path is required' };
+        }
+
+        if (!password || typeof password !== 'string') {
+          return { success: false, error: 'Password is required' };
+        }
+
+        // Check if secure encryption is available on this system
+        if (!safeStorage.isEncryptionAvailable()) {
+          return {
+            success: false,
+            error: 'Secure storage not available on this system. Cannot store credentials securely.'
+          };
+        }
+
+        // Encrypt the password using Electron's secure storage
+        const encrypted = safeStorage.encryptString(password);
+
+        // Store the encrypted buffer as base64 in a file
+        const credentialPath = getE2ECredentialPath(projectPath);
+        writeFileSync(credentialPath, encrypted.toString('base64'), 'utf-8');
+
+        return { success: true, data: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to store credential'
+        };
+      }
+    }
+  );
+
+  /**
+   * Retrieve decrypted E2E credential for a project.
+   * Uses Electron's secure storage API for decryption.
+   */
+  ipcMain.handle(
+    'e2e:retrieve-credential',
+    async (_, projectPath: string): Promise<IPCResult<string | null>> => {
+      try {
+        if (!projectPath || typeof projectPath !== 'string') {
+          return { success: false, error: 'Project path is required' };
+        }
+
+        const credentialPath = getE2ECredentialPath(projectPath);
+
+        // Check if credential file exists
+        if (!existsSync(credentialPath)) {
+          return { success: true, data: null };
+        }
+
+        // Read the encrypted data
+        const encryptedBase64 = readFileSync(credentialPath, 'utf-8');
+        const encrypted = Buffer.from(encryptedBase64, 'base64');
+
+        // Decrypt using Electron's secure storage
+        const decrypted = safeStorage.decryptString(encrypted);
+
+        return { success: true, data: decrypted };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to retrieve credential'
         };
       }
     }

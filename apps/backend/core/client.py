@@ -126,6 +126,7 @@ def invalidate_project_cache(project_dir: Path | None = None) -> None:
 
 
 from agents.tools_pkg import (
+    CHROME_DEVTOOLS_TOOLS,
     CONTEXT7_TOOLS,
     ELECTRON_TOOLS,
     GRAPHITI_MCP_TOOLS,
@@ -337,6 +338,7 @@ def load_project_mcp_config(project_dir: Path) -> dict:
         "LINEAR_MCP_ENABLED",
         "ELECTRON_MCP_ENABLED",
         "PUPPETEER_MCP_ENABLED",
+        "CHROME_DEVTOOLS_MCP_ENABLED",
     }
 
     try:
@@ -575,6 +577,8 @@ def create_client(
     browser_tools_permissions = []
     if "electron" in required_servers:
         browser_tools_permissions = ELECTRON_TOOLS
+    elif "chrome-devtools" in required_servers:
+        browser_tools_permissions = CHROME_DEVTOOLS_TOOLS
     elif "puppeteer" in required_servers:
         browser_tools_permissions = PUPPETEER_TOOLS
 
@@ -741,6 +745,22 @@ def create_client(
         mcp_servers["puppeteer"] = {
             "command": "npx",
             "args": ["puppeteer-mcp-server"],
+        }
+
+    if "chrome-devtools" in required_servers:
+        # Chrome DevTools MCP for web app testing (external React apps)
+        # Requires Chrome 144+ running with remote debugging enabled
+        # --autoConnect: Automatically connects to existing Chrome browser sessions
+        mcp_servers["chrome-devtools"] = {
+            "command": "npx",
+            "args": ["-y", "chrome-devtools-mcp@latest", "--autoConnect"],
+        }
+
+    if "linear" in required_servers:
+        mcp_servers["linear"] = {
+            "type": "http",
+            "url": "https://mcp.linear.app/mcp",
+            "headers": {"Authorization": f"Bearer {linear_api_key}"},
         }
 
     # Graphiti MCP server for knowledge graph memory

@@ -347,6 +347,56 @@ export interface ProjectEnvConfig {
 
   // Custom MCP servers defined by the user
   customMcpServers?: CustomMcpServer[];
+
+  // E2E Testing Configuration
+  /** E2E testing configuration for QA agent automated testing */
+  e2eTestingConfig?: E2ETestingConfig;
+}
+
+// ============================================
+// E2E Testing Configuration (E2ETestingConfig)
+// ============================================
+
+/**
+ * Browser automation mode for E2E testing.
+ * - 'puppeteer': Use Puppeteer MCP for headless browser automation
+ * - 'chrome-devtools': Use Chrome DevTools MCP for existing Chrome sessions
+ * - 'auto': Prefer Chrome DevTools, fall back to Puppeteer
+ */
+export type E2EBrowserMode = 'puppeteer' | 'chrome-devtools' | 'auto';
+
+/**
+ * E2E Testing Configuration for QA agents.
+ * Stored in project settings and used to configure browser automation for
+ * automated testing of React web applications.
+ */
+export interface E2ETestingConfig {
+  /** Enable E2E testing for this project */
+  enabled: boolean;
+  /** Browser automation mode selection */
+  browserMode: E2EBrowserMode;
+
+  // Authentication settings
+  /** Login page URL (e.g., https://app.example.com/login) */
+  loginUrl?: string;
+  /** Username/email for test account authentication */
+  loginUsername?: string;
+  /** Indicates if password is stored securely via Electron safeStorage */
+  hasStoredPassword?: boolean;
+
+  // Navigation configuration
+  /** Base URL of the application (e.g., https://app.example.com) */
+  baseUrl?: string;
+  /** URL path to navigate to after successful login (e.g., /dashboard) */
+  postLoginUrl?: string;
+
+  // Selectors for login form (CSS selectors)
+  /** CSS selector for username/email input field */
+  usernameSelector?: string;
+  /** CSS selector for password input field */
+  passwordSelector?: string;
+  /** CSS selector for login submit button */
+  submitSelector?: string;
 }
 
 /**

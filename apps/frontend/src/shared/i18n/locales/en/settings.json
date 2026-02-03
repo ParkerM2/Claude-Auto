@@ -407,6 +407,10 @@
       "integrationTitle": "Memory",
       "integrationDescription": "Configure persistent cross-session memory for agents",
       "syncDescription": "Configure persistent memory"
+    },
+    "e2e": {
+      "title": "E2E Testing",
+      "description": "End-to-end testing configuration"
     }
   },
   "agentProfile": {
@@ -782,6 +786,122 @@
       "createAnthropicKey": "Create Anthropic API Key",
       "openai": "This looks like an OpenAI API. You'll need an API key.",
       "createOpenaiKey": "Create OpenAI API Key"
+    }
+  },
+  "e2e": {
+    "title": "E2E Testing",
+    "description": "Configure end-to-end testing for QA agents",
+    "sectionTitle": "End-to-End Testing",
+    "sectionDescription": "Enable automated UI testing during QA review",
+    "enable": "Enable E2E Testing",
+    "enableDescription": "Allow QA agents to interact with the running application for automated testing",
+    "debugPort": "Debug Port",
+    "debugPortDescription": "Chrome DevTools Protocol port for Electron debugging (default: 9222)",
+    "debugPortPlaceholder": "9222",
+    "status": {
+      "title": "E2E Status",
+      "connected": "Connected",
+      "disconnected": "Disconnected",
+      "connecting": "Connecting...",
+      "checking": "Checking connection...",
+      "appNotRunning": "Application not running",
+      "portInUse": "Port already in use"
+    },
+    "validation": {
+      "portRequired": "Debug port is required",
+      "portInvalid": "Port must be a number between 1024 and 65535",
+      "portReserved": "Port numbers below 1024 are reserved"
+    },
+    "hints": {
+      "electronRequired": "E2E testing requires the Electron app to be running with remote debugging enabled",
+      "startWithDebug": "Start the app with: npm run dev",
+      "qaAgentsOnly": "E2E tools are only available to QA agents (qa_reviewer and qa_fixer)"
+    },
+    "toast": {
+      "enabled": "E2E Testing Enabled",
+      "enabledDescription": "QA agents can now interact with the running application",
+      "disabled": "E2E Testing Disabled",
+      "disabledDescription": "QA agents will not perform automated UI testing",
+      "connectionSuccess": "E2E Connection Established",
+      "connectionSuccessDescription": "Successfully connected to Electron debug port",
+      "connectionFailed": "E2E Connection Failed",
+      "connectionFailedDescription": "Could not connect to debug port. Ensure the app is running with --remote-debugging-port={{port}}"
+    },
+    "testConnection": {
+      "label": "Test Connection",
+      "testing": "Testing...",
+      "success": "Connection successful",
+      "failure": "Connection failed"
+    },
+    "capabilities": {
+      "title": "E2E Capabilities",
+      "screenshots": "Take screenshots for visual verification",
+      "interactions": "Click, type, and interact with UI elements",
+      "navigation": "Navigate between pages and routes",
+      "inspection": "Inspect page structure and form state"
+    },
+    "learnMore": "Learn more about E2E testing",
+    "notAvailable": "E2E testing not available for this project",
+    "browserMode": {
+      "label": "Browser Mode",
+      "description": "Select browser automation method for E2E testing",
+      "options": {
+        "auto": "Auto (prefer Chrome DevTools)",
+        "chromeDevtools": "Chrome DevTools",
+        "puppeteer": "Puppeteer"
+      }
+    },
+    "authentication": {
+      "title": "Authentication",
+      "description": "Configure test account credentials for automated login",
+      "loginUrl": {
+        "label": "Login URL",
+        "placeholder": "https://app.example.com/login",
+        "description": "Full URL of the login page"
+      },
+      "username": {
+        "label": "Username",
+        "placeholder": "test@example.com",
+        "description": "Username or email for test account"
+      },
+      "password": {
+        "label": "Password",
+        "placeholder": "Enter password",
+        "description": "Password stored securely via system keychain"
+      }
+    },
+    "navigation": {
+      "title": "Navigation",
+      "description": "Configure base URLs and post-login navigation",
+      "baseUrl": {
+        "label": "Base URL",
+        "placeholder": "https://app.example.com",
+        "description": "Base URL of the application"
+      },
+      "postLoginUrl": {
+        "label": "Post-Login URL",
+        "placeholder": "/dashboard",
+        "description": "Path to navigate to after successful login"
+      }
+    },
+    "selectors": {
+      "title": "Form Selectors",
+      "description": "CSS selectors for login form elements (optional)",
+      "usernameSelector": {
+        "label": "Username Selector",
+        "placeholder": "input[name='email']",
+        "description": "CSS selector for username/email input"
+      },
+      "passwordSelector": {
+        "label": "Password Selector",
+        "placeholder": "input[name='password']",
+        "description": "CSS selector for password input"
+      },
+      "submitSelector": {
+        "label": "Submit Selector",
+        "placeholder": "button[type='submit']",
+        "description": "CSS selector for login submit button"
+      }
     }
   }
 }

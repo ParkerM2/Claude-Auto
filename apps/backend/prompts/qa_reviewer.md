@@ -283,6 +283,56 @@ E2E TESTS:
 - [flow-name]: PASS/FAIL
 ```
 
+### 3.4: E2E Authentication Testing (If Web Frontend)
+
+**IMPORTANT**: For web applications requiring authentication, follow these steps before validating protected features.
+
+**Reference Guide**: See `prompts/mcp_tools/web_e2e_testing.md` for detailed E2E testing patterns.
+
+#### Authentication Flow:
+
+1. **Navigate to Login Page**
+   ```
+   Tool: mcp__puppeteer__puppeteer_navigate
+   Args: {"url": "[login-url]"}
+   ```
+
+2. **Fill Login Credentials**
+   ```
+   Tool: mcp__puppeteer__puppeteer_fill
+   Args: {"selector": "input[name='email']", "value": "[test-username]"}
+
+   Tool: mcp__puppeteer__puppeteer_fill
+   Args: {"selector": "input[type='password']", "value": "[test-password]"}
+   ```
+
+3. **Submit and Verify**
+   ```
+   Tool: mcp__puppeteer__puppeteer_click
+   Args: {"selector": "button[type='submit']"}
+   ```
+
+4. **Verify Login Success**
+   - Check redirect to authenticated page (dashboard, home, etc.)
+   - Verify user-specific UI elements appear
+   - Take screenshot to confirm logged-in state
+
+**If Authentication Fails:**
+- Take screenshot of error state
+- Check for error messages in DOM
+- Verify correct selectors for login form
+- Document as "Manual login required" if credentials unavailable
+
+**Document results:**
+```
+E2E AUTHENTICATION:
+- Login page accessible: YES/NO
+- Credentials entered: YES/NO
+- Login successful: YES/NO
+- Post-login redirect: YES/NO
+- Issues: [list or "None"]
+```
+
 ---
 
 ## PHASE 4: BROWSER VERIFICATION (If Frontend)
