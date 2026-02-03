@@ -19,6 +19,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '../../ui/button';
 import { Checkbox } from '../../ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip';
+import { Badge } from '../../ui/badge';
 import { cn } from '../../../lib/utils';
 import type { WorktreeStatus, MergeConflict, MergeStats, GitConflictInfo, SupportedIDE, SupportedTerminal } from '../../../../shared/types';
 import { useSettingsStore } from '../../../stores/settings-store';
@@ -157,6 +158,11 @@ export function WorkspaceStatus({
 
   // Has path-mapped files that need AI merge
   const hasPathMappedMerges = pathMappedAIMergeCount > 0;
+
+  // Calculate total conflict count for badge
+  const gitConflictCount = mergePreview?.gitConflicts?.conflictingFiles.length || 0;
+  const aiConflictCount = mergePreview?.conflicts.length || 0;
+  const totalConflictCount = gitConflictCount + aiConflictCount;
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -466,6 +472,11 @@ export function WorkspaceStatus({
                         : (stageOnly
                             ? t('taskReview:merge.buttons.stageTo', { branch: worktreeStatus.currentProjectBranch || worktreeStatus.baseBranch || 'main' })
                             : t('taskReview:merge.buttons.mergeTo', { branch: worktreeStatus.currentProjectBranch || worktreeStatus.baseBranch || 'main' }))}
+                      {totalConflictCount > 0 && (
+                        <Badge variant="destructive" className="ml-2">
+                          {totalConflictCount}
+                        </Badge>
+                      )}
                     </>
                   )}
                 </Button>
