@@ -35,3 +35,16 @@ export {
   type RoadmapPhase,
   type RoadmapParseResult
 } from './roadmap-phase-parser';
+
+// Ideation CLI parser (JSON output transformation)
+export {
+  parseCLIOutput,
+  extractJSONFromOutput,
+  parseJSONToRawIdeas,
+  transformRawIdea,
+  isValidIdea,
+  filterValidIdeas,
+  type RawCLIIdea,
+  type RawCLIOutput,
+  type CLIParseResult
+} from './ideation-cli-parser';

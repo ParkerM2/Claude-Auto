@@ -131,7 +131,18 @@ export class AgentEvents {
   }
 
   /**
-   * Parse ideation progress from log output
+   * Parse ideation progress from log output.
+   *
+   * Supports both Python-based (legacy) and CLI-based ideation progress markers.
+   * CLI-based ideation uses Claude CLI with print mode (-p) and JSON output,
+   * where progress is primarily tracked by type completion rather than streaming markers.
+   *
+   * @param log - Raw log output to parse
+   * @param currentPhase - Current phase of ideation
+   * @param currentProgress - Current progress percentage
+   * @param completedTypes - Set of completed ideation types
+   * @param totalTypes - Total number of ideation types being generated
+   * @returns Updated phase and progress percentage
    */
   parseIdeationProgress(
     log: string,
@@ -143,7 +154,51 @@ export class AgentEvents {
     let phase = currentPhase;
     let progress = currentProgress;
 
-    if (log.includes('PROJECT INDEX') || log.includes('PROJECT ANALYSIS')) {
+    // ============================================
+    // CLI-based ideation progress markers
+    // ============================================
+    // CLI mode uses Claude CLI with -p flag, where output arrives all at once.
+    // Progress is primarily tracked by type start/completion, not streaming markers.
+
+    // CLI spawning/starting detection
+    if (log.includes('[IdeationCLI] Starting CLI') || log.includes('Starting ideation for')) {
+      phase = 'generating';
+      progress = 5;
+    }
+    // CLI process started for a specific type
+    else if (log.includes('cli-started') || (log.includes('[IdeationCLI]') && log.includes('Starting'))) {
+      phase = 'generating';
+      // Don't reset progress if we're already making progress
+      if (progress < 30) {
+        progress = 10;
+      }
+    }
+    // CLI type completion detection (emitted by spawner)
+    else if (log.includes('CLI ideation type complete') || log.includes('cli-complete')) {
+      phase = 'generating';
+      // Progress is calculated below based on completedTypes
+    }
+    // CLI parallel completion
+    else if (log.includes('Parallel CLI complete') || log.includes('CLI ideation complete')) {
+      phase = 'finalizing';
+      progress = 95;
+    }
+    // CLI error markers
+    else if (log.includes('[IdeationCLI] Process error') || log.includes('[IdeationCLI] Process timeout')) {
+      // Don't change phase on errors - let the error handler deal with it
+      // But we can note that we've encountered issues
+    }
+    // CLI rate limit or auth failure
+    else if (log.includes('Rate limit detected') || log.includes('Auth failure detected')) {
+      // Keep current phase, error handling happens elsewhere
+    }
+
+    // ============================================
+    // Python-based (legacy) ideation progress markers
+    // ============================================
+    // These support the original Python-based ideation_runner.py
+
+    else if (log.includes('PROJECT INDEX') || log.includes('PROJECT ANALYSIS')) {
       phase = 'analyzing';
       progress = 10;
     } else if (log.includes('CONTEXT GATHERING')) {
@@ -160,10 +215,19 @@ export class AgentEvents {
       progress = 100;
     }
 
-    // Update progress based on completed types during generation phase
-    if (phase === 'generating' && completedTypes.size > 0) {
-      // Progress from 30% to 90% based on completed types
-      progress = 30 + Math.floor((completedTypes.size / totalTypes) * 60);
+    // ============================================
+    // Progress calculation based on completed types
+    // ============================================
+    // This applies to both CLI and Python-based ideation.
+    // During the generating phase, progress is calculated from type completion.
+
+    if (phase === 'generating' && completedTypes.size > 0 && totalTypes > 0) {
+      // Progress from 5% (start) to 90% (before finalize) based on completed types
+      // Use a base of 5% for CLI mode or 30% for Python mode
+      const baseProgress = progress < 30 ? 5 : 30;
+      const maxProgress = 90;
+      const progressRange = maxProgress - baseProgress;
+      progress = baseProgress + Math.floor((completedTypes.size / totalTypes) * progressRange);
     }
 
     return { phase, progress };
