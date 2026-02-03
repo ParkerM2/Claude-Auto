@@ -27,6 +27,7 @@ Usage:
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -289,35 +290,70 @@ class IncrementalIndexer:
         """
         Detect changes between filesystem and stored index.
 
-        Scans the project directory and compares with the stored index to
-        identify added, modified, and deleted files.
+        Uses directory-level mtime optimization to skip unchanged directories,
+        significantly improving performance when most files haven't changed.
 
         Returns:
             ChangeSet object with lists of changed files
         """
-        # Scan current filesystem state
-        current_files = self._scan_directory()
-
-        # Get tracked files from index
-        tracked_files = set(self.file_index.get_tracked_files())
-
-        # Identify changes
+        current_files = set()
         added = []
         modified = []
         deleted = []
         unchanged = []
 
-        # Find added and modified files
-        for file_path in sorted(current_files):
-            if file_path not in tracked_files:
-                # New file
-                added.append(file_path)
-            else:
-                # Check if modified
-                if self.file_index.has_changed(file_path):
-                    modified.append(file_path)
+        # Get tracked files from index
+        tracked_files = set(self.file_index.get_tracked_files())
+
+        # Walk filesystem with directory-level optimization
+        for root, dirs, files in os.walk(self.project_dir):
+            root_path = Path(root)
+
+            # Skip excluded directories
+            dirs[:] = [d for d in dirs if d not in self.skip_dirs]
+
+            # Check if directory changed
+            if not self.file_index.dir_has_changed(root_path):
+                # Directory unchanged, skip scanning files
+                # Just mark all files in this dir as unchanged
+                for rel_path in self.file_index.get_files_in_dir(root_path):
+                    current_files.add(rel_path)
+                    unchanged.append(rel_path)
+
+                # Don't descend into subdirectories
+                dirs.clear()
+                continue
+
+            # Directory changed, track it and scan files normally
+            self.file_index.track_directory(root_path)
+
+            for file_name in files:
+                file_path = root_path / file_name
+
+                # Skip if not indexable
+                if not self._should_index(file_path):
+                    continue
+
+                # Get relative path
+                try:
+                    rel_path = file_path.relative_to(self.project_dir)
+                    rel_path_str = str(rel_path)
+                except (ValueError, OSError):
+                    # Skip files outside project or with permission errors
+                    continue
+
+                current_files.add(rel_path_str)
+
+                # Check if file changed
+                if rel_path_str not in tracked_files:
+                    # New file
+                    added.append(rel_path_str)
+                elif self.file_index.has_changed(file_path):
+                    # Modified file
+                    modified.append(rel_path_str)
                 else:
-                    unchanged.append(file_path)
+                    # Unchanged file
+                    unchanged.append(rel_path_str)
 
         # Find deleted files (in index but not in filesystem)
         for file_path in sorted(tracked_files):
@@ -325,10 +361,10 @@ class IncrementalIndexer:
                 deleted.append(file_path)
 
         return ChangeSet(
-            added=added,
-            modified=modified,
-            deleted=deleted,
-            unchanged=unchanged,
+            added=sorted(added),
+            modified=sorted(modified),
+            deleted=sorted(deleted),
+            unchanged=sorted(unchanged),
         )
 
     def update_index(self, changes: ChangeSet | None = None) -> int:
@@ -347,19 +383,19 @@ class IncrementalIndexer:
 
         updated_count = 0
 
-        # Track added files and invalidate cache
+        # Track added files and invalidate cache (don't compute hash during bulk indexing)
         for file_path in changes.added:
             try:
-                self.file_index.track_file(file_path)
+                self.file_index.track_file(file_path, compute_hash=False)
                 self.invalidate_cache(file_path)
                 updated_count += 1
             except (FileNotFoundError, OSError) as e:
                 print(f"Warning: Failed to track {file_path}: {e}")
 
-        # Update modified files and invalidate cache
+        # Update modified files and invalidate cache (don't compute hash during bulk indexing)
         for file_path in changes.modified:
             try:
-                self.file_index.track_file(file_path)
+                self.file_index.track_file(file_path, compute_hash=False)
                 self.invalidate_cache(file_path)
                 updated_count += 1
             except (FileNotFoundError, OSError) as e:
@@ -400,12 +436,12 @@ class IncrementalIndexer:
         self.file_index.clear()
         self.clear_cache()
 
-        # Scan and track all files
+        # Scan and track all files (don't compute hash during bulk rebuild)
         current_files = self._scan_directory()
 
         for file_path in sorted(current_files):
             try:
-                self.file_index.track_file(file_path)
+                self.file_index.track_file(file_path, compute_hash=False)
             except (FileNotFoundError, OSError) as e:
                 print(f"Warning: Failed to track {file_path}: {e}")
 

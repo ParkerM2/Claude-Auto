@@ -95,18 +95,21 @@ class FileIndex:
         self.project_dir = Path(project_dir).resolve()
         self._index: dict[str, FileMetadata] = {}
         self._cache: dict[str, bool] = {}  # Cache for has_changed() results
+        self._dir_mtimes: dict[str, float] = {}  # Track directory mtimes for optimization
 
     @property
     def index_path(self) -> Path:
         """Get the path to the index file."""
         return self.project_dir / self.INDEX_FILENAME
 
-    def track_file(self, file_path: str | Path) -> FileMetadata:
+    def track_file(self, file_path: str | Path, compute_hash: bool = False) -> FileMetadata:
         """
         Track a file and store its metadata.
 
         Args:
             file_path: Path to file (absolute or relative to project_dir)
+            compute_hash: If True, compute hash immediately. If False, defer until needed.
+                         Hash will be computed later only when needed for verification.
 
         Returns:
             FileMetadata object for the tracked file
@@ -134,8 +137,11 @@ class FileIndex:
         mtime = stat.st_mtime
         size = stat.st_size
 
-        # Calculate hash
-        file_hash = self._calculate_hash(abs_path)
+        # Only compute hash when explicitly requested or when needed for verification
+        if compute_hash:
+            file_hash = self._calculate_hash(abs_path)
+        else:
+            file_hash = ""  # Empty string means "not computed yet"
 
         # Create metadata
         metadata = FileMetadata(
@@ -197,7 +203,14 @@ class FileIndex:
 
         # Quick check: mtime
         if stat.st_mtime != metadata.mtime:
-            # Verify with hash to handle clock skew
+            # mtime changed, but compute hash to verify actual content change
+            # This is when we NEED the hash
+            if not metadata.hash:
+                # Old hash not computed, must re-track with hash
+                self.track_file(abs_path, compute_hash=True)
+                self._cache[rel_path_str] = True
+                return True
+
             current_hash = self._calculate_hash(abs_path)
             changed = current_hash != metadata.hash
             self._cache[rel_path_str] = changed
@@ -261,6 +274,87 @@ class FileIndex:
 
         return removed
 
+    def track_directory(self, dir_path: Path) -> None:
+        """
+        Track directory mtime for skip-unchanged-dirs optimization.
+
+        Args:
+            dir_path: Path to directory (absolute or relative to project_dir)
+        """
+        abs_dir = Path(dir_path)
+        if not abs_dir.is_absolute():
+            abs_dir = self.project_dir / dir_path
+
+        if not abs_dir.is_dir():
+            return
+
+        try:
+            rel_dir = abs_dir.relative_to(self.project_dir)
+        except ValueError:
+            rel_dir = abs_dir
+
+        rel_dir_str = str(rel_dir)
+        self._dir_mtimes[rel_dir_str] = abs_dir.stat().st_mtime
+
+    def dir_has_changed(self, dir_path: Path) -> bool:
+        """
+        Check if directory or its contents changed.
+
+        Args:
+            dir_path: Path to directory (absolute or relative to project_dir)
+
+        Returns:
+            True if directory changed or is not tracked, False otherwise
+        """
+        abs_dir = Path(dir_path)
+        if not abs_dir.is_absolute():
+            abs_dir = self.project_dir / dir_path
+
+        try:
+            rel_dir = abs_dir.relative_to(self.project_dir)
+        except ValueError:
+            rel_dir = abs_dir
+
+        rel_dir_str = str(rel_dir)
+
+        if rel_dir_str not in self._dir_mtimes:
+            return True  # New directory
+
+        if not abs_dir.exists():
+            return True  # Deleted
+
+        current_mtime = abs_dir.stat().st_mtime
+        return current_mtime != self._dir_mtimes[rel_dir_str]
+
+    def get_files_in_dir(self, dir_path: Path) -> list[str]:
+        """
+        Get all tracked files in a directory (and subdirectories).
+
+        Args:
+            dir_path: Path to directory (absolute or relative to project_dir)
+
+        Returns:
+            List of relative file paths in this directory
+        """
+        abs_dir = Path(dir_path)
+        if not abs_dir.is_absolute():
+            abs_dir = self.project_dir / dir_path
+
+        try:
+            rel_dir = abs_dir.relative_to(self.project_dir)
+        except ValueError:
+            rel_dir = abs_dir
+
+        rel_dir_str = str(rel_dir)
+
+        # Find all files that start with this directory path
+        files = []
+        for file_path in self._index.keys():
+            if file_path.startswith(rel_dir_str):
+                files.append(file_path)
+
+        return files
+
     def get_tracked_files(self) -> list[str]:
         """
         Get list of all tracked file paths.
@@ -290,6 +384,7 @@ class FileIndex:
             "files": {
                 path: metadata.to_dict() for path, metadata in self._index.items()
             },
+            "dir_mtimes": self._dir_mtimes,
             "version": "1.0",
             "created_at": time.time(),
         }
@@ -333,6 +428,10 @@ class FileIndex:
                 except (KeyError, ValueError, TypeError) as e:
                     print(f"Warning: Failed to load metadata for {path}: {e}")
                     continue
+
+            # Load directory mtimes
+            dir_mtimes_data = data.get("dir_mtimes", {})
+            index._dir_mtimes = dir_mtimes_data
 
         except (json.JSONDecodeError, OSError) as e:
             print(f"Warning: Failed to load index file: {e}")

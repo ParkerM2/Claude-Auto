@@ -16,6 +16,8 @@ Usage:
 
 from __future__ import annotations
 
+import heapq
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -43,13 +45,19 @@ class ContextSelector:
         self.path = Path(path).resolve()
         self._cache: dict[str, float] = {}
 
-    def score_relevance(self, file_path: str, task_description: str) -> float:
+    def score_relevance(
+        self,
+        file_path: str,
+        task_description: str,
+        keywords: list[str] | None = None,
+    ) -> float:
         """
         Score a file's relevance to a task description.
 
         Args:
             file_path: Relative or absolute path to the file
             task_description: Description of the task to match against
+            keywords: Optional pre-extracted keywords for efficiency
 
         Returns:
             Relevance score from 0.0 (not relevant) to 1.0 (highly relevant)
@@ -64,8 +72,9 @@ class ContextSelector:
         if cache_key in self._cache:
             return self._cache[cache_key]
 
-        # Extract keywords from task description
-        keywords = self._extract_keywords(task_description)
+        # Extract keywords from task description if not provided
+        if keywords is None:
+            keywords = self._extract_keywords(task_description)
         if not keywords:
             return 0.0
 
@@ -245,7 +254,10 @@ class ContextSelector:
         min_score: float = 0.0,
     ) -> list[str]:
         """
-        Select most relevant files based on task description.
+        Select most relevant files using min-heap for efficient top-N selection.
+
+        Uses a min-heap of size max_files to keep only the top-scoring files,
+        avoiding the need to score and sort all files.
 
         Args:
             task_description: Description of the task to match against
@@ -256,38 +268,61 @@ class ContextSelector:
         Returns:
             List of file paths sorted by relevance (highest first)
         """
-        # Collect all files with their scores
-        scored_files: list[tuple[float, str]] = []
+        # Extract keywords once for all files
+        keywords = self._extract_keywords(task_description)
+        if not keywords:
+            return []
+
+        # Convert keywords to set for fast lookup
+        keyword_set = set(keywords)
+
+        if max_files is None:
+            max_files = float('inf')
+
+        # Min-heap: keep only top max_files by score
+        # Heap contains: (score, file_path)
+        top_files: list[tuple[float, str]] = []
 
         # Walk the directory tree
         for file_path in self._walk_files():
-            # Score the file
-            score = self.score_relevance(str(file_path), task_description)
+            # Score the file with pre-extracted keywords
+            # Use fast path/filename scoring only (skip expensive content reading)
+            target = file_path if file_path.is_absolute() else self.path / file_path
+
+            # Fast scoring: path + filename only (no file content reading)
+            path_score = self._score_path(target, keywords)
+            name_score = self._score_filename(target, keywords)
+
+            # Reweight to 60/40 since we're skipping content
+            score = path_score * 0.6 + name_score * 0.4
 
             # Apply minimum score threshold
-            if score >= min_score:
-                # Store relative path for output
-                try:
-                    relative_path = file_path.relative_to(self.path)
-                    scored_files.append((score, str(relative_path)))
-                except ValueError:
-                    # File is not under self.path, use absolute path
-                    scored_files.append((score, str(file_path)))
+            if score < min_score:
+                continue
 
-        # Sort by score (descending)
-        scored_files.sort(reverse=True, key=lambda x: x[0])
+            # Get relative path for output
+            try:
+                relative_path = file_path.relative_to(self.path)
+                rel_path_str = str(relative_path)
+            except ValueError:
+                # File is not under self.path, use absolute path
+                rel_path_str = str(file_path)
 
-        # Apply limits
-        result: list[str] = []
-        cumulative_tokens = 0
+            # Use min-heap to keep top N files
+            if len(top_files) < max_files:
+                heapq.heappush(top_files, (score, rel_path_str))
+            elif score > top_files[0][0]:  # Score better than worst in heap
+                heapq.heapreplace(top_files, (score, rel_path_str))
 
-        for score, path in scored_files:
-            # Check max_files limit
-            if max_files is not None and len(result) >= max_files:
-                break
+        # Convert heap to sorted list (highest score first)
+        results = sorted(top_files, reverse=True, key=lambda x: x[0])
 
-            # Check max_tokens limit
-            if max_tokens is not None:
+        # Apply token limit if specified
+        if max_tokens is not None:
+            selected_files = []
+            cumulative_tokens = 0
+
+            for score, path in results:
                 file_path = self.path / path if not Path(path).is_absolute() else Path(path)
                 tokens = self.estimate_tokens(file_path)
 
@@ -296,34 +331,35 @@ class ContextSelector:
                     break
 
                 cumulative_tokens += tokens
+                selected_files.append(path)
 
-            result.append(path)
+            return selected_files
 
-        return result
+        # Return just the file paths (without scores)
+        return [path for score, path in results]
 
-    def _walk_files(self) -> list[Path]:
+    def _walk_files(self):
         """
-        Walk the directory tree and collect all files.
+        Walk the directory tree and yield files one by one using os.walk() for efficiency.
 
-        Returns:
-            List of file paths (excludes directories in SKIP_DIRS)
+        Yields:
+            File paths (excludes directories in SKIP_DIRS)
         """
-        files: list[Path] = []
-
         try:
-            for item in self.path.rglob('*'):
-                # Skip if path contains any skip directory
-                if any(skip_dir in item.parts for skip_dir in SKIP_DIRS):
-                    continue
+            for root, dirs, files in os.walk(self.path):
+                # Filter out directories to skip (modifies dirs in-place to skip traversal)
+                dirs[:] = [d for d in dirs if d not in SKIP_DIRS and not d.startswith('.')]
 
-                # Only include files, not directories
-                if item.is_file():
-                    files.append(item)
+                # Yield all files in this directory
+                for file_name in files:
+                    # Skip hidden files
+                    if file_name.startswith('.'):
+                        continue
+
+                    yield Path(root) / file_name
         except (OSError, PermissionError):
             # Handle permission errors gracefully
             pass
-
-        return files
 
     def clear_cache(self) -> None:
         """Clear the relevance score cache."""
