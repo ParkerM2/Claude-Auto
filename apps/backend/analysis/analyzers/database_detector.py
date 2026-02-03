@@ -12,7 +12,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .base import BaseAnalyzer
+from .base import BaseAnalyzer, SKIP_DIRS
+from ..streaming_analyzer import stream_files_iter
 
 
 class DatabaseDetector(BaseAnalyzer):
@@ -46,11 +47,14 @@ class DatabaseDetector(BaseAnalyzer):
         return models
 
     def _detect_sqlalchemy_models(self) -> dict:
-        """Detect SQLAlchemy models."""
+        """Detect SQLAlchemy models using streaming iteration."""
         models = {}
-        py_files = list(self.path.glob("**/*.py"))
 
-        for file_path in py_files:
+        # Use streaming iterator for memory efficiency
+        for file_path in stream_files_iter(self.path, skip_dirs=SKIP_DIRS):
+            # Filter for Python files
+            if file_path.suffix != ".py":
+                continue
             try:
                 content = file_path.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
@@ -111,13 +115,15 @@ class DatabaseDetector(BaseAnalyzer):
         return models
 
     def _detect_django_models(self) -> dict:
-        """Detect Django models."""
+        """Detect Django models using streaming iteration."""
         models = {}
-        model_files = list(self.path.glob("**/models.py")) + list(
-            self.path.glob("**/models/*.py")
-        )
 
-        for file_path in model_files:
+        # Use streaming iterator for memory efficiency
+        for file_path in stream_files_iter(self.path, skip_dirs=SKIP_DIRS):
+            # Filter for Django model files (models.py or files in models/ directory)
+            if not (file_path.name == "models.py" or
+                    (file_path.parent.name == "models" and file_path.suffix == ".py")):
+                continue
             try:
                 content = file_path.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
@@ -208,13 +214,15 @@ class DatabaseDetector(BaseAnalyzer):
         return models
 
     def _detect_typeorm_models(self) -> dict:
-        """Detect TypeORM entities."""
+        """Detect TypeORM entities using streaming iteration."""
         models = {}
-        ts_files = list(self.path.glob("**/*.entity.ts")) + list(
-            self.path.glob("**/entities/*.ts")
-        )
 
-        for file_path in ts_files:
+        # Use streaming iterator for memory efficiency
+        for file_path in stream_files_iter(self.path, skip_dirs=SKIP_DIRS):
+            # Filter for TypeORM entity files (.entity.ts or files in entities/ directory)
+            if not (file_path.suffix == ".ts" and
+                    (file_path.name.endswith(".entity.ts") or file_path.parent.name == "entities")):
+                continue
             try:
                 content = file_path.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
@@ -257,13 +265,14 @@ class DatabaseDetector(BaseAnalyzer):
         return models
 
     def _detect_drizzle_models(self) -> dict:
-        """Detect Drizzle ORM schemas."""
+        """Detect Drizzle ORM schemas using streaming iteration."""
         models = {}
-        schema_files = list(self.path.glob("**/schema.ts")) + list(
-            self.path.glob("**/db/schema.ts")
-        )
 
-        for file_path in schema_files:
+        # Use streaming iterator for memory efficiency
+        for file_path in stream_files_iter(self.path, skip_dirs=SKIP_DIRS):
+            # Filter for Drizzle schema files (schema.ts in any directory)
+            if not (file_path.name == "schema.ts" and file_path.suffix == ".ts"):
+                continue
             try:
                 content = file_path.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
@@ -287,13 +296,14 @@ class DatabaseDetector(BaseAnalyzer):
         return models
 
     def _detect_mongoose_models(self) -> dict:
-        """Detect Mongoose models."""
+        """Detect Mongoose models using streaming iteration."""
         models = {}
-        model_files = list(self.path.glob("**/models/*.js")) + list(
-            self.path.glob("**/models/*.ts")
-        )
 
-        for file_path in model_files:
+        # Use streaming iterator for memory efficiency
+        for file_path in stream_files_iter(self.path, skip_dirs=SKIP_DIRS):
+            # Filter for Mongoose model files (JS/TS files in models/ directory)
+            if not (file_path.parent.name == "models" and file_path.suffix in {".js", ".ts"}):
+                continue
             try:
                 content = file_path.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
