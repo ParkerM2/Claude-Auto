@@ -83,6 +83,23 @@ export const insightsMock = {
     return { success: true };
   },
 
+  getPatternInsights: async (_projectId: string) => ({
+    success: true,
+    data: {
+      top_patterns: [
+        { content: 'Use async/await for async operations', frequency: 5, last_seen: new Date().toISOString() },
+        { content: 'Add error handling for API calls', frequency: 3, last_seen: new Date().toISOString() }
+      ],
+      common_gotchas: [
+        { content: 'Remember to handle edge cases', frequency: 2, last_seen: new Date().toISOString() }
+      ],
+      improvement_suggestions: [
+        { content: 'Consider adding unit tests', frequency: 4, last_seen: new Date().toISOString() }
+      ],
+      last_updated: new Date().toISOString()
+    }
+  }),
+
   sendInsightsMessage: () => {
     console.warn('[Browser Mock] sendInsightsMessage called');
   },

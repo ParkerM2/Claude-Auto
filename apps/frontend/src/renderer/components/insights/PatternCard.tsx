@@ -48,7 +48,7 @@ export const PatternCard = memo(function PatternCard({
 }: PatternCardProps) {
   const { t } = useTranslation(['insights', 'common']);
 
-  const relativeTime = formatRelativeTime(lastSeen);
+  const relativeTime = formatRelativeTime(new Date(lastSeen));
 
   return (
     <Card className="hover:shadow-md transition-shadow">

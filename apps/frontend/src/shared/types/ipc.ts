@@ -611,6 +611,12 @@ export interface ElectronAPI {
   deleteInsightsSession: (projectId: string, sessionId: string) => Promise<IPCResult>;
   renameInsightsSession: (projectId: string, sessionId: string, newTitle: string) => Promise<IPCResult>;
   updateInsightsModelConfig: (projectId: string, sessionId: string, modelConfig: InsightsModelConfig) => Promise<IPCResult>;
+  getPatternInsights: (projectId: string) => Promise<IPCResult<{
+    top_patterns: Array<{ content: string; frequency: number; last_seen: string }>;
+    common_gotchas: Array<{ content: string; frequency: number; last_seen: string }>;
+    improvement_suggestions: Array<{ content: string; frequency: number; last_seen: string }>;
+    last_updated?: string;
+  }>>;
 
   // Insights event listeners
   onInsightsStreamChunk: (

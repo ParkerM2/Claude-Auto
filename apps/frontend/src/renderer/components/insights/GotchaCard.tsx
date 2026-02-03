@@ -48,7 +48,7 @@ export const GotchaCard = memo(function GotchaCard({
 }: GotchaCardProps) {
   const { t } = useTranslation(['insights', 'common']);
 
-  const relativeTime = formatRelativeTime(lastSeen);
+  const relativeTime = formatRelativeTime(new Date(lastSeen));
 
   return (
     <Card className="hover:shadow-md transition-shadow border-l-4 border-l-orange-500">

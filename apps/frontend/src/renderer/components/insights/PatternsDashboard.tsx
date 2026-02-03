@@ -99,19 +99,19 @@ export function PatternsDashboard({ projectId }: PatternsDashboardProps) {
       if (result.success && result.data) {
         // Transform backend data to include IDs (using content hash or index)
         const transformedData = {
-          top_patterns: result.data.top_patterns.map((item, idx) => ({
+          top_patterns: result.data.top_patterns.map((item: { content: string; frequency: number; last_seen: string }, idx: number) => ({
             id: `pattern-${idx}-${item.content.slice(0, 20).replace(/\s/g, '-')}`,
             content: item.content,
             frequency: item.frequency,
             lastSeen: item.last_seen
           })),
-          common_gotchas: result.data.common_gotchas.map((item, idx) => ({
+          common_gotchas: result.data.common_gotchas.map((item: { content: string; frequency: number; last_seen: string }, idx: number) => ({
             id: `gotcha-${idx}-${item.content.slice(0, 20).replace(/\s/g, '-')}`,
             content: item.content,
             frequency: item.frequency,
             lastSeen: item.last_seen
           })),
-          improvement_suggestions: result.data.improvement_suggestions.map((item, idx) => ({
+          improvement_suggestions: result.data.improvement_suggestions.map((item: { content: string; frequency: number; last_seen: string }, idx: number) => ({
             id: `suggestion-${idx}-${item.content.slice(0, 20).replace(/\s/g, '-')}`,
             content: item.content,
             frequency: item.frequency,
