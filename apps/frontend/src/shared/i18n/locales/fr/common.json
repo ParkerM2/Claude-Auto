@@ -461,6 +461,12 @@
     "conversionError": "Erreur de conversion",
     "conversionErrorDescription": "Une erreur s'est produite lors de la conversion de l'idée"
   },
+  "insights": {
+    "tabs": {
+      "chat": "Chat",
+      "patterns": "Modèles"
+    }
+  },
   "issues": {
     "loadingMore": "Chargement...",
     "scrollForMore": "Défiler pour plus",
