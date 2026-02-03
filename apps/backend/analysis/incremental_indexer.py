@@ -192,6 +192,7 @@ class IncrementalIndexer:
         self.extensions = extensions or INDEX_EXTENSIONS
         self.skip_dirs = skip_dirs or SKIP_DIRS
         self.file_index = FileIndex.load(project_dir)
+        self._cache: dict[str, Any] = {}
 
     def _should_index(self, file_path: Path) -> bool:
         """
@@ -245,6 +246,44 @@ class IncrementalIndexer:
             print(f"Warning: Error scanning directory {self.project_dir}: {e}")
 
         return files
+
+    def get_cached_result(self, file_path: str) -> Any | None:
+        """
+        Get cached analysis result for a file.
+
+        Args:
+            file_path: Relative path to the file
+
+        Returns:
+            Cached result if available, None otherwise
+        """
+        cache_key = str(Path(file_path).as_posix())
+        return self._cache.get(cache_key)
+
+    def set_cached_result(self, file_path: str, result: Any) -> None:
+        """
+        Store analysis result in cache.
+
+        Args:
+            file_path: Relative path to the file
+            result: Analysis result to cache
+        """
+        cache_key = str(Path(file_path).as_posix())
+        self._cache[cache_key] = result
+
+    def invalidate_cache(self, file_path: str) -> None:
+        """
+        Invalidate cached result for a file.
+
+        Args:
+            file_path: Relative path to the file
+        """
+        cache_key = str(Path(file_path).as_posix())
+        self._cache.pop(cache_key, None)
+
+    def clear_cache(self) -> None:
+        """Clear all cached results."""
+        self._cache.clear()
 
     def detect_changes(self) -> ChangeSet:
         """
@@ -308,25 +347,28 @@ class IncrementalIndexer:
 
         updated_count = 0
 
-        # Track added files
+        # Track added files and invalidate cache
         for file_path in changes.added:
             try:
                 self.file_index.track_file(file_path)
+                self.invalidate_cache(file_path)
                 updated_count += 1
             except (FileNotFoundError, OSError) as e:
                 print(f"Warning: Failed to track {file_path}: {e}")
 
-        # Update modified files
+        # Update modified files and invalidate cache
         for file_path in changes.modified:
             try:
                 self.file_index.track_file(file_path)
+                self.invalidate_cache(file_path)
                 updated_count += 1
             except (FileNotFoundError, OSError) as e:
                 print(f"Warning: Failed to update {file_path}: {e}")
 
-        # Remove deleted files
+        # Remove deleted files and invalidate cache
         for file_path in changes.deleted:
             self.file_index.untrack_file(file_path)
+            self.invalidate_cache(file_path)
             updated_count += 1
 
         # Save updated index
@@ -354,8 +396,9 @@ class IncrementalIndexer:
         Returns:
             Number of files in the rebuilt index
         """
-        # Clear existing index
+        # Clear existing index and cache
         self.file_index.clear()
+        self.clear_cache()
 
         # Scan and track all files
         current_files = self._scan_directory()
