@@ -382,6 +382,10 @@
       "integrationTitle": "Mémoire",
       "integrationDescription": "Configurer la mémoire persistante inter-sessions pour les agents",
       "syncDescription": "Configurer la mémoire persistante"
+    },
+    "e2e": {
+      "title": "Tests E2E",
+      "description": "Configuration des tests de bout en bout"
     }
   },
   "agentProfile": {
@@ -758,5 +762,60 @@
       "openai": "Ceci ressemble à une API OpenAI. Vous aurez besoin d'une clé API.",
       "createOpenaiKey": "Créer une clé API OpenAI"
     }
+  },
+  "e2e": {
+    "title": "Tests E2E",
+    "description": "Configurer les tests de bout en bout pour les agents QA",
+    "sectionTitle": "Tests de bout en bout",
+    "sectionDescription": "Activer les tests automatisés de l'interface pendant la révision QA",
+    "enable": "Activer les tests E2E",
+    "enableDescription": "Permettre aux agents QA d'interagir avec l'application en cours d'exécution pour les tests automatisés",
+    "debugPort": "Port de débogage",
+    "debugPortDescription": "Port du protocole Chrome DevTools pour le débogage Electron (par défaut : 9222)",
+    "debugPortPlaceholder": "9222",
+    "status": {
+      "title": "Statut E2E",
+      "connected": "Connecté",
+      "disconnected": "Déconnecté",
+      "connecting": "Connexion en cours...",
+      "checking": "Vérification de la connexion...",
+      "appNotRunning": "Application non démarrée",
+      "portInUse": "Port déjà utilisé"
+    },
+    "validation": {
+      "portRequired": "Le port de débogage est requis",
+      "portInvalid": "Le port doit être un nombre entre 1024 et 65535",
+      "portReserved": "Les numéros de port inférieurs à 1024 sont réservés"
+    },
+    "hints": {
+      "electronRequired": "Les tests E2E nécessitent que l'application Electron soit lancée avec le débogage distant activé",
+      "startWithDebug": "Démarrez l'application avec : npm run dev",
+      "qaAgentsOnly": "Les outils E2E sont uniquement disponibles pour les agents QA (qa_reviewer et qa_fixer)"
+    },
+    "toast": {
+      "enabled": "Tests E2E activés",
+      "enabledDescription": "Les agents QA peuvent maintenant interagir avec l'application en cours d'exécution",
+      "disabled": "Tests E2E désactivés",
+      "disabledDescription": "Les agents QA n'effectueront pas de tests automatisés de l'interface",
+      "connectionSuccess": "Connexion E2E établie",
+      "connectionSuccessDescription": "Connexion réussie au port de débogage Electron",
+      "connectionFailed": "Échec de la connexion E2E",
+      "connectionFailedDescription": "Impossible de se connecter au port de débogage. Assurez-vous que l'application est lancée avec --remote-debugging-port={{port}}"
+    },
+    "testConnection": {
+      "label": "Tester la connexion",
+      "testing": "Test en cours...",
+      "success": "Connexion réussie",
+      "failure": "Échec de la connexion"
+    },
+    "capabilities": {
+      "title": "Capacités E2E",
+      "screenshots": "Prendre des captures d'écran pour vérification visuelle",
+      "interactions": "Cliquer, taper et interagir avec les éléments de l'interface",
+      "navigation": "Naviguer entre les pages et les routes",
+      "inspection": "Inspecter la structure de la page et l'état des formulaires"
+    },
+    "learnMore": "En savoir plus sur les tests E2E",
+    "notAvailable": "Tests E2E non disponibles pour ce projet"
   }
 }
