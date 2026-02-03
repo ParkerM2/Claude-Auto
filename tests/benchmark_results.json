@@ -1,0 +1,785 @@
+{
+  "results": [
+    {
+      "file_count": 1000,
+      "component": "IncrementalIndexer",
+      "operation": "initial_index",
+      "duration_seconds": 0.040052175521850586,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    },
+    {
+      "file_count": 1000,
+      "component": "IncrementalIndexer",
+      "operation": "update_index",
+      "duration_seconds": 11.891059875488281,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    },
+    {
+      "file_count": 1000,
+      "component": "IncrementalIndexer",
+      "operation": "detect_changes_cached",
+      "duration_seconds": 0.19024968147277832,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 1000,
+      "cache_misses": 0,
+      "cache_hit_rate": 1.0
+    },
+    {
+      "file_count": 1000,
+      "component": "IncrementalIndexer",
+      "operation": "detect_changes_modified",
+      "duration_seconds": 0.11278104782104492,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 1000,
+      "cache_misses": 0,
+      "cache_hit_rate": 1.0
+    },
+    {
+      "file_count": 1000,
+      "component": "ContextSelector",
+      "operation": "initialize",
+      "duration_seconds": 0.00022172927856445312,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    },
+    {
+      "file_count": 1000,
+      "component": "ContextSelector",
+      "operation": "score_single_file",
+      "duration_seconds": 0.014322996139526367,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    },
+    {
+      "file_count": 1000,
+      "component": "ContextSelector",
+      "operation": "select_files_by_count",
+      "duration_seconds": 0.38023924827575684,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    },
+    {
+      "file_count": 1000,
+      "component": "ContextSelector",
+      "operation": "select_files_by_tokens",
+      "duration_seconds": 0.1403636932373047,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    },
+    {
+      "file_count": 1000,
+      "component": "StreamingAnalyzer",
+      "operation": "analyze_default_batch",
+      "duration_seconds": 0.4507448673248291,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 6.103515625e-05,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    },
+    {
+      "file_count": 1000,
+      "component": "StreamingAnalyzer",
+      "operation": "analyze_large_batch",
+      "duration_seconds": 0.4437088966369629,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 6.103515625e-05,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    },
+    {
+      "file_count": 10000,
+      "component": "IncrementalIndexer",
+      "operation": "initial_index",
+      "duration_seconds": 0.6855502128601074,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    },
+    {
+      "file_count": 10000,
+      "component": "IncrementalIndexer",
+      "operation": "update_index",
+      "duration_seconds": 135.16150283813477,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    },
+    {
+      "file_count": 10000,
+      "component": "IncrementalIndexer",
+      "operation": "detect_changes_cached",
+      "duration_seconds": 1.6909847259521484,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 10000,
+      "cache_misses": 0,
+      "cache_hit_rate": 1.0
+    },
+    {
+      "file_count": 10000,
+      "component": "IncrementalIndexer",
+      "operation": "detect_changes_modified",
+      "duration_seconds": 0.9588797092437744,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 10000,
+      "cache_misses": 0,
+      "cache_hit_rate": 1.0
+    },
+    {
+      "file_count": 10000,
+      "component": "ContextSelector",
+      "operation": "initialize",
+      "duration_seconds": 0.00023317337036132812,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    },
+    {
+      "file_count": 10000,
+      "component": "ContextSelector",
+      "operation": "score_single_file",
+      "duration_seconds": 0.014443159103393555,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    },
+    {
+      "file_count": 10000,
+      "component": "ContextSelector",
+      "operation": "select_files_by_count",
+      "duration_seconds": 3.635288715362549,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    },
+    {
+      "file_count": 10000,
+      "component": "ContextSelector",
+      "operation": "select_files_by_tokens",
+      "duration_seconds": 0.8492097854614258,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    },
+    {
+      "file_count": 10000,
+      "component": "StreamingAnalyzer",
+      "operation": "analyze_default_batch",
+      "duration_seconds": 4.3476293087005615,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 6.103515625e-05,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    },
+    {
+      "file_count": 10000,
+      "component": "StreamingAnalyzer",
+      "operation": "analyze_large_batch",
+      "duration_seconds": 4.402762413024902,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 6.103515625e-05,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    },
+    {
+      "file_count": 50000,
+      "component": "IncrementalIndexer",
+      "operation": "initial_index",
+      "duration_seconds": 3.4443039894104004,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    },
+    {
+      "file_count": 50000,
+      "component": "IncrementalIndexer",
+      "operation": "update_index",
+      "duration_seconds": 680.4724514484406,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    },
+    {
+      "file_count": 50000,
+      "component": "IncrementalIndexer",
+      "operation": "detect_changes_cached",
+      "duration_seconds": 8.314560890197754,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 50000,
+      "cache_misses": 0,
+      "cache_hit_rate": 1.0
+    },
+    {
+      "file_count": 50000,
+      "component": "IncrementalIndexer",
+      "operation": "detect_changes_modified",
+      "duration_seconds": 4.669166326522827,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 50000,
+      "cache_misses": 0,
+      "cache_hit_rate": 1.0
+    },
+    {
+      "file_count": 50000,
+      "component": "ContextSelector",
+      "operation": "initialize",
+      "duration_seconds": 0.0002715587615966797,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    },
+    {
+      "file_count": 50000,
+      "component": "ContextSelector",
+      "operation": "score_single_file",
+      "duration_seconds": 0.018419742584228516,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    },
+    {
+      "file_count": 50000,
+      "component": "ContextSelector",
+      "operation": "select_files_by_count",
+      "duration_seconds": 17.565621852874756,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    },
+    {
+      "file_count": 50000,
+      "component": "ContextSelector",
+      "operation": "select_files_by_tokens",
+      "duration_seconds": 3.94478702545166,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 0.0,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    },
+    {
+      "file_count": 50000,
+      "component": "StreamingAnalyzer",
+      "operation": "analyze_default_batch",
+      "duration_seconds": 21.14087176322937,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 6.103515625e-05,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    },
+    {
+      "file_count": 50000,
+      "component": "StreamingAnalyzer",
+      "operation": "analyze_large_batch",
+      "duration_seconds": 20.940616607666016,
+      "memory_mb": 0.0,
+      "peak_memory_mb": 6.103515625e-05,
+      "cache_hits": 0,
+      "cache_misses": 0,
+      "cache_hit_rate": 0.0
+    }
+  ],
+  "summary": {
+    "baseline_file_count": 1000,
+    "degradation": {
+      "baseline_file_count": 1000,
+      "max_allowed_degradation": 10,
+      "degradations": [
+        {
+          "file_count": 10000,
+          "component": "IncrementalIndexer",
+          "operation": "initial_index",
+          "baseline_seconds": 0.040052175521850586,
+          "current_seconds": 0.6855502128601074,
+          "degradation_percent": 1611.6428856307778,
+          "passes": false
+        },
+        {
+          "file_count": 10000,
+          "component": "IncrementalIndexer",
+          "operation": "update_index",
+          "baseline_seconds": 11.891059875488281,
+          "current_seconds": 135.16150283813477,
+          "degradation_percent": 1036.6648915522735,
+          "passes": false
+        },
+        {
+          "file_count": 10000,
+          "component": "IncrementalIndexer",
+          "operation": "detect_changes_cached",
+          "baseline_seconds": 0.19024968147277832,
+          "current_seconds": 1.6909847259521484,
+          "degradation_percent": 788.8239459124147,
+          "passes": false
+        },
+        {
+          "file_count": 10000,
+          "component": "IncrementalIndexer",
+          "operation": "detect_changes_modified",
+          "baseline_seconds": 0.11278104782104492,
+          "current_seconds": 0.9588797092437744,
+          "degradation_percent": 750.2135135020865,
+          "passes": false
+        },
+        {
+          "file_count": 10000,
+          "component": "ContextSelector",
+          "operation": "initialize",
+          "baseline_seconds": 0.00022172927856445312,
+          "current_seconds": 0.00023317337036132812,
+          "degradation_percent": 5.161290322580645,
+          "passes": true
+        },
+        {
+          "file_count": 10000,
+          "component": "ContextSelector",
+          "operation": "score_single_file",
+          "baseline_seconds": 0.014322996139526367,
+          "current_seconds": 0.014443159103393555,
+          "degradation_percent": 0.8389513108614232,
+          "passes": true
+        },
+        {
+          "file_count": 10000,
+          "component": "ContextSelector",
+          "operation": "select_files_by_count",
+          "baseline_seconds": 0.38023924827575684,
+          "current_seconds": 3.635288715362549,
+          "degradation_percent": 856.0529934369551,
+          "passes": false
+        },
+        {
+          "file_count": 10000,
+          "component": "ContextSelector",
+          "operation": "select_files_by_tokens",
+          "baseline_seconds": 0.1403636932373047,
+          "current_seconds": 0.8492097854614258,
+          "degradation_percent": 505.0067263659958,
+          "passes": false
+        },
+        {
+          "file_count": 10000,
+          "component": "StreamingAnalyzer",
+          "operation": "analyze_default_batch",
+          "baseline_seconds": 0.4507448673248291,
+          "current_seconds": 4.3476293087005615,
+          "degradation_percent": 864.5432757789883,
+          "passes": false
+        },
+        {
+          "file_count": 10000,
+          "component": "StreamingAnalyzer",
+          "operation": "analyze_large_batch",
+          "baseline_seconds": 0.4437088966369629,
+          "current_seconds": 4.402762413024902,
+          "degradation_percent": 892.2637220923672,
+          "passes": false
+        },
+        {
+          "file_count": 50000,
+          "component": "IncrementalIndexer",
+          "operation": "initial_index",
+          "baseline_seconds": 0.040052175521850586,
+          "current_seconds": 3.4443039894104004,
+          "degradation_percent": 8499.54283265175,
+          "passes": false
+        },
+        {
+          "file_count": 50000,
+          "component": "IncrementalIndexer",
+          "operation": "update_index",
+          "baseline_seconds": 11.891059875488281,
+          "current_seconds": 680.4724514484406,
+          "degradation_percent": 5622.555084018517,
+          "passes": false
+        },
+        {
+          "file_count": 50000,
+          "component": "IncrementalIndexer",
+          "operation": "detect_changes_cached",
+          "baseline_seconds": 0.19024968147277832,
+          "current_seconds": 8.314560890197754,
+          "degradation_percent": 4270.341556333924,
+          "passes": false
+        },
+        {
+          "file_count": 50000,
+          "component": "IncrementalIndexer",
+          "operation": "detect_changes_modified",
+          "baseline_seconds": 0.11278104782104492,
+          "current_seconds": 4.669166326522827,
+          "degradation_percent": 4040.0274396560108,
+          "passes": false
+        },
+        {
+          "file_count": 50000,
+          "component": "ContextSelector",
+          "operation": "initialize",
+          "baseline_seconds": 0.00022172927856445312,
+          "current_seconds": 0.0002715587615966797,
+          "degradation_percent": 22.473118279569892,
+          "passes": false
+        },
+        {
+          "file_count": 50000,
+          "component": "ContextSelector",
+          "operation": "score_single_file",
+          "baseline_seconds": 0.014322996139526367,
+          "current_seconds": 0.018419742584228516,
+          "degradation_percent": 28.602580108198083,
+          "passes": false
+        },
+        {
+          "file_count": 50000,
+          "component": "ContextSelector",
+          "operation": "select_files_by_count",
+          "baseline_seconds": 0.38023924827575684,
+          "current_seconds": 17.565621852874756,
+          "degradation_percent": 4519.623548207687,
+          "passes": false
+        },
+        {
+          "file_count": 50000,
+          "component": "ContextSelector",
+          "operation": "select_files_by_tokens",
+          "baseline_seconds": 0.1403636932373047,
+          "current_seconds": 3.94478702545166,
+          "degradation_percent": 2710.404125504477,
+          "passes": false
+        },
+        {
+          "file_count": 50000,
+          "component": "StreamingAnalyzer",
+          "operation": "analyze_default_batch",
+          "baseline_seconds": 0.4507448673248291,
+          "current_seconds": 21.14087176322937,
+          "degradation_percent": 4590.207985883555,
+          "passes": false
+        },
+        {
+          "file_count": 50000,
+          "component": "StreamingAnalyzer",
+          "operation": "analyze_large_batch",
+          "baseline_seconds": 0.4437088966369629,
+          "current_seconds": 20.940616607666016,
+          "degradation_percent": 4619.449343112759,
+          "passes": false
+        }
+      ]
+    },
+    "memory": {
+      "max_memory_threshold_mb": 500,
+      "checks": [
+        {
+          "file_count": 1000,
+          "component": "IncrementalIndexer",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 1000,
+          "component": "IncrementalIndexer",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 1000,
+          "component": "IncrementalIndexer",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 1000,
+          "component": "IncrementalIndexer",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 1000,
+          "component": "ContextSelector",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 1000,
+          "component": "ContextSelector",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 1000,
+          "component": "ContextSelector",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 1000,
+          "component": "ContextSelector",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 1000,
+          "component": "StreamingAnalyzer",
+          "peak_memory_mb": 6.103515625e-05,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 1000,
+          "component": "StreamingAnalyzer",
+          "peak_memory_mb": 6.103515625e-05,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 10000,
+          "component": "IncrementalIndexer",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 10000,
+          "component": "IncrementalIndexer",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 10000,
+          "component": "IncrementalIndexer",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 10000,
+          "component": "IncrementalIndexer",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 10000,
+          "component": "ContextSelector",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 10000,
+          "component": "ContextSelector",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 10000,
+          "component": "ContextSelector",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 10000,
+          "component": "ContextSelector",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 10000,
+          "component": "StreamingAnalyzer",
+          "peak_memory_mb": 6.103515625e-05,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 10000,
+          "component": "StreamingAnalyzer",
+          "peak_memory_mb": 6.103515625e-05,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 50000,
+          "component": "IncrementalIndexer",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 50000,
+          "component": "IncrementalIndexer",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 50000,
+          "component": "IncrementalIndexer",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 50000,
+          "component": "IncrementalIndexer",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 50000,
+          "component": "ContextSelector",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 50000,
+          "component": "ContextSelector",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 50000,
+          "component": "ContextSelector",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 50000,
+          "component": "ContextSelector",
+          "peak_memory_mb": 0.0,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 50000,
+          "component": "StreamingAnalyzer",
+          "peak_memory_mb": 6.103515625e-05,
+          "threshold_mb": 500,
+          "passes": true
+        },
+        {
+          "file_count": 50000,
+          "component": "StreamingAnalyzer",
+          "peak_memory_mb": 6.103515625e-05,
+          "threshold_mb": 500,
+          "passes": true
+        }
+      ]
+    },
+    "cache": {
+      "min_cache_hit_rate": 0.8,
+      "checks": [
+        {
+          "file_count": 1000,
+          "component": "IncrementalIndexer",
+          "cache_hit_rate": 1.0,
+          "min_rate": 0.8,
+          "passes": true
+        },
+        {
+          "file_count": 1000,
+          "component": "IncrementalIndexer",
+          "cache_hit_rate": 1.0,
+          "min_rate": 0.8,
+          "passes": true
+        },
+        {
+          "file_count": 10000,
+          "component": "IncrementalIndexer",
+          "cache_hit_rate": 1.0,
+          "min_rate": 0.8,
+          "passes": true
+        },
+        {
+          "file_count": 10000,
+          "component": "IncrementalIndexer",
+          "cache_hit_rate": 1.0,
+          "min_rate": 0.8,
+          "passes": true
+        },
+        {
+          "file_count": 50000,
+          "component": "IncrementalIndexer",
+          "cache_hit_rate": 1.0,
+          "min_rate": 0.8,
+          "passes": true
+        },
+        {
+          "file_count": 50000,
+          "component": "IncrementalIndexer",
+          "cache_hit_rate": 1.0,
+          "min_rate": 0.8,
+          "passes": true
+        }
+      ]
+    }
+  }
+}
