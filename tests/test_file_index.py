@@ -31,7 +31,7 @@ def test_file_index_creation(temp_project):
 
     assert index.project_dir == temp_project.resolve()
     assert len(index) == 0
-    assert index.index_path == temp_project / ".auto-claude" / "file_index.json"
+    assert index.index_path == (temp_project / ".auto-claude" / "file_index.json").resolve()
 
 
 def test_track_file_lazy_hash(temp_project):
