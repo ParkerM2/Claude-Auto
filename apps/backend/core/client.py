@@ -757,6 +757,15 @@ def create_client(
             "args": ["puppeteer-mcp-server"],
         }
 
+    if "chrome-devtools" in required_servers:
+        # Chrome DevTools MCP for web app testing (external React apps)
+        # Requires Chrome 144+ running with remote debugging enabled
+        # --autoConnect: Automatically connects to existing Chrome browser sessions
+        mcp_servers["chrome-devtools"] = {
+            "command": "npx",
+            "args": ["-y", "chrome-devtools-mcp@latest", "--autoConnect"],
+        }
+
     if "linear" in required_servers:
         mcp_servers["linear"] = {
             "type": "http",
