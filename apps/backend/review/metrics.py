@@ -94,6 +94,11 @@ class ReviewIteration:
             try:
                 start = datetime.fromisoformat(self.started_at.replace("Z", "+00:00"))
                 end = datetime.fromisoformat(self.completed_at.replace("Z", "+00:00"))
+                # Ensure both datetimes are timezone-aware (assume UTC if naive)
+                if start.tzinfo is None:
+                    start = start.replace(tzinfo=timezone.utc)
+                if end.tzinfo is None:
+                    end = end.replace(tzinfo=timezone.utc)
                 self.duration_seconds = (end - start).total_seconds()
             except (ValueError, AttributeError):
                 self.duration_seconds = 0.0

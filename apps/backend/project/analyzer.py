@@ -30,7 +30,7 @@ from .stack_detector import StackDetector
 from .structure_analyzer import StructureAnalyzer
 
 if TYPE_CHECKING:
-    from ..analysis.incremental_indexer import IncrementalIndexer
+    from analysis.incremental_indexer import IncrementalIndexer
 
 
 class ProjectAnalyzer:
@@ -65,7 +65,7 @@ class ProjectAnalyzer:
     def indexer(self) -> "IncrementalIndexer":
         """Lazy-load the incremental indexer to avoid circular imports."""
         if self._indexer is None:
-            from ..analysis.incremental_indexer import IncrementalIndexer
+            from analysis.incremental_indexer import IncrementalIndexer
 
             self._indexer = IncrementalIndexer(self.project_dir)
         return self._indexer

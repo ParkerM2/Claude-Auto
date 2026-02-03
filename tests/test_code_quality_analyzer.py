@@ -871,7 +871,7 @@ class TestEdgeCases:
         """Test analyzing file with unicode characters."""
         analyzer = CodeQualityAnalyzer(temp_dir)
         unicode_file = temp_dir / "unicode.py"
-        unicode_file.write_text("# Héllo Wörld 🚀\ndef test():\n    return '✓'\n")
+        unicode_file.write_text("# Héllo Wörld 🚀\ndef test():\n    return '✓'\n", encoding="utf-8")
 
         files = analyzer._find_code_files()
         assert len(files) == 1

@@ -23,7 +23,7 @@ _backend_dir = Path(__file__).parent.parent / "apps" / "backend"
 if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
-from merge.types import ConflictRegion, ChangeType, MergeSeverity
+from merge.types import ConflictRegion, ChangeType, ConflictSeverity
 from merge.conflict_analysis import suggest_resolution_strategies
 
 
@@ -54,12 +54,12 @@ def sample_conflicts():
     return [
         ConflictRegion(
             file_path="src/auth.py",
-            start_line=10,
-            end_line=15,
-            severity=MergeSeverity.HIGH,
-            reason="Both branches modified authentication logic",
-            change_type=ChangeType.MODIFIED,
+            location="function:authenticate",
+            tasks_involved=["001-auth", "002-security"],
+            change_types=[ChangeType.MODIFY_FUNCTION],
+            severity=ConflictSeverity.HIGH,
             can_auto_merge=False,
+            reason="Both branches modified authentication logic",
             resolution_strategies=[
                 "Manual review required: authentication changes need careful examination",
                 "AI-assisted merge: analyze security implications",
@@ -68,12 +68,12 @@ def sample_conflicts():
         ),
         ConflictRegion(
             file_path="src/utils.py",
-            start_line=42,
-            end_line=45,
-            severity=MergeSeverity.LOW,
-            reason="Import statement order differs",
-            change_type=ChangeType.MODIFIED,
+            location="file_top",
+            tasks_involved=["001-utils"],
+            change_types=[ChangeType.ADD_IMPORT],
+            severity=ConflictSeverity.LOW,
             can_auto_merge=True,
+            reason="Import statement order differs",
             resolution_strategies=[
                 "Auto-merge: combine imports and sort alphabetically",
                 "Use current branch: main branch imports",
@@ -82,12 +82,12 @@ def sample_conflicts():
         ),
         ConflictRegion(
             file_path="package.json",
-            start_line=20,
-            end_line=22,
-            severity=MergeSeverity.MEDIUM,
-            reason="Dependency versions differ",
-            change_type=ChangeType.MODIFIED,
+            location="dependencies",
+            tasks_involved=["001-deps", "002-deps"],
+            change_types=[ChangeType.MODIFY_VARIABLE],
+            severity=ConflictSeverity.MEDIUM,
             can_auto_merge=False,
+            reason="Dependency versions differ",
             resolution_strategies=[
                 "Use semantic versioning: choose highest compatible version",
                 "Manual review: check breaking changes",
@@ -105,7 +105,7 @@ def mock_preview_response(sample_conflicts):
         "conflicts": [c.to_dict() for c in sample_conflicts],
         "total_conflicts": len(sample_conflicts),
         "auto_mergeable_count": sum(1 for c in sample_conflicts if c.can_auto_merge),
-        "high_severity_count": sum(1 for c in sample_conflicts if c.severity == MergeSeverity.HIGH)
+        "high_severity_count": sum(1 for c in sample_conflicts if c.severity == ConflictSeverity.HIGH)
     }
 
 
@@ -133,18 +133,15 @@ class TestBackendPreviewE2E:
         """Test the strategy suggestion function directly."""
         conflict = ConflictRegion(
             file_path="test.py",
-            start_line=1,
-            end_line=5,
-            severity=MergeSeverity.HIGH,
-            reason="Both modified same function",
-            change_type=ChangeType.MODIFIED,
-            can_auto_merge=False
+            location="function:test",
+            tasks_involved=["001-test"],
+            change_types=[ChangeType.MODIFY_FUNCTION],
+            severity=ConflictSeverity.HIGH,
+            can_auto_merge=False,
+            reason="Both modified same function"
         )
 
-        strategies = suggest_resolution_strategies(
-            conflict=conflict,
-            merge_strategy="recursive"
-        )
+        strategies = suggest_resolution_strategies(conflict=conflict)
 
         assert isinstance(strategies, list)
         assert len(strategies) > 0
@@ -157,26 +154,26 @@ class TestBackendPreviewE2E:
         """Test that strategy suggestions vary based on conflict severity."""
         high_conflict = ConflictRegion(
             file_path="critical.py",
-            start_line=1,
-            end_line=5,
-            severity=MergeSeverity.HIGH,
-            reason="Security critical changes",
-            change_type=ChangeType.MODIFIED,
-            can_auto_merge=False
+            location="function:critical",
+            tasks_involved=["001-security"],
+            change_types=[ChangeType.MODIFY_FUNCTION],
+            severity=ConflictSeverity.HIGH,
+            can_auto_merge=False,
+            reason="Security critical changes"
         )
 
         low_conflict = ConflictRegion(
             file_path="style.py",
-            start_line=1,
-            end_line=5,
-            severity=MergeSeverity.LOW,
-            reason="Formatting differences",
-            change_type=ChangeType.MODIFIED,
-            can_auto_merge=True
+            location="file_top",
+            tasks_involved=["001-style"],
+            change_types=[ChangeType.FORMATTING_ONLY],
+            severity=ConflictSeverity.LOW,
+            can_auto_merge=True,
+            reason="Formatting differences"
         )
 
-        high_strategies = suggest_resolution_strategies(high_conflict, "recursive")
-        low_strategies = suggest_resolution_strategies(low_conflict, "recursive")
+        high_strategies = suggest_resolution_strategies(high_conflict)
+        low_strategies = suggest_resolution_strategies(low_conflict)
 
         # High severity should be more cautious
         high_text = " ".join(high_strategies).lower()

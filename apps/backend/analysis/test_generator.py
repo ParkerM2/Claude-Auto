@@ -506,7 +506,7 @@ class JavaScriptTypeScriptAnalyzer:
         """Detect test framework from imports."""
         if "vitest" in imports or any("vitest" in imp for imp in imports):
             return TestFramework.VITEST
-        elif "jest" in imports or "@jest" in imports:
+        elif "jest" in imports or any("@jest" in imp or imp == "jest" for imp in imports):
             return TestFramework.JEST
         return None
 

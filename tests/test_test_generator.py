@@ -449,10 +449,12 @@ def test_analyze_code_unsupported_language(test_generator):
     assert "Unsupported language" in str(exc_info.value)
 
 
-def test_analyze_code_javascript_not_implemented(test_generator):
-    """Test analyze_code for JavaScript raises NotImplementedError."""
-    with pytest.raises(NotImplementedError):
-        test_generator.analyze_code("function test() {}", language="javascript")
+def test_analyze_code_javascript_supported(test_generator):
+    """Test analyze_code for JavaScript is now supported."""
+    analysis = test_generator.analyze_code("function test() {}", language="javascript")
+    assert analysis.language == Language.JAVASCRIPT
+    assert len(analysis.functions) >= 1
+    assert analysis.functions[0].name == "test"
 
 
 def test_analyze_file_python(test_generator, temp_dir, simple_python_code):
@@ -490,26 +492,22 @@ def test_analyze_file_unsupported_extension(test_generator, temp_dir):
     assert "Unsupported file extension" in str(exc_info.value)
 
 
-@pytest.mark.parametrize("extension,language", [
-    (".py", Language.PYTHON),
-    (".js", Language.JAVASCRIPT),
-    (".jsx", Language.JAVASCRIPT),
-    (".ts", Language.TYPESCRIPT),
-    (".tsx", Language.TYPESCRIPT),
+@pytest.mark.parametrize("extension,language,content", [
+    (".py", Language.PYTHON, "# placeholder"),
+    (".js", Language.JAVASCRIPT, "function test() {}"),
+    (".jsx", Language.JAVASCRIPT, "function Test() {}"),
+    (".ts", Language.TYPESCRIPT, "function test(): void {}"),
+    (".tsx", Language.TYPESCRIPT, "function Test(): JSX.Element {}"),
 ])
-def test_analyze_file_language_detection(test_generator, temp_dir, extension, language):
+def test_analyze_file_language_detection(test_generator, temp_dir, extension, language, content):
     """Test language detection from file extensions."""
     # Create file with specific extension
     file_path = temp_dir / f"test{extension}"
-    file_path.write_text("# placeholder")
+    file_path.write_text(content)
 
-    # Only test Python files (others raise NotImplementedError)
-    if language == Language.PYTHON:
-        analysis = test_generator.analyze_file(file_path)
-        assert analysis.language == language
-    else:
-        with pytest.raises(NotImplementedError):
-            test_generator.analyze_file(file_path)
+    # All languages are now supported
+    analysis = test_generator.analyze_file(file_path)
+    assert analysis.language == language
 
 
 def test_generate_test_simple_function(test_generator, simple_python_code):
@@ -567,15 +565,18 @@ def test_generate_test_unsupported_framework(test_generator, simple_python_code)
 
 
 def test_generate_test_unittest_not_implemented(test_generator, simple_python_code):
-    """Test generate_test with unittest raises NotImplementedError."""
+    """Test generate_test with unittest raises NotImplementedError (still not implemented)."""
+    # unittest generation is still not implemented
     with pytest.raises(NotImplementedError):
         test_generator.generate_test(simple_python_code, framework="unittest")
 
 
-def test_generate_test_vitest_not_implemented(test_generator, simple_python_code):
-    """Test generate_test with vitest raises NotImplementedError."""
-    with pytest.raises(NotImplementedError):
-        test_generator.generate_test(simple_python_code, framework="vitest")
+def test_generate_test_vitest_supported(test_generator):
+    """Test generate_test with vitest is now supported."""
+    js_code = "function add(a, b) { return a + b; }"
+    test_code = test_generator.generate_test(js_code, framework="vitest", language="javascript")
+    assert "describe('add'" in test_code
+    assert "import { describe, it, expect" in test_code
 
 
 def test_generate_pytest_imports_basic(test_generator):

@@ -203,6 +203,7 @@ AGENT_CONFIGS = {
     "planner": {
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7", "graphiti", "auto-claude"],
+        "mcp_servers_optional": ["linear"],  # Linear can be enabled per-project
         "auto_claude_tools": [
             TOOL_GET_BUILD_PROGRESS,
             TOOL_GET_SESSION_CONTEXT,
@@ -457,10 +458,10 @@ def get_required_mcp_servers(
 
     # Handle optional servers (e.g., Linear if project setting enabled)
     optional = config.get("mcp_servers_optional", [])
-    if "linear" in optional and linear_enabled:
-        # Also check per-project LINEAR_MCP_ENABLED override
-        linear_mcp_enabled = mcp_config.get("LINEAR_MCP_ENABLED", "true")
-        if str(linear_mcp_enabled).lower() != "false":
+    if "linear" in optional:
+        # Check per-project LINEAR_MCP_ENABLED override
+        linear_mcp_enabled = mcp_config.get("LINEAR_MCP_ENABLED", "false")
+        if str(linear_mcp_enabled).lower() == "true":
             servers.append("linear")
 
     # Handle dynamic "browser" → electron/chrome-devtools/puppeteer based on project type and config

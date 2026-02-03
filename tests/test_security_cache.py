@@ -3,6 +3,7 @@ import json
 import time
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 # Ensure local apps/backend is in path
 sys.path.insert(0, str(Path(__file__).parents[1] / "apps" / "backend"))
@@ -61,20 +62,22 @@ def test_cache_invalidation_on_file_creation(mock_project_dir, mock_profile_path
     current_hash = get_dir_hash(mock_project_dir)
 
     # 1. First call - file doesn't exist, analyzer will create one with BASE_COMMANDS
-    profile1 = get_security_profile(mock_project_dir)
-    assert "unique_cmd_A" not in profile1.get_all_allowed_commands()
+    # Mock has_file_changes to return False so we test only hash-based invalidation
+    with patch.object(ProjectAnalyzer, 'has_file_changes', return_value=False):
+        profile1 = get_security_profile(mock_project_dir)
+        assert "unique_cmd_A" not in profile1.get_all_allowed_commands()
 
-    # 2. Wait to ensure filesystem mtime has different second
-    # (some filesystems have 1-second resolution)
-    time.sleep(1.0)
+        # 2. Wait to ensure filesystem mtime has different second
+        # (some filesystems have 1-second resolution)
+        time.sleep(0.1)
 
-    # 3. Overwrite the file with our custom content
-    # Use the SAME hash we computed before (directory structure hasn't changed)
-    mock_profile_path.write_text(create_valid_profile_json(["unique_cmd_A"], current_hash))
+        # 3. Overwrite the file with our custom content
+        # Use the SAME hash we computed before (directory structure hasn't changed)
+        mock_profile_path.write_text(create_valid_profile_json(["unique_cmd_A"], current_hash))
 
-    # 4. Second call - should detect file modification and reload
-    profile2 = get_security_profile(mock_project_dir)
-    assert "unique_cmd_A" in profile2.get_all_allowed_commands()
+        # 4. Second call - should detect file modification and reload
+        profile2 = get_security_profile(mock_project_dir)
+        assert "unique_cmd_A" in profile2.get_all_allowed_commands()
 
 def test_cache_invalidation_on_file_modification(mock_project_dir, mock_profile_path):
     reset_profile_cache()
@@ -83,19 +86,21 @@ def test_cache_invalidation_on_file_modification(mock_project_dir, mock_profile_
     current_hash = get_dir_hash(mock_project_dir)
     mock_profile_path.write_text(create_valid_profile_json(["unique_cmd_A"], current_hash))
 
-    # 2. Load initial profile
-    profile1 = get_security_profile(mock_project_dir)
-    assert "unique_cmd_A" in profile1.get_all_allowed_commands()
+    # Mock has_file_changes to return False so we test only file mtime-based invalidation
+    with patch.object(ProjectAnalyzer, 'has_file_changes', return_value=False):
+        # 2. Load initial profile
+        profile1 = get_security_profile(mock_project_dir)
+        assert "unique_cmd_A" in profile1.get_all_allowed_commands()
 
-    # Wait to ensure mtime changes (some filesystems have 1-second resolution)
-    time.sleep(1.0)
+        # Wait to ensure mtime changes (some filesystems have 1-second resolution)
+        time.sleep(0.1)
 
-    # 3. Modify the file
-    mock_profile_path.write_text(create_valid_profile_json(["unique_cmd_B"], current_hash))
+        # 3. Modify the file
+        mock_profile_path.write_text(create_valid_profile_json(["unique_cmd_B"], current_hash))
 
-    # 4. Call again - should detect modification
-    profile2 = get_security_profile(mock_project_dir)
-    assert "unique_cmd_B" in profile2.get_all_allowed_commands()
+        # 4. Call again - should detect modification
+        profile2 = get_security_profile(mock_project_dir)
+        assert "unique_cmd_B" in profile2.get_all_allowed_commands()
 
 def test_cache_invalidation_on_file_deletion(mock_project_dir, mock_profile_path):
     reset_profile_cache()
@@ -104,13 +109,15 @@ def test_cache_invalidation_on_file_deletion(mock_project_dir, mock_profile_path
     current_hash = get_dir_hash(mock_project_dir)
     mock_profile_path.write_text(create_valid_profile_json(["unique_cmd_A"], current_hash))
 
-    # 2. Load profile
-    profile1 = get_security_profile(mock_project_dir)
-    assert "unique_cmd_A" in profile1.get_all_allowed_commands()
+    # Mock has_file_changes to return False so we test only file deletion detection
+    with patch.object(ProjectAnalyzer, 'has_file_changes', return_value=False):
+        # 2. Load profile
+        profile1 = get_security_profile(mock_project_dir)
+        assert "unique_cmd_A" in profile1.get_all_allowed_commands()
 
-    # 3. Delete file
-    mock_profile_path.unlink()
+        # 3. Delete file
+        mock_profile_path.unlink()
 
-    # 4. Call again - should handle deletion gracefully and fallback to fresh analysis
-    profile2 = get_security_profile(mock_project_dir)
-    assert "unique_cmd_A" not in profile2.get_all_allowed_commands()
+        # 4. Call again - should handle deletion gracefully and fallback to fresh analysis
+        profile2 = get_security_profile(mock_project_dir)
+        assert "unique_cmd_A" not in profile2.get_all_allowed_commands()

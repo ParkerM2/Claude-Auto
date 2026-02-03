@@ -28,14 +28,14 @@ class FileAnalysisResult:
     Result from analyzing a single file.
 
     Attributes:
-        file_path: Path to the analyzed file
-        size_bytes: File size in bytes
+        path: Path to the analyzed file
+        size: File size in bytes
         lines: Number of lines in the file
         error: Optional error message if analysis failed
     """
 
-    file_path: str
-    size_bytes: int
+    path: Path
+    size: int
     lines: int = 0
     error: str | None = None
 
@@ -47,19 +47,19 @@ class StreamingAnalysisResult:
 
     Attributes:
         total_files: Total number of files processed
-        total_size_bytes: Total size of all files in bytes
+        total_size: Total size of all files in bytes
         total_lines: Total number of lines across all files
         peak_memory_mb: Peak memory usage in megabytes
         files: List of individual file results
-        errors: List of files that had errors
+        errors: Count of files that had errors
     """
 
     total_files: int = 0
-    total_size_bytes: int = 0
+    total_size: int = 0
     total_lines: int = 0
     peak_memory_mb: float = 0.0
     files: list[FileAnalysisResult] = field(default_factory=list)
-    errors: list[str] = field(default_factory=list)
+    errors: int = 0
 
 
 # =============================================================================
@@ -97,7 +97,7 @@ class StreamingAnalyzer:
             batch_size: Number of files to process per batch
             skip_dirs: Set of directory names to skip
         """
-        self.root_path = Path(root_path).resolve()
+        self.project_dir = Path(root_path).resolve()
         self.max_memory_mb = max_memory_mb
         self.batch_size = batch_size
         self.skip_dirs = skip_dirs if skip_dirs is not None else SKIP_DIRS
@@ -143,15 +143,15 @@ class StreamingAnalyzer:
                 pass
 
             return FileAnalysisResult(
-                file_path=str(file_path.relative_to(self.root_path)),
-                size_bytes=size_bytes,
+                path=file_path,
+                size=size_bytes,
                 lines=lines,
             )
 
         except Exception as e:
             return FileAnalysisResult(
-                file_path=str(file_path.relative_to(self.root_path)),
-                size_bytes=0,
+                path=file_path,
+                size=0,
                 error=str(e),
             )
 
@@ -192,7 +192,7 @@ class StreamingAnalyzer:
         try:
             # Stream files in batches
             for batch in stream_files(
-                self.root_path,
+                self.project_dir,
                 batch_size=self.batch_size,
                 skip_dirs=self.skip_dirs,
             ):
@@ -210,20 +210,18 @@ class StreamingAnalyzer:
                 for file_result in batch_results:
                     result.files.append(file_result)
                     result.total_files += 1
-                    result.total_size_bytes += file_result.size_bytes
+                    result.total_size += file_result.size
                     result.total_lines += file_result.lines
 
                     if file_result.error:
-                        result.errors.append(
-                            f"{file_result.file_path}: {file_result.error}"
-                        )
+                        result.errors += 1
 
             # Set peak memory usage
             result.peak_memory_mb = self.peak_memory_mb
 
         except Exception as e:
             # Handle any unexpected errors
-            result.errors.append(f"Analysis failed: {str(e)}")
+            result.errors += 1
 
         return result
 

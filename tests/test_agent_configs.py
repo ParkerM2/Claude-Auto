@@ -131,17 +131,22 @@ class TestGetRequiredMcpServers:
         assert "auto-claude" in servers
 
     def test_linear_optional_not_included_by_default(self):
-        """Linear should not be included unless linear_enabled=True."""
+        """Linear should not be included unless LINEAR_MCP_ENABLED is true."""
         from agents.tools_pkg.models import get_required_mcp_servers
 
-        servers = get_required_mcp_servers("planner", linear_enabled=False)
+        # Default: Linear not enabled
+        servers = get_required_mcp_servers("planner")
+        assert "linear" not in servers
+
+        # Explicit false
+        servers = get_required_mcp_servers("planner", mcp_config={"LINEAR_MCP_ENABLED": "false"})
         assert "linear" not in servers
 
     def test_linear_included_when_enabled(self):
-        """Linear should be included when linear_enabled=True for agents with optional Linear."""
+        """Linear should be included when LINEAR_MCP_ENABLED=true for agents with optional Linear."""
         from agents.tools_pkg.models import get_required_mcp_servers
 
-        servers = get_required_mcp_servers("planner", linear_enabled=True)
+        servers = get_required_mcp_servers("planner", mcp_config={"LINEAR_MCP_ENABLED": "true"})
         assert "linear" in servers
 
     def test_browser_resolved_to_electron_for_electron_project(self):

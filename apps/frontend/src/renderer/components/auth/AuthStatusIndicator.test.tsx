@@ -13,7 +13,7 @@ import { useSettingsStore } from '../../stores/settings-store';
 import type { APIProfile } from '../../../shared/types/profile';
 
 // Mock the settings store
-vi.mock('../stores/settings-store', () => ({
+vi.mock('../../stores/settings-store', () => ({
   useSettingsStore: vi.fn()
 }));
 

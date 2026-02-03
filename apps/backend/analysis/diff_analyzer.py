@@ -378,13 +378,19 @@ class DiffAnalyzer:
 
             # Old file marker (---)
             if line.startswith("--- "):
-                # Just skip, we already have the path
+                # Check for /dev/null which indicates a new file
+                if "/dev/null" in line or line == "--- /dev/null":
+                    if current_file.change_type == ChangeType.MODIFIED:
+                        current_file.change_type = ChangeType.ADDED
                 i += 1
                 continue
 
             # New file marker (+++)
             if line.startswith("+++ "):
-                # Just skip, we already have the path
+                # Check for /dev/null which indicates a deleted file
+                if "/dev/null" in line or line == "+++ /dev/null":
+                    if current_file.change_type == ChangeType.MODIFIED:
+                        current_file.change_type = ChangeType.DELETED
                 i += 1
                 continue
 
