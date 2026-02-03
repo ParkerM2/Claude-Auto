@@ -209,6 +209,60 @@
   "review": {
     "mergeTooltip": "Merges changes from the task's worktree branch back to your base branch. AI will resolve any conflicts. You can then choose whether to keep or remove the worktree."
   },
+  "conflictStrategies": {
+    "title": "Merge Conflict Resolution",
+    "description": "Choose how to resolve merge conflicts automatically",
+    "strategies": {
+      "acceptIncoming": "Accept Incoming",
+      "acceptCurrent": "Accept Current",
+      "acceptBoth": "Accept Both",
+      "manual": "Manual Resolution",
+      "ai": "AI Resolution"
+    },
+    "labels": {
+      "strategy": "Resolution Strategy",
+      "selectStrategy": "Select resolution strategy",
+      "analyzing": "Analyzing conflicts...",
+      "resolving": "Resolving conflicts...",
+      "resolved": "Conflicts resolved",
+      "failed": "Resolution failed"
+    },
+    "descriptions": {
+      "acceptIncoming": "Accept all changes from the incoming branch",
+      "acceptCurrent": "Keep all changes from the current branch",
+      "acceptBoth": "Combine changes from both branches",
+      "manual": "Manually resolve each conflict",
+      "ai": "Let AI analyze and resolve conflicts intelligently"
+    },
+    "actions": {
+      "resolve": "Resolve Conflicts",
+      "abort": "Abort Merge",
+      "retry": "Retry Resolution",
+      "viewConflicts": "View Conflicts",
+      "continueAfterResolution": "Continue After Resolution"
+    },
+    "status": {
+      "noConflicts": "No conflicts detected",
+      "conflictsDetected": "{{count}} conflict(s) detected",
+      "conflictsDetectedOne": "{{count}} conflict detected",
+      "conflictsDetectedOther": "{{count}} conflicts detected",
+      "resolutionInProgress": "Resolution in progress...",
+      "resolutionComplete": "All conflicts resolved",
+      "resolutionFailed": "Failed to resolve conflicts"
+    },
+    "errors": {
+      "resolutionFailed": "Failed to resolve conflicts automatically. Please resolve manually.",
+      "strategyNotSupported": "Selected strategy is not supported for this conflict type.",
+      "analysisError": "Error analyzing conflicts: {{error}}"
+    },
+    "tooltips": {
+      "acceptIncoming": "Use changes from the branch being merged in",
+      "acceptCurrent": "Keep the current branch's version",
+      "acceptBoth": "Attempt to include changes from both branches",
+      "manual": "Open files in editor to resolve conflicts manually",
+      "ai": "Use AI to intelligently resolve conflicts based on code context"
+    }
+  },
   "edit": {
     "title": "Edit Task",
     "description": "Update task details including title, description, classification, images, and settings. Changes will be saved to the spec files.",
