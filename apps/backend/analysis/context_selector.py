@@ -212,6 +212,75 @@ class ContextSelector:
 
         return min(1.0, total_matches / len(keywords))
 
+    def select_files(
+        self,
+        task_description: str,
+        max_files: int | None = None,
+        min_score: float = 0.0,
+    ) -> list[str]:
+        """
+        Select most relevant files based on task description.
+
+        Args:
+            task_description: Description of the task to match against
+            max_files: Maximum number of files to return (None for unlimited)
+            min_score: Minimum relevance score threshold (0.0 to 1.0)
+
+        Returns:
+            List of file paths sorted by relevance (highest first)
+        """
+        # Collect all files with their scores
+        scored_files: list[tuple[float, str]] = []
+
+        # Walk the directory tree
+        for file_path in self._walk_files():
+            # Score the file
+            score = self.score_relevance(str(file_path), task_description)
+
+            # Apply minimum score threshold
+            if score >= min_score:
+                # Store relative path for output
+                try:
+                    relative_path = file_path.relative_to(self.path)
+                    scored_files.append((score, str(relative_path)))
+                except ValueError:
+                    # File is not under self.path, use absolute path
+                    scored_files.append((score, str(file_path)))
+
+        # Sort by score (descending)
+        scored_files.sort(reverse=True, key=lambda x: x[0])
+
+        # Apply max_files limit
+        if max_files is not None and max_files > 0:
+            scored_files = scored_files[:max_files]
+
+        # Return just the file paths
+        return [path for _, path in scored_files]
+
+    def _walk_files(self) -> list[Path]:
+        """
+        Walk the directory tree and collect all files.
+
+        Returns:
+            List of file paths (excludes directories in SKIP_DIRS)
+        """
+        files: list[Path] = []
+
+        try:
+            for item in self.path.rglob('*'):
+                # Skip if path contains any skip directory
+                if any(skip_dir in item.parts for skip_dir in SKIP_DIRS):
+                    continue
+
+                # Only include files, not directories
+                if item.is_file():
+                    files.append(item)
+        except (OSError, PermissionError):
+            # Handle permission errors gracefully
+            pass
+
+        return files
+
     def clear_cache(self) -> None:
         """Clear the relevance score cache."""
         self._cache.clear()
