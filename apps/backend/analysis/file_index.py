@@ -292,6 +292,7 @@ class FileIndex:
         abs_dir = Path(dir_path)
         if not abs_dir.is_absolute():
             abs_dir = self.project_dir / dir_path
+        abs_dir = abs_dir.resolve()
 
         if not abs_dir.is_dir():
             return
@@ -317,6 +318,7 @@ class FileIndex:
         abs_dir = Path(dir_path)
         if not abs_dir.is_absolute():
             abs_dir = self.project_dir / dir_path
+        abs_dir = abs_dir.resolve()
 
         try:
             rel_dir = abs_dir.relative_to(self.project_dir)
@@ -347,6 +349,7 @@ class FileIndex:
         abs_dir = Path(dir_path)
         if not abs_dir.is_absolute():
             abs_dir = self.project_dir / dir_path
+        abs_dir = abs_dir.resolve()
 
         try:
             rel_dir = abs_dir.relative_to(self.project_dir)
