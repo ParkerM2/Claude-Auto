@@ -1,0 +1,29 @@
+{
+  "tabs": {
+    "chat": "Chat",
+    "patterns": "Modèles"
+  },
+  "patterns": {
+    "loading": "Chargement des modèles...",
+    "title": "Analyses de Modèles",
+    "subtitle": "Informations générées par IA à partir de vos sessions de développement",
+    "topPatterns": "Meilleurs Modèles",
+    "commonGotchas": "Pièges Courants",
+    "improvements": "Suggestions d'Amélioration",
+    "noPatterns": "Aucun modèle trouvé pour le moment. Continuez à travailler et Auto Claude apprendra de vos sessions.",
+    "noGotchas": "Aucun piège courant identifié pour le moment.",
+    "noSuggestions": "Aucune suggestion d'amélioration pour le moment.",
+    "seenCount": "Vu {{count}} fois",
+    "seenCount_one": "Vu une fois",
+    "seenCount_other": "Vu {{count}} fois",
+    "confirm": "Confirmer le modèle",
+    "dismiss": "Ignorer le modèle"
+  },
+  "gotchas": {
+    "encounteredCount": "Rencontré {{count}} fois",
+    "encounteredCount_one": "Rencontré une fois",
+    "encounteredCount_other": "Rencontré {{count}} fois",
+    "confirm": "Confirmer le piège",
+    "dismiss": "Ignorer le piège"
+  }
+}

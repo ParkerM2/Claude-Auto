@@ -110,7 +110,8 @@
     "justNow": "À l'instant",
     "minutesAgo": "Il y a {{count}} min",
     "hoursAgo": "Il y a {{count}}h",
-    "daysAgo": "Il y a {{count}}j"
+    "daysAgo": "Il y a {{count}}j",
+    "lastSeen": "Vu pour la dernière fois"
   },
   "errors": {
     "generic": "Une erreur s'est produite",

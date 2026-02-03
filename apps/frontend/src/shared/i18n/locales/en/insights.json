@@ -1,0 +1,29 @@
+{
+  "tabs": {
+    "chat": "Chat",
+    "patterns": "Patterns"
+  },
+  "patterns": {
+    "loading": "Loading patterns...",
+    "title": "Pattern Insights",
+    "subtitle": "AI-generated insights from your development sessions",
+    "topPatterns": "Top Patterns",
+    "commonGotchas": "Common Gotchas",
+    "improvements": "Improvement Suggestions",
+    "noPatterns": "No patterns found yet. Keep working and Auto Claude will learn from your sessions.",
+    "noGotchas": "No common gotchas identified yet.",
+    "noSuggestions": "No improvement suggestions at this time.",
+    "seenCount": "Seen {{count}} times",
+    "seenCount_one": "Seen once",
+    "seenCount_other": "Seen {{count}} times",
+    "confirm": "Confirm pattern",
+    "dismiss": "Dismiss pattern"
+  },
+  "gotchas": {
+    "encounteredCount": "Encountered {{count}} times",
+    "encounteredCount_one": "Encountered once",
+    "encounteredCount_other": "Encountered {{count}} times",
+    "confirm": "Confirm gotcha",
+    "dismiss": "Dismiss gotcha"
+  }
+}
