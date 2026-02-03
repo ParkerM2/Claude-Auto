@@ -223,5 +223,19 @@
     "error": "Failed to generate CLAUDE.md",
     "complete": "Complete!",
     "viewFile": "View File"
+  },
+  "conflictDetails": {
+    "title": "Merge Conflicts Preview",
+    "conflictsDetected": "{{count}} potential conflict{{plural}} detected.",
+    "canAutoMerge": "{{count}} can be auto-merged.",
+    "autoMergeBadge": "auto-merge",
+    "location": "Location:",
+    "reason": "Reason:",
+    "aiStrategies": "AI-Suggested Strategies:",
+    "strategy": "Strategy:",
+    "noConflicts": "No conflicts detected",
+    "close": "Close",
+    "stageWithAI": "Stage with AI Merge",
+    "mergeWithAI": "Merge with AI"
   }
 }

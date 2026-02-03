@@ -373,6 +373,7 @@ def handle_merge_command(
     spec_name: str,
     no_commit: bool = False,
     base_branch: str | None = None,
+    conflict_resolutions: str | None = None,
 ) -> bool:
     """
     Handle the --merge command.
@@ -382,12 +383,17 @@ def handle_merge_command(
         spec_name: Name of the spec
         no_commit: If True, stage changes but don't commit
         base_branch: Branch to compare against (default: auto-detect)
+        conflict_resolutions: JSON string with user-selected conflict resolution strategies
 
     Returns:
         True if merge succeeded, False otherwise
     """
     success = merge_existing_build(
-        project_dir, spec_name, no_commit=no_commit, base_branch=base_branch
+        project_dir,
+        spec_name,
+        no_commit=no_commit,
+        base_branch=base_branch,
+        conflict_resolutions=conflict_resolutions,
     )
 
     # Generate commit message suggestion if staging succeeded (no_commit mode)

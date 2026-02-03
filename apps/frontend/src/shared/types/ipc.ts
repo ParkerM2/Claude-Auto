@@ -157,8 +157,9 @@ export interface ElectronAPI {
   getWorktreeStatus: (taskId: string) => Promise<IPCResult<WorktreeStatus>>;
   getWorktreeDiff: (taskId: string) => Promise<IPCResult<WorktreeDiff>>;
   getDetailedWorktreeDiff: (taskId: string) => Promise<IPCResult<WorktreeDiff>>;
-  mergeWorktree: (taskId: string, options?: { noCommit?: boolean }) => Promise<IPCResult<WorktreeMergeResult>>;
+  mergeWorktree: (taskId: string, options?: { noCommit?: boolean; conflictResolutions?: Record<string, string> }) => Promise<IPCResult<WorktreeMergeResult>>;
   mergeWorktreePreview: (taskId: string) => Promise<IPCResult<WorktreeMergeResult>>;
+  previewMergeConflicts: (taskId: string) => Promise<IPCResult<WorktreeMergeResult>>;
   createWorktreePR: (taskId: string, options?: WorktreeCreatePROptions) => Promise<IPCResult<WorktreeCreatePRResult>>;
   discardWorktree: (taskId: string, skipStatusChange?: boolean) => Promise<IPCResult<WorktreeDiscardResult>>;
   discardWorktreeDirect: (projectPath: string, specName: string) => Promise<IPCResult<WorktreeDiscardResult>>;

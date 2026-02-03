@@ -175,6 +175,11 @@ Environment Variables:
         action="store_true",
         help="Push branch and create a GitHub Pull Request",
     )
+    build_group.add_argument(
+        "--preview-merge",
+        action="store_true",
+        help="Analyze potential merge conflicts before merging",
+    )
 
     # PR options
     parser.add_argument(
@@ -210,6 +215,12 @@ Environment Variables:
         "--get-detailed-diff",
         action="store_true",
         help="Get detailed line-by-line diff for worktree (returns JSON)",
+    )
+    parser.add_argument(
+        "--conflict-resolutions",
+        type=str,
+        metavar="JSON",
+        help="With --merge: JSON string with user-selected conflict resolution strategies",
     )
 
     # QA options
@@ -444,6 +455,7 @@ def _run_cli() -> None:
             spec_dir.name,
             no_commit=args.no_commit,
             base_branch=args.base_branch,
+            conflict_resolutions=args.conflict_resolutions,
         )
         if not success:
             sys.exit(1)

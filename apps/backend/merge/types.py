@@ -311,6 +311,7 @@ class ConflictRegion:
         can_auto_merge: Whether Python rules can handle this
         merge_strategy: If auto-mergeable, which strategy to use
         reason: Human-readable explanation of the conflict
+        resolution_strategies: AI-suggested resolution strategies
     """
 
     file_path: str
@@ -321,6 +322,7 @@ class ConflictRegion:
     can_auto_merge: bool
     merge_strategy: MergeStrategy | None = None
     reason: str = ""
+    resolution_strategies: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -335,6 +337,7 @@ class ConflictRegion:
             if self.merge_strategy
             else None,
             "reason": self.reason,
+            "resolution_strategies": self.resolution_strategies,
         }
 
     @classmethod
@@ -351,6 +354,7 @@ class ConflictRegion:
             if data.get("merge_strategy")
             else None,
             reason=data.get("reason", ""),
+            resolution_strategies=data.get("resolution_strategies", []),
         )
 
 

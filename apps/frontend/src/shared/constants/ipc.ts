@@ -35,6 +35,7 @@ export const IPC_CHANNELS = {
   TASK_WORKTREE_DETAILED_DIFF: 'task:worktreeDetailedDiff',  // Get detailed line-by-line diff for visualization
   TASK_WORKTREE_MERGE: 'task:worktreeMerge',
   TASK_WORKTREE_MERGE_PREVIEW: 'task:worktreeMergePreview',  // Preview merge conflicts before merging
+  TASK_WORKTREE_PREVIEW_CONFLICTS: 'task:worktreePreviewConflicts',  // Preview conflicts with AI-suggested resolution strategies
   TASK_WORKTREE_DISCARD: 'task:worktreeDiscard',
   TASK_WORKTREE_DISCARD_DIRECT: 'task:worktreeDiscardDirect',  // Direct worktree deletion bypassing spec lifecycle
   TASK_WORKTREE_CREATE_PR: 'task:worktreeCreatePR',
