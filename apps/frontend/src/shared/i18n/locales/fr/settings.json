@@ -44,6 +44,28 @@
     "debug": {
       "title": "Debug & Logs",
       "description": "Outils de dépannage"
+    },
+    "fonts": {
+      "title": "Famille de polices",
+      "description": "Personnalisez les polices utilisées dans l'application",
+      "googleFontsNote": "Les polices sont chargées depuis Google Fonts",
+      "sansSerif": "Police Sans-Serif",
+      "sansSerifDescription": "Utilisée pour les éléments UI et le texte principal",
+      "serif": "Police Serif",
+      "serifDescription": "Utilisée pour les titres et l'emphase",
+      "mono": "Police Monospace",
+      "monoDescription": "Utilisée pour le code et le terminal"
+    },
+    "letterSpacing": {
+      "title": "Espacement des lettres",
+      "description": "Ajustez l'espacement entre les lettres",
+      "tracking": "Interlettrage",
+      "trackingDescription": "Les valeurs négatives resserrent le texte, les positives l'aèrent",
+      "reset": "Réinitialiser",
+      "tight": "Serré",
+      "normal": "Normal",
+      "loose": "Aéré",
+      "preview": "Aperçu"
     }
   },
   "apiProfiles": {
@@ -367,7 +389,10 @@
       "description": "Synchronisation issues GitHub",
       "integrationTitle": "Intégration GitHub",
       "integrationDescription": "Se connecter à GitHub pour le suivi des issues",
-      "syncDescription": "Synchroniser avec GitHub Issues"
+      "syncDescription": "Synchroniser avec GitHub Issues",
+      "quickSetup": "Configuration rapide",
+      "quickSetupDescription": "Lancer l'assistant de configuration pour vous authentifier avec GitHub et créer ou lier un dépôt",
+      "setupWizard": "Assistant de configuration"
     },
     "jira": {
       "title": "Jira",

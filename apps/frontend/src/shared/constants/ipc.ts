@@ -404,6 +404,7 @@ export const IPC_CHANNELS = {
   GIT_GET_BRANCHES: 'git:getBranches',
   GIT_GET_CURRENT_BRANCH: 'git:getCurrentBranch',
   GIT_DETECT_MAIN_BRANCH: 'git:detectMainBranch',
+  GIT_CREATE_BRANCH: 'git:createBranch',
   GIT_CHECK_STATUS: 'git:checkStatus',
   GIT_INITIALIZE: 'git:initialize',
 
@@ -479,5 +480,14 @@ export const IPC_CHANNELS = {
   REVIEW_UPDATE_CHECKLIST: 'review:updateChecklist',
   REVIEW_GET_REVIEWER_ASSIGNMENT: 'review:getReviewerAssignment',
   REVIEW_UPDATE_REVIEWER_ASSIGNMENT: 'review:updateReviewerAssignment',
-  REVIEW_GET_METRICS: 'review:getMetrics'
+  REVIEW_GET_METRICS: 'review:getMetrics',
+
+  // CLAUDE.md generation operations
+  CLAUDE_MD_CHECK: 'claudeMd:check',         // Check if CLAUDE.md exists in project
+  CLAUDE_MD_GENERATE: 'claudeMd:generate',   // Start CLAUDE.md generation
+
+  // CLAUDE.md events (main -> renderer)
+  CLAUDE_MD_PROGRESS: 'claudeMd:progress',   // Progress updates during generation
+  CLAUDE_MD_COMPLETE: 'claudeMd:complete',   // Generation complete
+  CLAUDE_MD_ERROR: 'claudeMd:error'          // Generation failed
 } as const;

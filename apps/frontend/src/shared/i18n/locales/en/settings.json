@@ -44,6 +44,28 @@
     "debug": {
       "title": "Debug & Logs",
       "description": "Troubleshooting tools"
+    },
+    "fonts": {
+      "title": "Font Family",
+      "description": "Customize the fonts used throughout the application",
+      "googleFontsNote": "Fonts are loaded from Google Fonts",
+      "sansSerif": "Sans-Serif Font",
+      "sansSerifDescription": "Used for UI elements and body text",
+      "serif": "Serif Font",
+      "serifDescription": "Used for headings and emphasis",
+      "mono": "Monospace Font",
+      "monoDescription": "Used for code and terminal output"
+    },
+    "letterSpacing": {
+      "title": "Letter Spacing",
+      "description": "Adjust the spacing between letters",
+      "tracking": "Tracking",
+      "trackingDescription": "Negative values tighten text, positive values loosen it",
+      "reset": "Reset to default",
+      "tight": "Tight",
+      "normal": "Normal",
+      "loose": "Loose",
+      "preview": "Preview"
     }
   },
   "apiProfiles": {
@@ -367,7 +389,10 @@
       "description": "GitHub issues sync",
       "integrationTitle": "GitHub Integration",
       "integrationDescription": "Connect to GitHub for issue tracking",
-      "syncDescription": "Sync with GitHub Issues"
+      "syncDescription": "Sync with GitHub Issues",
+      "quickSetup": "Quick Setup",
+      "quickSetupDescription": "Run the setup wizard to authenticate with GitHub and create or link a repository",
+      "setupWizard": "Setup Wizard"
     },
     "jira": {
       "title": "Jira",

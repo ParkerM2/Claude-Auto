@@ -641,6 +641,7 @@ export interface ElectronAPI {
   getGitBranches: (projectPath: string) => Promise<IPCResult<string[]>>;
   getCurrentGitBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
   detectMainBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
+  createGitBranch: (projectPath: string, branchName: string, sourceBranch: string) => Promise<IPCResult<string>>;
   checkGitStatus: (projectPath: string) => Promise<IPCResult<GitStatus>>;
   initializeGit: (projectPath: string) => Promise<IPCResult<InitializationResult>>;
 
@@ -701,6 +702,9 @@ export interface ElectronAPI {
 
   // Jira API (nested for organized access)
   jira: import('../../preload/api/modules/jira-api').JiraAPI;
+
+  // CLAUDE.md generation API (nested for organized access)
+  claudeMd: import('../../preload/api/modules/claude-md-api').ClaudeMdAPI;
 
   // Claude Code CLI operations
   checkClaudeCodeVersion: () => Promise<IPCResult<import('./cli').ClaudeCodeVersionInfo>>;

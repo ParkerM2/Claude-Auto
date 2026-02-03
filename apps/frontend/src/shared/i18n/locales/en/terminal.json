@@ -31,6 +31,8 @@
     "noBranchFound": "No branch found",
     "useProjectDefault": "Use project default ({{branch}})",
     "baseBranchHelp": "The branch to create the worktree from",
+    "noDevelopBranch": "No develop branch found. Create one to use for worktrees?",
+    "createDevelop": "Create develop",
     "openInIDE": "Open in IDE",
     "maxReached": "Maximum of 12 terminal worktrees reached",
     "alreadyExists": "A worktree with this name already exists",

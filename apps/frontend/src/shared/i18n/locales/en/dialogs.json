@@ -174,5 +174,28 @@
     "step3": "Click \"Re-authenticate\" on your profile",
     "gotIt": "Got It",
     "goToSettings": "Go to Settings"
+  },
+  "claudeMd": {
+    "title": "Generate CLAUDE.md?",
+    "description": "This project doesn't have a CLAUDE.md file. Would you like to generate one?",
+    "whatIs": "What is CLAUDE.md?",
+    "explanation": "CLAUDE.md is a special file that provides context and instructions to Claude Code when working with your project. It helps Claude understand your project structure, conventions, and preferred development patterns.",
+    "benefits": "Benefits:",
+    "benefit1": "Better code suggestions aligned with your project",
+    "benefit2": "Faster context loading for Claude Code",
+    "benefit3": "Consistent coding patterns across sessions",
+    "benefit4": "Customizable project-specific instructions",
+    "generate": "Generate CLAUDE.md",
+    "skip": "Skip for Now",
+    "remindLater": "Remind Me Later",
+    "generating": "Generating...",
+    "analyzingProject": "Analyzing project structure...",
+    "detectingStack": "Detecting tech stack...",
+    "generatingContent": "Generating CLAUDE.md content...",
+    "writingFile": "Writing CLAUDE.md...",
+    "success": "CLAUDE.md created successfully!",
+    "error": "Failed to generate CLAUDE.md",
+    "complete": "Complete!",
+    "viewFile": "View File"
   }
 }
