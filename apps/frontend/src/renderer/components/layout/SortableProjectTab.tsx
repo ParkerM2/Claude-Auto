@@ -1,8 +1,9 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useTranslation } from 'react-i18next';
-import { Settings2 } from 'lucide-react';
+import { Github, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { Badge } from '../ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import type { Project } from '../../../shared/types';
 
@@ -11,10 +12,9 @@ interface SortableProjectTabProps {
   isActive: boolean;
   canClose: boolean;
   tabIndex: number;
+  hasGitHub?: boolean;
   onSelect: () => void;
   onClose: (e: React.MouseEvent) => void;
-  // Optional control props for active tab
-  onSettingsClick?: () => void;
 }
 
 // Detect if running on macOS for keyboard shortcut display
@@ -26,9 +26,9 @@ export function SortableProjectTab({
   isActive,
   canClose,
   tabIndex,
+  hasGitHub,
   onSelect,
-  onClose,
-  onSettingsClick
+  onClose
 }: SortableProjectTabProps) {
   const { t } = useTranslation('common');
   // Build tooltip with keyboard shortcut hint (only for tabs 1-9)
@@ -55,52 +55,58 @@ export function SortableProjectTab({
       ref={setNodeRef}
       style={style}
       className={cn(
-        'group relative flex items-center min-w-0',
-        // Responsive max-widths: smaller on mobile, larger on desktop
-        isActive
-          ? 'max-w-[180px] sm:max-w-[220px] md:max-w-[280px]'
-          : 'max-w-[120px] sm:max-w-[160px] md:max-w-[200px]',
-        'border-r border-border last:border-r-0',
+        'group relative flex items-center',
         'touch-none transition-all duration-200',
-        isDragging && 'opacity-60 scale-[0.98] shadow-lg'
+        isDragging && 'opacity-60 scale-[0.98]'
       )}
       {...attributes}
+      {...listeners}
     >
       <Tooltip delayDuration={200}>
         <TooltipTrigger asChild>
-          <div
+          <Badge
+            variant={isActive ? 'secondary' : 'outline'}
             className={cn(
-              'flex-1 flex items-center gap-1 sm:gap-2',
-              // Responsive padding: tighter on mobile, normal on desktop
-              'px-2 sm:px-3 md:px-4 py-2 sm:py-2.5',
-              'text-xs sm:text-sm',
-              'min-w-0 truncate hover:bg-muted/50 transition-colors',
-              'border-b-2 border-transparent cursor-pointer',
-              isActive && [
-                'bg-background border-b-primary text-foreground',
-                'hover:bg-background'
-              ],
+              'cursor-pointer gap-1.5 pr-1.5 select-none',
+              'max-w-[160px] sm:max-w-[200px] md:max-w-[240px]',
+              'px-3 py-1.5',
+              isActive && 'bg-secondary text-secondary-foreground',
               !isActive && [
-                'text-muted-foreground',
-                'hover:text-foreground'
+                'bg-transparent hover:bg-secondary/50',
+                'text-muted-foreground hover:text-foreground'
               ]
             )}
             onClick={onSelect}
           >
-            {/* Drag handle - visible on hover, hidden on mobile */}
-            <div
-              {...listeners}
-              className={cn(
-                'hidden sm:block',
-                'opacity-0 group-hover:opacity-60 transition-opacity',
-                'cursor-grab active:cursor-grabbing',
-                'w-1 h-4 bg-muted-foreground rounded-full flex-shrink-0'
-              )}
-            />
-            <span className="truncate font-medium">
+            {/* GitHub icon - shown if project has GitHub repo */}
+            {hasGitHub && (
+              <Github className="h-3.5 w-3.5 shrink-0" />
+            )}
+
+            {/* Project name */}
+            <span className="truncate text-sm font-medium">
               {project.name}
             </span>
-          </div>
+
+            {/* Close button */}
+            {canClose && (
+              <button
+                type="button"
+                className={cn(
+                  'ml-0.5 rounded-full p-0.5 shrink-0',
+                  'opacity-0 group-hover:opacity-100',
+                  'hover:bg-destructive hover:text-destructive-foreground',
+                  'transition-all duration-150',
+                  'focus-visible:outline-none focus-visible:opacity-100',
+                  isActive && 'opacity-60 hover:opacity-100'
+                )}
+                onClick={onClose}
+                aria-label={t('projectTab.closeTabAriaLabel')}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </Badge>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="flex items-center gap-2">
           <span>{project.name}</span>
@@ -109,72 +115,13 @@ export function SortableProjectTab({
               {shortcutHint}
             </kbd>
           )}
-        </TooltipContent>
-      </Tooltip>
-
-      {/* Active tab controls - settings and archive, always accessible */}
-      {isActive && (
-        <div className="flex items-center gap-0.5 mr-0.5 sm:mr-1 flex-shrink-0">
-          {/* Settings icon - responsive sizing */}
-          {onSettingsClick && (
-            <Tooltip delayDuration={200}>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className={cn(
-                    'h-5 w-5 sm:h-6 sm:w-6 p-0 rounded',
-                    'flex items-center justify-center',
-                    'text-muted-foreground hover:text-foreground',
-                    'hover:bg-muted/50 transition-colors',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1'
-                  )}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSettingsClick();
-                  }}
-                  aria-label={t('projectTab.settings')}
-                >
-                  <Settings2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <span>{t('projectTab.settings')}</span>
-              </TooltipContent>
-            </Tooltip>
-          )}
-        </div>
-      )}
-
-      {canClose && (
-        <Tooltip delayDuration={200}>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              className={cn(
-                'h-5 w-5 sm:h-6 sm:w-6 p-0 mr-0.5 sm:mr-1',
-                'opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
-                'transition-opacity duration-200 rounded flex-shrink-0',
-                'hover:bg-destructive hover:text-destructive-foreground',
-                'flex items-center justify-center',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-                isActive && 'opacity-100'
-              )}
-              onClick={onClose}
-              aria-label={t('projectTab.closeTabAriaLabel')}
-            >
-              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="flex items-center gap-2">
-            <span>{t('projectTab.closeTab')}</span>
+          {canClose && (
             <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded border border-border font-mono">
               {closeShortcut}
             </kbd>
-          </TooltipContent>
-        </Tooltip>
-      )}
+          )}
+        </TooltipContent>
+      </Tooltip>
     </div>
   );
 }
