@@ -126,6 +126,7 @@ def invalidate_project_cache(project_dir: Path | None = None) -> None:
 
 
 from agents.tools_pkg import (
+    CHROME_DEVTOOLS_TOOLS,
     CONTEXT7_TOOLS,
     ELECTRON_TOOLS,
     GRAPHITI_MCP_TOOLS,
@@ -582,6 +583,8 @@ def create_client(
     browser_tools_permissions = []
     if "electron" in required_servers:
         browser_tools_permissions = ELECTRON_TOOLS
+    elif "chrome-devtools" in required_servers:
+        browser_tools_permissions = CHROME_DEVTOOLS_TOOLS
     elif "puppeteer" in required_servers:
         browser_tools_permissions = PUPPETEER_TOOLS
 
