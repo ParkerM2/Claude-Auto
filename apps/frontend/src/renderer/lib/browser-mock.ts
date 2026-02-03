@@ -337,6 +337,16 @@ const browserMockAPI: ElectronAPI = {
     error: 'Screenshot capture not available in browser mode'
   }),
 
+  // E2E Testing Credential operations (mock)
+  e2eStoreCredential: async (_projectPath: string, _password: string) => {
+    console.warn('[Browser Mock] e2eStoreCredential called');
+    return { success: true, data: true };
+  },
+  e2eRetrieveCredential: async (_projectPath: string) => {
+    console.warn('[Browser Mock] e2eRetrieveCredential called');
+    return { success: true, data: null };
+  },
+
   // Debug Operations
   getDebugInfo: async () => ({
     systemInfo: {
