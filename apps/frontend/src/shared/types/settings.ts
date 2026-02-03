@@ -226,9 +226,19 @@ export interface AgentProfile {
   isAutoProfile?: boolean;
 }
 
+// Font family settings for typography customization
+export interface FontSettings {
+  sansSerif?: string;    // Sans-serif font family (for UI text)
+  serif?: string;        // Serif font family (for content)
+  mono?: string;         // Monospace font family (for code)
+  letterSpacing?: number; // Letter spacing in em units (-0.05 to 0.1)
+}
+
 export interface AppSettings {
   theme: 'light' | 'dark' | 'system';
   colorTheme?: ColorTheme;
+  // Font typography settings
+  fontSettings?: FontSettings;
   // Multiple custom themes support
   customThemes?: CustomThemeEntry[];
   // Legacy single custom theme (deprecated, kept for migration)

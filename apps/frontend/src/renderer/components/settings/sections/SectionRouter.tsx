@@ -95,6 +95,7 @@ export function SectionRouter({
               projectPath={project.path}
               settings={settings}
               setSettings={setSettings}
+              projectId={project.id}
             />
           </InitializationGuard>
         </SettingsSection>
