@@ -22,7 +22,8 @@ interface ConflictDetailsDialogProps {
   mergePreview: { files: string[]; conflicts: MergeConflict[]; summary: MergeStats; gitConflicts?: GitConflictInfo } | null;
   stageOnly: boolean;
   onOpenChange: (open: boolean) => void;
-  onMerge: () => void;
+  onMerge: (conflictResolutions?: Record<string, string>) => void;
+  onStrategiesChange?: (strategies: Record<string, string>) => void;
 }
 
 /**
@@ -33,10 +34,27 @@ export function ConflictDetailsDialog({
   mergePreview,
   stageOnly,
   onOpenChange,
-  onMerge
+  onMerge,
+  onStrategiesChange
 }: ConflictDetailsDialogProps) {
   // Track selected strategy for each conflict (indexed by conflict index)
   const [selectedStrategies, setSelectedStrategies] = useState<Record<number, string>>({});
+
+  // Convert index-based strategies to file-path based for API
+  const convertToConflictResolutions = (): Record<string, string> => {
+    const resolutions: Record<string, string> = {};
+    if (!mergePreview?.conflicts) return resolutions;
+
+    Object.entries(selectedStrategies).forEach(([idxStr, strategy]) => {
+      const idx = parseInt(idxStr, 10);
+      const conflict = mergePreview.conflicts[idx];
+      if (conflict && strategy) {
+        resolutions[conflict.file] = strategy;
+      }
+    });
+
+    return resolutions;
+  };
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -103,7 +121,18 @@ export function ConflictDetailsDialog({
                         <RadioGroup
                           value={selectedStrategies[idx] || ''}
                           onValueChange={(value) => {
-                            setSelectedStrategies(prev => ({ ...prev, [idx]: value }));
+                            const newStrategies = { ...selectedStrategies, [idx]: value };
+                            setSelectedStrategies(newStrategies);
+                            // Notify parent of strategy changes
+                            if (onStrategiesChange) {
+                              const resolutions: Record<string, string> = {};
+                              Object.entries(newStrategies).forEach(([i, s]) => {
+                                const conflictIdx = parseInt(i, 10);
+                                const c = mergePreview?.conflicts[conflictIdx];
+                                if (c && s) resolutions[c.file] = s;
+                              });
+                              onStrategiesChange(resolutions);
+                            }
                           }}
                           className="space-y-2"
                         >
@@ -145,7 +174,8 @@ export function ConflictDetailsDialog({
             onClick={(e) => {
               e.preventDefault();
               onOpenChange(false);
-              onMerge();
+              const resolutions = convertToConflictResolutions();
+              onMerge(resolutions);
             }}
             className="bg-warning text-warning-foreground hover:bg-warning/90"
           >

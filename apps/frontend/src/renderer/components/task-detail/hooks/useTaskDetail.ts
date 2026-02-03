@@ -91,6 +91,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   const [showConflictDialog, setShowConflictDialog] = useState(false);
   const [showPRDialog, setShowPRDialog] = useState(false);
   const [isCreatingPR, setIsCreatingPR] = useState(false);
+  const [selectedConflictStrategies, setSelectedConflictStrategies] = useState<Record<string, string>>({});
 
   const selectedProject = useProjectStore((state) => state.getSelectedProject());
   const isRunning = task.status === 'in_progress';
@@ -534,6 +535,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     showPRDialog,
     isCreatingPR,
     isLoadingPlan,
+    selectedConflictStrategies,
 
     // Setters
     setFeedback,
@@ -568,6 +570,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     setShowConflictDialog,
     setShowPRDialog,
     setIsCreatingPR,
+    setSelectedConflictStrategies,
 
     // Handlers
     handleLogsScroll,

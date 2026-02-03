@@ -38,12 +38,13 @@ interface WorkspaceStatusProps {
     canMerge: boolean;
     blockingReasons: string[];
   };
+  selectedConflictStrategies?: Record<string, string>;
   onShowDiffDialog: (show: boolean) => void;
   onShowDiscardDialog: (show: boolean) => void;
   onShowConflictDialog: (show: boolean) => void;
   onLoadMergePreview: () => void;
   onStageOnlyChange: (value: boolean) => void;
-  onMerge: () => void;
+  onMerge: (conflictResolutions?: Record<string, string>) => void;
   onShowPRDialog?: (show: boolean) => void;
   onClose?: () => void;
   onSwitchToTerminals?: () => void;
@@ -97,6 +98,7 @@ export function WorkspaceStatus({
   isDiscarding,
   isCreatingPR,
   approvalGate,
+  selectedConflictStrategies,
   onShowDiffDialog,
   onShowDiscardDialog,
   onShowConflictDialog,
@@ -459,7 +461,7 @@ export function WorkspaceStatus({
               <TooltipTrigger asChild>
                 <Button
                   variant={hasGitConflicts || isBranchBehind || hasPathMappedMerges ? "warning" : "success"}
-                  onClick={onMerge}
+                  onClick={() => onMerge(selectedConflictStrategies)}
                   disabled={isMerging || isDiscarding || (approvalGate && !approvalGate.canMerge)}
                   className="flex-1"
                 >
