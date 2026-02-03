@@ -339,6 +339,7 @@ def load_project_mcp_config(project_dir: Path) -> dict:
         "LINEAR_MCP_ENABLED",
         "ELECTRON_MCP_ENABLED",
         "PUPPETEER_MCP_ENABLED",
+        "CHROME_DEVTOOLS_MCP_ENABLED",
     }
 
     try:
