@@ -398,11 +398,30 @@ export interface WorktreeDiff {
   summary: string;
 }
 
+export type DiffLineType = 'added' | 'deleted' | 'context';
+
+export interface DiffLine {
+  oldLineNumber?: number;  // Line number in old file (undefined for added lines)
+  newLineNumber?: number;  // Line number in new file (undefined for deleted lines)
+  content: string;         // The actual line content
+  type: DiffLineType;      // Type of change
+}
+
+export interface DiffHunk {
+  oldStart: number;   // Starting line number in old file
+  oldLines: number;   // Number of lines in old file
+  newStart: number;   // Starting line number in new file
+  newLines: number;   // Number of lines in new file
+  header: string;     // Hunk header (e.g., "@@ -1,5 +1,7 @@")
+  lines: DiffLine[];  // Individual lines in this hunk
+}
+
 export interface WorktreeDiffFile {
   path: string;
   status: 'added' | 'modified' | 'deleted' | 'renamed';
   additions: number;
   deletions: number;
+  hunks?: DiffHunk[];  // Optional detailed line-by-line diff data
 }
 
 // Conflict severity levels from merge system

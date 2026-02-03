@@ -18,6 +18,14 @@ export const workspaceMock = {
     }
   }),
 
+  getDetailedWorktreeDiff: async () => ({
+    success: true,
+    data: {
+      files: [],
+      summary: 'No changes'
+    }
+  }),
+
   mergeWorktree: async () => ({
     success: true,
     data: {

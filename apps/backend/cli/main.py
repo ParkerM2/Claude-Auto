@@ -206,6 +206,11 @@ Environment Variables:
         action="store_true",
         help="Preview merge conflicts without actually merging (returns JSON)",
     )
+    parser.add_argument(
+        "--get-detailed-diff",
+        action="store_true",
+        help="Get detailed line-by-line diff for worktree (returns JSON)",
+    )
 
     # QA options
     parser.add_argument(
@@ -417,6 +422,16 @@ def _run_cli() -> None:
         result = handle_merge_preview_command(
             project_dir, spec_dir.name, base_branch=args.base_branch
         )
+        # Output as JSON for the UI to parse
+        import json
+
+        print(json.dumps(result))
+        return
+
+    if args.get_detailed_diff:
+        from cli.workspace_commands import handle_detailed_diff_command
+
+        result = handle_detailed_diff_command(project_dir, spec_dir.name)
         # Output as JSON for the UI to parse
         import json
 

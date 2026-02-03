@@ -1229,3 +1229,38 @@ def worktree_summary_command(project_dir: Path) -> dict:
             "categories": {},
             "warning": None,
         }
+
+
+def handle_detailed_diff_command(
+    project_dir: Path,
+    spec_name: str,
+) -> dict:
+    """
+    Handle the --get-detailed-diff command.
+
+    Returns detailed line-by-line diff data for the worktree, including
+    file-level stats, hunks, and individual line changes for visualization.
+
+    Args:
+        project_dir: Project root directory
+        spec_name: Name of the spec
+
+    Returns:
+        Dictionary with detailed diff information
+    """
+    try:
+        from core.worktree import WorktreeManager
+
+        manager = WorktreeManager(project_dir)
+        result = manager.get_detailed_diff(spec_name)
+
+        return {
+            "success": True,
+            **result,
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
