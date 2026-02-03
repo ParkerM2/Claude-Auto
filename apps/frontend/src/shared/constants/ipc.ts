@@ -479,5 +479,9 @@ export const IPC_CHANNELS = {
   REVIEW_UPDATE_CHECKLIST: 'review:updateChecklist',
   REVIEW_GET_REVIEWER_ASSIGNMENT: 'review:getReviewerAssignment',
   REVIEW_UPDATE_REVIEWER_ASSIGNMENT: 'review:updateReviewerAssignment',
-  REVIEW_GET_METRICS: 'review:getMetrics'
+  REVIEW_GET_METRICS: 'review:getMetrics',
+
+  // E2E Testing credential operations (secure storage via Electron safeStorage API)
+  E2E_STORE_CREDENTIAL: 'e2e:store-credential',
+  E2E_RETRIEVE_CREDENTIAL: 'e2e:retrieve-credential'
 } as const;
