@@ -8,6 +8,7 @@ Tests cover iteration tracking, metrics calculation, and persistence.
 """
 
 import json
+import time
 from pathlib import Path
 
 import pytest
@@ -198,6 +199,7 @@ class TestReviewMetricsCalculations:
         """Cycle time calculated when approved."""
         metrics = ReviewMetrics()
         metrics.start_iteration()
+        time.sleep(0.01)  # Ensure measurable time difference
         metrics.complete_current_iteration(outcome="approved")
 
         assert metrics.total_cycle_time_seconds > 0
@@ -207,9 +209,11 @@ class TestReviewMetricsCalculations:
         metrics = ReviewMetrics()
 
         metrics.start_iteration()
+        time.sleep(0.01)  # Ensure measurable time difference
         metrics.complete_current_iteration(outcome="rejected")
 
         metrics.start_iteration()
+        time.sleep(0.01)  # Ensure measurable time difference
         metrics.complete_current_iteration(outcome="approved")
 
         assert metrics.total_review_time_seconds > 0
