@@ -128,7 +128,7 @@ export const TaskTableView = memo(function TaskTableView({
                     </span>
                   </th>
                   {/* Progress */}
-                  <th className="px-3 py-3 text-left">
+                  <th className="px-3 py-3 text-left min-w-[220px]">
                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       {t('execution.labels.progress')}
                     </span>
