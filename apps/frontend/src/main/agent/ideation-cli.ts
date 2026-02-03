@@ -77,10 +77,6 @@ export class IdeationCLISpawner extends EventEmitter {
   private activeProcesses: Map<IdeationType, ChildProcess> = new Map();
   private processTimeouts: Map<IdeationType, NodeJS.Timeout> = new Map();
 
-  constructor() {
-    super();
-  }
-
   /**
    * Build CLI arguments for ideation generation.
    *

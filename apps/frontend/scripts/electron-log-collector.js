@@ -39,7 +39,7 @@ const __dirname = path.dirname(__filename);
 // Parse CLI arguments
 const args = process.argv.slice(2);
 const config = {
-  port: parseInt(process.env.ELECTRON_DEBUG_PORT) || 9222,
+  port: parseInt(process.env.ELECTRON_DEBUG_PORT, 10) || 9222,
   output: null,
   filter: 'all',
   duration: 10000,
@@ -50,13 +50,13 @@ const config = {
 for (let i = 0; i < args.length; i++) {
   const arg = args[i];
   if (arg === '--port' && args[i + 1]) {
-    config.port = parseInt(args[++i]);
+    config.port = parseInt(args[++i], 10);
   } else if (arg === '--output' && args[i + 1]) {
     config.output = args[++i];
   } else if (arg === '--filter' && args[i + 1]) {
     config.filter = args[++i];
   } else if (arg === '--duration' && args[i + 1]) {
-    config.duration = parseInt(args[++i]);
+    config.duration = parseInt(args[++i], 10);
   } else if (arg === '--format' && args[i + 1]) {
     config.format = args[++i];
   } else if (arg === '--follow') {
@@ -86,7 +86,7 @@ async function getCDPTargets(port) {
     http
       .get(`http://127.0.0.1:${port}/json/list`, (res) => {
         let data = '';
-        res.on('data', (chunk) => (data += chunk));
+        res.on('data', (chunk) => { data += chunk; });
         res.on('end', () => {
           try {
             resolve(JSON.parse(data));
@@ -141,7 +141,7 @@ function sendCDPCommand(ws, method, params = {}) {
             resolve(message.result);
           }
         }
-      } catch (err) {
+      } catch {
         // Ignore parse errors for non-response messages
       }
     };
@@ -276,7 +276,7 @@ async function collectLogs() {
           outputStream.write(formatted + '\n');
         }
       }
-    } catch (err) {
+    } catch {
       // Ignore parse errors for non-console messages
     }
   });
@@ -313,8 +313,8 @@ async function collectLogs() {
       process.exit(0);
     });
 
-    // Keep process alive
-    await new Promise(() => {});
+    // Keep process alive - intentionally never resolves
+    await new Promise(() => { /* intentional: keep process alive */ });
   }
 }
 

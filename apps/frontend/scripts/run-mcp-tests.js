@@ -33,7 +33,8 @@ import http from 'http';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const require = createRequire(import.meta.url);
+// createRequire available for future dynamic imports if needed
+void createRequire;
 
 // Load test environment
 const envTestPath = path.join(__dirname, '..', '.env.test');
@@ -57,8 +58,8 @@ const config = {
   scenario: 'smoke',
   keepAlive: false,
   verbose: false,
-  timeout: parseInt(process.env.TEST_TIMEOUT) || 60000,
-  port: parseInt(process.env.ELECTRON_DEBUG_PORT) || 9222,
+  timeout: parseInt(process.env.TEST_TIMEOUT, 10) || 60000,
+  port: parseInt(process.env.ELECTRON_DEBUG_PORT, 10) || 9222,
 };
 
 for (let i = 0; i < args.length; i++) {
@@ -70,9 +71,9 @@ for (let i = 0; i < args.length; i++) {
   } else if (arg === '--verbose') {
     config.verbose = true;
   } else if (arg === '--timeout' && args[i + 1]) {
-    config.timeout = parseInt(args[++i]);
+    config.timeout = parseInt(args[++i], 10);
   } else if (arg === '--port' && args[i + 1]) {
-    config.port = parseInt(args[++i]);
+    config.port = parseInt(args[++i], 10);
   }
 }
 
@@ -102,7 +103,7 @@ async function checkCDPConnection(port, timeout = 5000) {
     const check = () => {
       const req = http.get(`http://127.0.0.1:${port}/json/version`, (res) => {
         let data = '';
-        res.on('data', (chunk) => (data += chunk));
+        res.on('data', (chunk) => { data += chunk; });
         res.on('end', () => {
           try {
             const info = JSON.parse(data);
@@ -252,7 +253,7 @@ async function collectLogs(port) {
   return new Promise((resolve) => {
     http.get(`http://127.0.0.1:${port}/json/list`, (res) => {
       let data = '';
-      res.on('data', (chunk) => (data += chunk));
+      res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {
         try {
           const targets = JSON.parse(data);
