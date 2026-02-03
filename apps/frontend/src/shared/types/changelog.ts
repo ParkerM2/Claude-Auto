@@ -80,6 +80,7 @@ export interface GitTagInfo {
 
 export interface ChangelogGenerationRequest {
   projectId: string;
+  projectName?: string;
   sourceMode: ChangelogSourceMode;
 
   // For tasks mode (original behavior)

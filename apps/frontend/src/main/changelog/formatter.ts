@@ -185,7 +185,7 @@ RELEASE TITLE (CRITICAL):
   }
 
   return `${audienceInstruction}
-
+${request.projectName ? `You are writing a changelog for "${request.projectName}".\n` : ''}
 Format:
 ${formatInstruction}
 ${emojiInstruction ? `\nEmoji Usage:\n${emojiInstruction}` : ''}
@@ -290,7 +290,7 @@ PART 3 - "Thanks to all contributors" (deduplicated list):
   }
 
   return `${audienceInstruction}
-
+${request.projectName ? `You are writing a changelog for "${request.projectName}".\n` : ''}
 ${sourceContext}
 
 Generate a changelog from these git commits. Group related changes together and categorize them appropriately.

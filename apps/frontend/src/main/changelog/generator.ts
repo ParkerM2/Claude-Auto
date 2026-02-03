@@ -59,7 +59,8 @@ export class ChangelogGenerator extends EventEmitter {
       taskCount: request.taskIds?.length || 0,
       version: request.version,
       format: request.format,
-      audience: request.audience
+      audience: request.audience,
+      projectName: request.projectName
     });
 
     // Kill existing process if any
