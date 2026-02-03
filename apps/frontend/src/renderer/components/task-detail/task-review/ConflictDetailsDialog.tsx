@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { AlertTriangle, GitMerge } from 'lucide-react';
 import {
   AlertDialog,
@@ -10,6 +11,8 @@ import {
   AlertDialogTitle,
 } from '../../ui/alert-dialog';
 import { Badge } from '../../ui/badge';
+import { RadioGroup, RadioGroupItem } from '../../ui/radio-group';
+import { Label } from '../../ui/label';
 import { cn } from '../../../lib/utils';
 import { getSeverityIcon, getSeverityVariant } from './utils';
 import type { MergeConflict, MergeStats, GitConflictInfo } from '../../../../shared/types';
@@ -32,6 +35,9 @@ export function ConflictDetailsDialog({
   onOpenChange,
   onMerge
 }: ConflictDetailsDialogProps) {
+  // Track selected strategy for each conflict (indexed by conflict index)
+  const [selectedStrategies, setSelectedStrategies] = useState<Record<number, string>>({});
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
@@ -90,18 +96,33 @@ export function ConflictDetailsDialog({
                     {conflict.reason && (
                       <div><span className="text-foreground/70">Reason:</span> {conflict.reason}</div>
                     )}
-                    {/* Display AI-suggested resolution strategies */}
+                    {/* Display AI-suggested resolution strategies with selection */}
                     {conflict.resolutionStrategies && conflict.resolutionStrategies.length > 0 && (
                       <div className="mt-2 pt-2 border-t border-border/50">
                         <div className="text-foreground/70 mb-1.5 font-medium">AI-Suggested Strategies:</div>
-                        <div className="space-y-1">
+                        <RadioGroup
+                          value={selectedStrategies[idx] || ''}
+                          onValueChange={(value) => {
+                            setSelectedStrategies(prev => ({ ...prev, [idx]: value }));
+                          }}
+                          className="space-y-2"
+                        >
                           {conflict.resolutionStrategies.map((strategy, strategyIdx) => (
-                            <div key={strategyIdx} className="flex items-start gap-1.5">
-                              <span className="text-foreground/50 mt-0.5">•</span>
-                              <span className="text-foreground/80 flex-1">{strategy}</span>
+                            <div key={strategyIdx} className="flex items-start gap-2">
+                              <RadioGroupItem
+                                value={strategy}
+                                id={`strategy-${idx}-${strategyIdx}`}
+                                className="mt-0.5"
+                              />
+                              <Label
+                                htmlFor={`strategy-${idx}-${strategyIdx}`}
+                                className="text-foreground/80 flex-1 cursor-pointer text-xs leading-relaxed"
+                              >
+                                {strategy}
+                              </Label>
                             </div>
                           ))}
-                        </div>
+                        </RadioGroup>
                       </div>
                     )}
                     {/* Fallback to single strategy field if no resolutionStrategies */}
