@@ -23,6 +23,8 @@ import type {
 import { projectStore } from "../project-store";
 import { insightsService } from "../insights-service";
 import { safeSendToRenderer } from "./utils";
+import { getMemoryService, isKuzuAvailable } from "../memory-service";
+import { loadProjectEnvVars, isGraphitiEnabled, getGraphitiDatabaseDetails } from "./context/utils";
 
 /**
  * Read insights feature settings from the settings file
@@ -345,6 +347,68 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
         return { success: true };
       }
       return { success: false, error: "Failed to update model configuration" };
+    }
+  );
+
+  // Get pattern insights (patterns, gotchas, suggestions)
+  ipcMain.handle(
+    IPC_CHANNELS.INSIGHTS_GET_PATTERN_INSIGHTS,
+    async (_, projectId: string): Promise<IPCResult<{
+      top_patterns: Array<{ content: string; frequency: number; last_seen: string }>;
+      common_gotchas: Array<{ content: string; frequency: number; last_seen: string }>;
+      improvement_suggestions: Array<{ content: string; frequency: number; last_seen: string }>;
+      last_updated: string;
+    }>> => {
+      try {
+        console.log('[Insights Handler] getPatternInsights called for project:', projectId);
+
+        const project = projectStore.getProject(projectId);
+        if (!project) {
+          return {
+            success: false,
+            error: 'Project not found'
+          };
+        }
+
+        // Load project environment variables
+        const projectEnvVars = loadProjectEnvVars(project.path, project.autoBuildPath);
+        const graphitiEnabled = isGraphitiEnabled(projectEnvVars);
+
+        // Check if Graphiti is available
+        if (!graphitiEnabled || !isKuzuAvailable()) {
+          return {
+            success: false,
+            error: 'Memory service not available for project'
+          };
+        }
+
+        // Get database details and create memory service
+        const dbDetails = getGraphitiDatabaseDetails(projectEnvVars);
+        const memoryService = getMemoryService({
+          dbPath: dbDetails.dbPath,
+          database: dbDetails.database,
+        });
+
+        // Fetch pattern insights from backend
+        const data = await memoryService.getPatternInsights();
+
+        console.log('[Insights Handler] Pattern insights retrieved:', {
+          patterns: data.top_patterns.length,
+          gotchas: data.common_gotchas.length,
+          suggestions: data.improvement_suggestions.length
+        });
+
+        return {
+          success: true,
+          data
+        };
+      } catch (error) {
+        debugError('[Insights Handler] Failed to get pattern insights:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to fetch pattern insights'
+        };
+      }
     }
   );
 

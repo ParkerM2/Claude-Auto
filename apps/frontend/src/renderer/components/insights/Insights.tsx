@@ -23,6 +23,7 @@ import { Textarea } from '../ui/textarea';
 import { ScrollArea } from '../ui/scroll-area';
 import { Card, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import { cn } from '../../lib/utils';
 import {
   useInsightsStore,
@@ -39,6 +40,7 @@ import {
 import { loadTasks } from '../../stores/task-store';
 import { ChatHistorySidebar } from '../layout/ChatHistorySidebar';
 import { InsightsModelSelector } from './InsightsModelSelector';
+import { PatternsDashboard } from './PatternsDashboard';
 import type { InsightsChatMessage, InsightsModelConfig } from '../../../shared/types';
 import {
   TASK_CATEGORY_LABELS,
@@ -105,6 +107,7 @@ export function Insights({ projectId }: InsightsProps) {
   const [creatingTask, setCreatingTask] = useState<string | null>(null);
   const [taskCreated, setTaskCreated] = useState<Set<string>>(new Set());
   const [showSidebar, setShowSidebar] = useState(true);
+  const [activeTab, setActiveTab] = useState<'chat' | 'patterns'>('chat');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -242,23 +245,42 @@ export function Insights({ projectId }: InsightsProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <InsightsModelSelector
-              currentConfig={session?.modelConfig}
-              onConfigChange={handleModelConfigChange}
-              disabled={isLoading}
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleNewSession}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              New Chat
-            </Button>
+            {activeTab === 'chat' && (
+              <>
+                <InsightsModelSelector
+                  currentConfig={session?.modelConfig}
+                  onConfigChange={handleModelConfigChange}
+                  disabled={isLoading}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleNewSession}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Chat
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
-      {/* Messages */}
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'chat' | 'patterns')} className="flex flex-1 flex-col">
+          <div className="border-b border-border px-6">
+            <TabsList>
+              <TabsTrigger value="chat">
+                {t('insights.tabs.chat')}
+              </TabsTrigger>
+              <TabsTrigger value="patterns">
+                {t('insights.tabs.patterns')}
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          {/* Chat Tab Content */}
+          <TabsContent value="chat" className="flex-1 flex flex-col mt-0">
+            {/* Messages */}
       <ScrollArea className="flex-1 px-6 py-4">
         {messages.length === 0 && !streamingContent ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
@@ -386,6 +408,23 @@ export function Insights({ projectId }: InsightsProps) {
           Press Enter to send, Shift+Enter for new line
         </p>
       </div>
+          </TabsContent>
+
+          {/* Patterns Tab Content */}
+          <TabsContent value="patterns" className="flex-1 flex flex-col mt-0">
+            {projectId ? (
+              <PatternsDashboard projectId={projectId} />
+            ) : (
+              <div className="flex h-full items-center justify-center p-6">
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground">
+                    No project selected
+                  </p>
+                </div>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

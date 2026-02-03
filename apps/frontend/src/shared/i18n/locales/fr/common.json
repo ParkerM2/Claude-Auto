@@ -110,7 +110,8 @@
     "justNow": "À l'instant",
     "minutesAgo": "Il y a {{count}} min",
     "hoursAgo": "Il y a {{count}}h",
-    "daysAgo": "Il y a {{count}}j"
+    "daysAgo": "Il y a {{count}}j",
+    "lastSeen": "Vu pour la dernière fois"
   },
   "errors": {
     "generic": "Une erreur s'est produite",
@@ -460,6 +461,12 @@
     "conversionFailedDescription": "Impossible de convertir l'idée en tâche",
     "conversionError": "Erreur de conversion",
     "conversionErrorDescription": "Une erreur s'est produite lors de la conversion de l'idée"
+  },
+  "insights": {
+    "tabs": {
+      "chat": "Chat",
+      "patterns": "Modèles"
+    }
   },
   "issues": {
     "loadingMore": "Chargement...",
