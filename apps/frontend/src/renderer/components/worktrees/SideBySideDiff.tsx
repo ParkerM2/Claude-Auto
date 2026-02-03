@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FileCode, Plus, Minus } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Badge } from '../ui/badge';
@@ -16,6 +17,7 @@ interface SideBySideDiffProps {
  * Displays before/after views with color-coded additions, deletions, and context lines
  */
 export function SideBySideDiff({ file, className }: SideBySideDiffProps) {
+  const { t } = useTranslation(['dialogs']);
   const { path, status, additions, deletions, hunks = [] } = file;
 
   // Get file name from path
@@ -66,9 +68,9 @@ export function SideBySideDiff({ file, className }: SideBySideDiffProps) {
           <div className="text-center">
             <FileCode className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
             <p className="text-sm text-muted-foreground">
-              {status === 'added' ? 'New file (no diff to show)' :
-               status === 'deleted' ? 'File deleted (no diff to show)' :
-               'No detailed diff available'}
+              {status === 'added' ? t('dialogs:worktreeDiff.newFile') :
+               status === 'deleted' ? t('dialogs:worktreeDiff.deletedFile') :
+               t('dialogs:worktreeDiff.noDiff')}
             </p>
           </div>
         </div>
@@ -79,7 +81,7 @@ export function SideBySideDiff({ file, className }: SideBySideDiffProps) {
             <div className="flex flex-col">
               {/* Column header */}
               <div className="sticky top-0 z-10 px-3 py-2 text-xs font-medium text-muted-foreground bg-muted/50 border-b">
-                Before
+                {t('dialogs:worktreeDiff.before')}
               </div>
               {/* Lines */}
               <div className="flex flex-col">
@@ -106,7 +108,7 @@ export function SideBySideDiff({ file, className }: SideBySideDiffProps) {
             <div className="flex flex-col">
               {/* Column header */}
               <div className="sticky top-0 z-10 px-3 py-2 text-xs font-medium text-muted-foreground bg-muted/50 border-b">
-                After
+                {t('dialogs:worktreeDiff.after')}
               </div>
               {/* Lines */}
               <div className="flex flex-col">

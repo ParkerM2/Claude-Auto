@@ -195,7 +195,7 @@ export function WorktreeDiffViewer({ taskId, open, onClose }: WorktreeDiffViewer
                   onClick={() => setShowKeyboardHelp(true)}
                 >
                   <Keyboard className="h-4 w-4 mr-2" />
-                  Shortcuts
+                  {t('dialogs:worktreeDiff.shortcuts')}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={onClose}>
                   <X className="h-4 w-4" />
@@ -224,7 +224,7 @@ export function WorktreeDiffViewer({ taskId, open, onClose }: WorktreeDiffViewer
                 <div className="flex-1 flex items-center justify-center p-8">
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground">
-                      Select a file to view diff
+                      {t('dialogs:worktreeDiff.selectFile')}
                     </p>
                   </div>
                 </div>
@@ -236,25 +236,25 @@ export function WorktreeDiffViewer({ taskId, open, onClose }: WorktreeDiffViewer
           <div className="px-6 py-3 border-t bg-muted/30">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <div>
-                Viewing {currentFileIndex + 1} of {filteredFiles.length} files
+                {t('dialogs:worktreeDiff.viewingFiles', { current: currentFileIndex + 1, total: filteredFiles.length })}
                 {hasActiveFilters && (
                   <span className="ml-2">
-                    ({changeTypeTotals.all} total)
+                    {t('dialogs:worktreeDiff.totalFiles', { total: changeTypeTotals.all })}
                   </span>
                 )}
               </div>
               <div className="flex items-center gap-4">
                 <span>
-                  <kbd className="px-1.5 py-0.5 rounded bg-muted border text-xs">N</kbd> Next file
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border text-xs">N</kbd> {t('dialogs:worktreeDiff.nextFile')}
                 </span>
                 <span>
-                  <kbd className="px-1.5 py-0.5 rounded bg-muted border text-xs">P</kbd> Prev file
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border text-xs">P</kbd> {t('dialogs:worktreeDiff.previousFile')}
                 </span>
                 <span>
-                  <kbd className="px-1.5 py-0.5 rounded bg-muted border text-xs">J</kbd> Next hunk
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border text-xs">J</kbd> {t('dialogs:worktreeDiff.nextHunk')}
                 </span>
                 <span>
-                  <kbd className="px-1.5 py-0.5 rounded bg-muted border text-xs">K</kbd> Prev hunk
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border text-xs">K</kbd> {t('dialogs:worktreeDiff.previousHunk')}
                 </span>
               </div>
             </div>
@@ -266,30 +266,30 @@ export function WorktreeDiffViewer({ taskId, open, onClose }: WorktreeDiffViewer
       <Dialog open={showKeyboardHelp} onOpenChange={setShowKeyboardHelp}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Keyboard Shortcuts</DialogTitle>
+            <DialogTitle>{t('dialogs:worktreeDiff.keyboardShortcuts')}</DialogTitle>
             <DialogDescription>
-              Navigate through the diff viewer efficiently
+              {t('dialogs:worktreeDiff.keyboardShortcutsDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm">Next file</span>
+              <span className="text-sm">{t('dialogs:worktreeDiff.nextFile')}</span>
               <kbd className="px-2 py-1 rounded bg-muted border text-sm font-mono">N</kbd>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm">Previous file</span>
+              <span className="text-sm">{t('dialogs:worktreeDiff.previousFile')}</span>
               <kbd className="px-2 py-1 rounded bg-muted border text-sm font-mono">P</kbd>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm">Next hunk</span>
+              <span className="text-sm">{t('dialogs:worktreeDiff.nextHunk')}</span>
               <kbd className="px-2 py-1 rounded bg-muted border text-sm font-mono">J</kbd>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm">Previous hunk</span>
+              <span className="text-sm">{t('dialogs:worktreeDiff.previousHunk')}</span>
               <kbd className="px-2 py-1 rounded bg-muted border text-sm font-mono">K</kbd>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm">Close viewer</span>
+              <span className="text-sm">{t('dialogs:worktreeDiff.closeViewer')}</span>
               <kbd className="px-2 py-1 rounded bg-muted border text-sm font-mono">Escape</kbd>
             </div>
           </div>

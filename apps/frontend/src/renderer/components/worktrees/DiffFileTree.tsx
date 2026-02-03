@@ -115,24 +115,24 @@ function getStatusBadgeVariant(status: WorktreeDiffFile['status']): 'default' | 
   }
 }
 
-// Get status label
-function getStatusLabel(status: WorktreeDiffFile['status']): string {
-  switch (status) {
-    case 'added':
-      return 'Added';
-    case 'modified':
-      return 'Modified';
-    case 'deleted':
-      return 'Deleted';
-    case 'renamed':
-      return 'Renamed';
-    default:
-      return status;
-  }
-}
-
 export function DiffFileTree({ files, selectedFile, onFileSelect, isLoading = false }: DiffFileTreeProps) {
-  const { t } = useTranslation(['common', 'tasks']);
+  const { t } = useTranslation(['common', 'tasks', 'dialogs']);
+
+  // Get status label with translations
+  const getStatusLabel = (status: WorktreeDiffFile['status']): string => {
+    switch (status) {
+      case 'added':
+        return t('dialogs:worktreeDiff.added');
+      case 'modified':
+        return t('dialogs:worktreeDiff.modified');
+      case 'deleted':
+        return t('dialogs:worktreeDiff.deleted');
+      case 'renamed':
+        return t('dialogs:worktreeDiff.renamed');
+      default:
+        return status;
+    }
+  };
   const parentRef = useRef<HTMLDivElement>(null);
   const [filter, setFilter] = useState<ChangeTypeFilter>('all');
 
@@ -190,7 +190,7 @@ export function DiffFileTree({ files, selectedFile, onFileSelect, isLoading = fa
           onClick={() => setFilter('all')}
           className="h-7"
         >
-          All
+          {t('dialogs:worktreeDiff.all')}
           <Badge variant="secondary" className="ml-1.5 px-1.5 py-0 text-xs">
             {totals.all}
           </Badge>
@@ -203,7 +203,7 @@ export function DiffFileTree({ files, selectedFile, onFileSelect, isLoading = fa
             className="h-7"
           >
             <Plus className="h-3 w-3 mr-1" />
-            Added
+            {t('dialogs:worktreeDiff.added')}
             <Badge variant="secondary" className="ml-1.5 px-1.5 py-0 text-xs">
               {totals.added}
             </Badge>
@@ -217,7 +217,7 @@ export function DiffFileTree({ files, selectedFile, onFileSelect, isLoading = fa
             className="h-7"
           >
             <FileEdit className="h-3 w-3 mr-1" />
-            Modified
+            {t('dialogs:worktreeDiff.modified')}
             <Badge variant="secondary" className="ml-1.5 px-1.5 py-0 text-xs">
               {totals.modified}
             </Badge>
@@ -231,7 +231,7 @@ export function DiffFileTree({ files, selectedFile, onFileSelect, isLoading = fa
             className="h-7"
           >
             <Minus className="h-3 w-3 mr-1" />
-            Deleted
+            {t('dialogs:worktreeDiff.deleted')}
             <Badge variant="secondary" className="ml-1.5 px-1.5 py-0 text-xs">
               {totals.deleted}
             </Badge>
@@ -245,7 +245,7 @@ export function DiffFileTree({ files, selectedFile, onFileSelect, isLoading = fa
             className="h-7"
           >
             <FileEdit className="h-3 w-3 mr-1" />
-            Renamed
+            {t('dialogs:worktreeDiff.renamed')}
             <Badge variant="secondary" className="ml-1.5 px-1.5 py-0 text-xs">
               {totals.renamed}
             </Badge>
@@ -262,7 +262,7 @@ export function DiffFileTree({ files, selectedFile, onFileSelect, isLoading = fa
           <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
             <X className="h-6 w-6 text-muted-foreground mb-2" />
             <p className="text-xs text-muted-foreground">
-              No {filter} files
+              {t('dialogs:worktreeDiff.noFilteredFiles', { filter })}
             </p>
           </div>
         ) : (
