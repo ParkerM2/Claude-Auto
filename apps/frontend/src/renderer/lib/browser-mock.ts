@@ -351,7 +351,24 @@ const browserMockAPI: ElectronAPI = {
   openLogsFolder: async () => ({ success: false, error: 'Not available in browser mode' }),
   copyDebugInfo: async () => ({ success: false, error: 'Not available in browser mode' }),
   getRecentErrors: async () => [],
-  listLogFiles: async () => []
+  listLogFiles: async () => [],
+
+  // Jira API
+  jira: {
+    checkConnection: async () => ({ success: true, data: { connected: false, siteUrl: undefined, error: undefined } }),
+    getMyIssues: async () => ({ success: true, data: [] }),
+    getIssue: async () => ({ success: false, error: 'Not available in browser mode' }),
+    importAsSpec: async () => ({ success: false, error: 'Not available in browser mode' })
+  },
+
+  // CLAUDE.md Generation API
+  claudeMd: {
+    checkClaudeMd: async () => ({ success: true, data: { exists: false } }),
+    generateClaudeMd: () => {},
+    onProgress: () => () => {},
+    onComplete: () => () => {},
+    onError: () => () => {}
+  }
 };
 
 /**

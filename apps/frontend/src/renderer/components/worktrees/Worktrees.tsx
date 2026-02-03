@@ -55,9 +55,11 @@ const TERMINAL_PREFIX = 'terminal:';
 
 interface WorktreesProps {
   projectId: string;
+  /** Register refresh function with parent */
+  registerRefresh?: (fn: (() => void | Promise<void>) | null) => void;
 }
 
-export function Worktrees({ projectId }: WorktreesProps) {
+export function Worktrees({ projectId, registerRefresh }: WorktreesProps) {
   const { t } = useTranslation(['common', 'dialogs']);
   const projects = useProjectStore((state) => state.projects);
   const selectedProject = projects.find((p) => p.id === projectId);
@@ -197,6 +199,12 @@ export function Worktrees({ projectId }: WorktreesProps) {
   useEffect(() => {
     loadWorktrees();
   }, [loadWorktrees]);
+
+  // Register refresh function with parent
+  useEffect(() => {
+    registerRefresh?.(loadWorktrees);
+    return () => registerRefresh?.(null);
+  }, [registerRefresh, loadWorktrees]);
 
   // Find task for a worktree
   const findTaskForWorktree = useCallback((specName: string) => {

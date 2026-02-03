@@ -3,6 +3,8 @@ import type { RoadmapFeature, RoadmapPhase, Roadmap, CompetitorPainPoint, Compet
 export interface RoadmapProps {
   projectId: string;
   onGoToTask?: (taskId: string) => void;
+  /** Register refresh function with parent */
+  registerRefresh?: (fn: (() => void | Promise<void>) | null) => void;
 }
 
 export interface PhaseCardProps {
