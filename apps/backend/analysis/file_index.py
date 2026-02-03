@@ -177,10 +177,11 @@ class FileIndex:
         Returns:
             True if file has changed or is not tracked, False otherwise
         """
-        # Convert to relative path
+        # Convert to relative path, resolving to handle Windows short paths
         abs_path = Path(file_path)
         if not abs_path.is_absolute():
             abs_path = self.project_dir / file_path
+        abs_path = abs_path.resolve()
 
         try:
             rel_path = abs_path.relative_to(self.project_dir)
@@ -243,6 +244,7 @@ class FileIndex:
         abs_path = Path(file_path)
         if not abs_path.is_absolute():
             abs_path = self.project_dir / file_path
+        abs_path = abs_path.resolve()
 
         try:
             rel_path = abs_path.relative_to(self.project_dir)
@@ -264,6 +266,7 @@ class FileIndex:
         abs_path = Path(file_path)
         if not abs_path.is_absolute():
             abs_path = self.project_dir / file_path
+        abs_path = abs_path.resolve()
 
         try:
             rel_path = abs_path.relative_to(self.project_dir)
@@ -481,6 +484,7 @@ class FileIndex:
         abs_path = Path(file_path)
         if not abs_path.is_absolute():
             abs_path = self.project_dir / file_path
+        abs_path = abs_path.resolve()
 
         try:
             rel_path = abs_path.relative_to(self.project_dir)
