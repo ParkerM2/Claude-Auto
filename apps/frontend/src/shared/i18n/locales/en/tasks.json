@@ -33,7 +33,8 @@
     "incomplete": "Incomplete",
     "recovering": "Recovering...",
     "needsRecovery": "Needs Recovery",
-    "needsResume": "Needs Resume"
+    "needsResume": "Needs Resume",
+    "active": "Active"
   },
   "reviewReason": {
     "completed": "Completed",
