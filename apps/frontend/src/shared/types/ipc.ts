@@ -731,6 +731,10 @@ export interface ElectronAPI {
   checkMcpHealth: (server: CustomMcpServer) => Promise<IPCResult<McpHealthCheckResult>>;
   testMcpConnection: (server: CustomMcpServer) => Promise<IPCResult<McpTestConnectionResult>>;
 
+  // E2E Testing Credential operations (secure storage via safeStorage API)
+  e2eStoreCredential: (projectPath: string, password: string) => Promise<IPCResult<boolean>>;
+  e2eRetrieveCredential: (projectPath: string) => Promise<IPCResult<string | null>>;
+
   // Screenshot capture operations
   getSources: () => Promise<IPCResult<Array<{
     id: string;
