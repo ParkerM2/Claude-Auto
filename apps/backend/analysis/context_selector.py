@@ -212,10 +212,36 @@ class ContextSelector:
 
         return min(1.0, total_matches / len(keywords))
 
+    def estimate_tokens(self, file_path: Path) -> int:
+        """
+        Estimate the number of tokens in a file.
+
+        Args:
+            file_path: Path to the file
+
+        Returns:
+            Estimated token count (0 for unreadable files)
+        """
+        if not file_path.exists() or not file_path.is_file():
+            return 0
+
+        # Skip binary files and large files
+        if file_path.stat().st_size > 1_000_000:  # 1MB limit
+            return 0
+
+        try:
+            content = file_path.read_text(encoding='utf-8')
+            # Estimate: 1 token ≈ 4 characters
+            return len(content) // 4
+        except (OSError, UnicodeDecodeError):
+            # Can't read file or not text
+            return 0
+
     def select_files(
         self,
         task_description: str,
         max_files: int | None = None,
+        max_tokens: int | None = None,
         min_score: float = 0.0,
     ) -> list[str]:
         """
@@ -224,6 +250,7 @@ class ContextSelector:
         Args:
             task_description: Description of the task to match against
             max_files: Maximum number of files to return (None for unlimited)
+            max_tokens: Maximum total tokens across all files (None for unlimited)
             min_score: Minimum relevance score threshold (0.0 to 1.0)
 
         Returns:
@@ -250,12 +277,29 @@ class ContextSelector:
         # Sort by score (descending)
         scored_files.sort(reverse=True, key=lambda x: x[0])
 
-        # Apply max_files limit
-        if max_files is not None and max_files > 0:
-            scored_files = scored_files[:max_files]
+        # Apply limits
+        result: list[str] = []
+        cumulative_tokens = 0
 
-        # Return just the file paths
-        return [path for _, path in scored_files]
+        for score, path in scored_files:
+            # Check max_files limit
+            if max_files is not None and len(result) >= max_files:
+                break
+
+            # Check max_tokens limit
+            if max_tokens is not None:
+                file_path = self.path / path if not Path(path).is_absolute() else Path(path)
+                tokens = self.estimate_tokens(file_path)
+
+                # Would adding this file exceed the limit?
+                if cumulative_tokens + tokens > max_tokens:
+                    break
+
+                cumulative_tokens += tokens
+
+            result.append(path)
+
+        return result
 
     def _walk_files(self) -> list[Path]:
         """
