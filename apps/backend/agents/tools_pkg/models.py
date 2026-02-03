@@ -420,6 +420,7 @@ def _map_mcp_server_name(
         "linear": "linear",
         "electron": "electron",
         "puppeteer": "puppeteer",
+        "chrome-devtools": "chrome-devtools",
         "auto-claude": "auto-claude",
     }
     # Check if it's a known mapping
