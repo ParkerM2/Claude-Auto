@@ -515,6 +515,20 @@ async function listTerminalWorktrees(projectPath: string): Promise<TerminalWorkt
     return [];
   }
 
+  // Prune stale worktree references before listing
+  // This cleans up git's worktree tracking for worktrees that were deleted externally
+  try {
+    execFileSync(getToolPath('git'), ['worktree', 'prune'], {
+      cwd: projectPath,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: getIsolatedGitEnv(),
+    });
+    debugLog('[TerminalWorktree] Pruned stale worktree registrations before listing');
+  } catch {
+    // Ignore prune errors - not critical for listing
+  }
+
   const configs: TerminalWorktreeConfig[] = [];
   const seenNames = new Set<string>();
   const staleMetadataFiles: string[] = [];
@@ -590,6 +604,20 @@ async function listOtherWorktrees(projectPath: string): Promise<OtherWorktreeInf
   if (!isValidProjectPath(projectPath)) {
     debugError('[TerminalWorktree] Invalid project path for listing other worktrees:', projectPath);
     return [];
+  }
+
+  // Prune stale worktree references before listing
+  // This cleans up git's worktree tracking for worktrees that were deleted externally
+  try {
+    execFileSync(getToolPath('git'), ['worktree', 'prune'], {
+      cwd: projectPath,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: getIsolatedGitEnv(),
+    });
+    debugLog('[TerminalWorktree] Pruned stale worktree registrations before listing other worktrees');
+  } catch {
+    // Ignore prune errors - not critical for listing
   }
 
   const results: OtherWorktreeInfo[] = [];

@@ -16,6 +16,7 @@ import { getToolPath } from '../../cli-tool-manager';
 import { promisify } from 'util';
 import {
   getTaskWorktreeDir,
+  getTaskWorktreePath,
   findTaskWorktree,
 } from '../../worktree-paths';
 import { persistPlanStatus, updateTaskMetadataPrUrl } from './plan-file-utils';
@@ -2734,6 +2735,18 @@ export function registerWorktreeHandlers(
           return { success: false, error: 'Task not found' };
         }
 
+        // Prune stale worktree registrations first to clean up any phantom entries
+        try {
+          execFileSync(getToolPath('git'), ['worktree', 'prune'], {
+            cwd: project.path,
+            encoding: 'utf-8',
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: getIsolatedGitEnv(),
+          });
+        } catch {
+          // Ignore prune errors - not critical
+        }
+
         // Find worktree at .auto-claude/worktrees/tasks/{spec-name}/
         const worktreePath = findTaskWorktree(project.path, task.specId);
 
@@ -2747,27 +2760,68 @@ export function registerWorktreeHandlers(
           };
         }
 
-        try {
-          // Get the branch name before removing
-          const branch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
-            cwd: worktreePath,
-            encoding: 'utf-8'
-          }).trim();
-
-          // Remove the worktree
-          execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
-            cwd: project.path,
-            encoding: 'utf-8'
-          });
-
-          // Delete the branch
+        // Check if worktree exists on disk - if not, it may have been deleted externally
+        if (!existsSync(worktreePath)) {
+          // Run prune again to clean git registry, then return success
           try {
-            execFileSync(getToolPath('git'), ['branch', '-D', branch], {
+            execFileSync(getToolPath('git'), ['worktree', 'prune'], {
               cwd: project.path,
-              encoding: 'utf-8'
+              encoding: 'utf-8',
+              stdio: ['pipe', 'pipe', 'pipe'],
+              env: getIsolatedGitEnv(),
             });
           } catch {
-            // Branch might already be deleted or not exist
+            // Ignore prune errors
+          }
+
+          // Only send status change to backlog if not skipped
+          if (!skipStatusChange) {
+            const mainWindow = getMainWindow();
+            if (mainWindow) {
+              mainWindow.webContents.send(IPC_CHANNELS.TASK_STATUS_CHANGE, taskId, 'backlog');
+            }
+          }
+
+          return {
+            success: true,
+            data: {
+              success: true,
+              message: 'Worktree already removed'
+            }
+          };
+        }
+
+        try {
+          // Get the branch name before removing (may fail for detached HEAD or corrupt worktree)
+          let branch: string | null = null;
+          try {
+            branch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
+              cwd: worktreePath,
+              encoding: 'utf-8',
+              env: getIsolatedGitEnv(),
+            }).trim();
+          } catch {
+            // Branch detection can fail - continue with worktree removal
+          }
+
+          // Remove the worktree with force flag to handle edge cases
+          execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
+            cwd: project.path,
+            encoding: 'utf-8',
+            env: getIsolatedGitEnv(),
+          });
+
+          // Delete the branch if we found one (catch and ignore if already deleted)
+          if (branch && branch !== 'HEAD') {
+            try {
+              execFileSync(getToolPath('git'), ['branch', '-D', branch], {
+                cwd: project.path,
+                encoding: 'utf-8',
+                env: getIsolatedGitEnv(),
+              });
+            } catch {
+              // Branch might already be deleted, merged, or protected
+            }
           }
 
           // Only send status change to backlog if not skipped
@@ -2804,6 +2858,110 @@ export function registerWorktreeHandlers(
   );
 
   /**
+   * Direct worktree deletion bypassing spec lifecycle
+   * Used for orphan worktree cleanup when task reference no longer exists
+   * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_WORKTREE_DISCARD_DIRECT,
+    async (_, projectPath: string, specName: string): Promise<IPCResult<WorktreeDiscardResult>> => {
+      try {
+        // Validate projectPath against registered projects (security)
+        const project = projectStore.getProjects().find(p => p.path === projectPath);
+        if (!project) {
+          return { success: false, error: 'Invalid project path' };
+        }
+
+        // Validate specName - basic sanitization to prevent path traversal
+        if (!specName || specName.includes('..') || specName.includes('/') || specName.includes('\\')) {
+          return { success: false, error: 'Invalid spec name' };
+        }
+
+        // Prune stale worktree registrations first
+        try {
+          execFileSync(getToolPath('git'), ['worktree', 'prune'], {
+            cwd: projectPath,
+            encoding: 'utf-8',
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: getIsolatedGitEnv(),
+          });
+        } catch {
+          // Ignore prune errors - not critical
+        }
+
+        // Find or construct the worktree path
+        const worktreePath = findTaskWorktree(projectPath, specName) || getTaskWorktreePath(projectPath, specName);
+
+        // Check if worktree exists on disk
+        if (!existsSync(worktreePath)) {
+          // Worktree already gone - success (cleanup is idempotent)
+          return {
+            success: true,
+            data: {
+              success: true,
+              message: 'Worktree already removed'
+            }
+          };
+        }
+
+        try {
+          // Get the branch name before removing
+          let branch: string | null = null;
+          try {
+            branch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
+              cwd: worktreePath,
+              encoding: 'utf-8',
+              env: getIsolatedGitEnv(),
+            }).trim();
+          } catch {
+            // Branch detection can fail for detached HEAD or corrupt worktree
+          }
+
+          // Remove the worktree with force flag to handle edge cases
+          execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
+            cwd: projectPath,
+            encoding: 'utf-8',
+            env: getIsolatedGitEnv(),
+          });
+
+          // Delete the branch if we found one (catch and ignore if already deleted)
+          if (branch && branch !== 'HEAD') {
+            try {
+              execFileSync(getToolPath('git'), ['branch', '-D', branch], {
+                cwd: projectPath,
+                encoding: 'utf-8',
+                env: getIsolatedGitEnv(),
+              });
+            } catch {
+              // Branch might already be deleted, merged, or protected
+            }
+          }
+
+          return {
+            success: true,
+            data: {
+              success: true,
+              message: 'Worktree discarded successfully'
+            }
+          };
+        } catch (gitError) {
+          console.error('Git error discarding worktree directly:', gitError);
+          return {
+            success: false,
+            error: `Failed to discard worktree: ${gitError instanceof Error ? gitError.message : 'Unknown error'}`
+          };
+        }
+      } catch (error) {
+        console.error('Failed to discard worktree directly:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to discard worktree'
+        };
+      }
+    }
+  );
+
+  /**
    * List all spec worktrees for a project
    * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
    */
@@ -2818,6 +2976,19 @@ export function registerWorktreeHandlers(
 
         const worktrees: WorktreeListItem[] = [];
         const worktreesDir = getTaskWorktreeDir(project.path);
+
+        // Prune stale worktree registrations before listing
+        // This cleans up entries pointing to non-existent directories (phantom worktrees)
+        try {
+          execFileSync(getToolPath('git'), ['worktree', 'prune'], {
+            cwd: project.path,
+            encoding: 'utf-8',
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: getIsolatedGitEnv(),
+          });
+        } catch {
+          // Ignore prune errors - not critical for listing operation
+        }
 
         // Helper to process a single worktree entry
         const processWorktreeEntry = (entry: string, entryPath: string) => {

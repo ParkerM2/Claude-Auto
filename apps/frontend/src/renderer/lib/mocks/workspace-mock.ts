@@ -78,6 +78,14 @@ export const workspaceMock = {
     }
   }),
 
+  discardWorktreeDirect: async (_projectPath: string, _specName: string) => ({
+    success: true,
+    data: {
+      success: true,
+      message: 'Worktree discarded directly (no task reference)'
+    }
+  }),
+
   clearStagedState: async () => ({
     success: true,
     data: { cleared: true }
