@@ -4,7 +4,7 @@
 
 import path from 'path';
 import type { IpcMainInvokeEvent } from 'electron';
-import { AUTO_BUILD_PATHS } from '../../../shared/constants';
+import { AUTO_BUILD_PATHS, getIdeationDir } from '../../../shared/constants';
 import type { IPCResult, IdeationStatus } from '../../../shared/types';
 import { projectStore } from '../../project-store';
 import { readIdeationFile, writeIdeationFile, updateIdeationTimestamp } from './file-utils';
@@ -25,7 +25,7 @@ export async function updateIdeaStatus(
 
   const ideationPath = path.join(
     project.path,
-    AUTO_BUILD_PATHS.IDEATION_DIR,
+    getIdeationDir(project.autoBuildPath),
     AUTO_BUILD_PATHS.IDEATION_FILE
   );
 
@@ -69,7 +69,7 @@ export async function dismissIdea(
 
   const ideationPath = path.join(
     project.path,
-    AUTO_BUILD_PATHS.IDEATION_DIR,
+    getIdeationDir(project.autoBuildPath),
     AUTO_BUILD_PATHS.IDEATION_FILE
   );
 
@@ -112,7 +112,7 @@ export async function dismissAllIdeas(
 
   const ideationPath = path.join(
     project.path,
-    AUTO_BUILD_PATHS.IDEATION_DIR,
+    getIdeationDir(project.autoBuildPath),
     AUTO_BUILD_PATHS.IDEATION_FILE
   );
 
@@ -158,7 +158,7 @@ export async function archiveIdea(
 
   const ideationPath = path.join(
     project.path,
-    AUTO_BUILD_PATHS.IDEATION_DIR,
+    getIdeationDir(project.autoBuildPath),
     AUTO_BUILD_PATHS.IDEATION_FILE
   );
 
@@ -201,7 +201,7 @@ export async function deleteIdea(
 
   const ideationPath = path.join(
     project.path,
-    AUTO_BUILD_PATHS.IDEATION_DIR,
+    getIdeationDir(project.autoBuildPath),
     AUTO_BUILD_PATHS.IDEATION_FILE
   );
 
@@ -244,7 +244,7 @@ export async function deleteMultipleIdeas(
 
   const ideationPath = path.join(
     project.path,
-    AUTO_BUILD_PATHS.IDEATION_DIR,
+    getIdeationDir(project.autoBuildPath),
     AUTO_BUILD_PATHS.IDEATION_FILE
   );
 

@@ -1338,8 +1338,8 @@ function getEffectiveBaseBranch(projectPath: string, specId: string, projectMain
     return projectMainBranch;
   }
 
-  // 3. Try to detect main/master branch
-  for (const branch of ['main', 'master']) {
+  // 3. Try to detect develop/main/master branch
+  for (const branch of ['develop', 'main', 'master']) {
     try {
       execFileSync(getToolPath('git'), ['rev-parse', '--verify', branch], {
         cwd: projectPath,
@@ -1352,8 +1352,8 @@ function getEffectiveBaseBranch(projectPath: string, specId: string, projectMain
     }
   }
 
-  // 4. Fallback to 'main'
-  return 'main';
+  // 4. Fallback to 'develop' (modern default)
+  return 'develop';
 }
 
 /**

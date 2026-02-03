@@ -180,7 +180,7 @@ function getDefaultBranch(projectPath: string): string {
     }
   }
 
-  for (const branch of ['main', 'master']) {
+  for (const branch of ['develop', 'main', 'master']) {
     try {
       execFileSync(getToolPath('git'), ['rev-parse', '--verify', branch], {
         cwd: projectPath,
@@ -207,7 +207,7 @@ function getDefaultBranch(projectPath: string): string {
     return currentBranch;
   } catch (error) {
     debugError('[TerminalWorktree] Error detecting current branch:', error);
-    return 'main'; // Safe default
+    return 'develop'; // Modern default
   }
 }
 

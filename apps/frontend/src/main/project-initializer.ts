@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync } fr
 import path from 'path';
 import { execFileSync } from 'child_process';
 import { getToolPath } from './cli-tool-manager';
+import { getAutoClaudeDir } from './dev-mode';
 
 /**
  * Debug logging - only logs when DEBUG=true or in development mode
@@ -154,8 +155,9 @@ export function initializeGit(projectPath: string): InitializationResult {
 
 /**
  * Entries to add to .gitignore when initializing a project
+ * Includes both production and dev directories to ensure both are ignored
  */
-const GITIGNORE_ENTRIES = ['.auto-claude/'];
+const GITIGNORE_ENTRIES = ['.auto-claude/', '.auto-claude-dev/'];
 
 /**
  * Ensure entries exist in the project's .gitignore file.
@@ -254,10 +256,12 @@ export function getLocalSourcePath(projectPath: string): string | null {
 }
 
 /**
- * Check if project is initialized (has .auto-claude directory)
+ * Check if project is initialized (has .auto-claude or .auto-claude-dev directory)
+ * In dev mode, checks for .auto-claude-dev; in production, checks for .auto-claude
  */
 export function isInitialized(projectPath: string): boolean {
-  const dotAutoBuildPath = path.join(projectPath, '.auto-claude');
+  const autoClaudeDir = getAutoClaudeDir();
+  const dotAutoBuildPath = path.join(projectPath, autoClaudeDir);
   return existsSync(dotAutoBuildPath);
 }
 
@@ -294,18 +298,19 @@ export function initializeProject(projectPath: string): InitializationResult {
   }
 
   // Check if already initialized
-  const dotAutoBuildPath = path.join(projectPath, '.auto-claude');
+  const autoClaudeDir = getAutoClaudeDir();
+  const dotAutoBuildPath = path.join(projectPath, autoClaudeDir);
 
   if (existsSync(dotAutoBuildPath)) {
-    debug('Already initialized - .auto-claude exists');
+    debug(`Already initialized - ${autoClaudeDir} exists`);
     return {
       success: false,
-      error: 'Project already has auto-claude initialized (.auto-claude exists)'
+      error: `Project already has auto-claude initialized (${autoClaudeDir} exists)`
     };
   }
 
   try {
-    debug('Creating .auto-claude data directory', { dotAutoBuildPath });
+    debug(`Creating ${autoClaudeDir} data directory`, { dotAutoBuildPath });
 
     // Create the .auto-claude directory
     mkdirSync(dotAutoBuildPath, { recursive: true });
@@ -334,11 +339,12 @@ export function initializeProject(projectPath: string): InitializationResult {
 }
 
 /**
- * Ensure all data directories exist in .auto-claude.
+ * Ensure all data directories exist in .auto-claude (or .auto-claude-dev in dev mode).
  * Useful if new directories are added in future versions.
  */
 export function ensureDataDirectories(projectPath: string): InitializationResult {
-  const dotAutoBuildPath = path.join(projectPath, '.auto-claude');
+  const autoClaudeDir = getAutoClaudeDir();
+  const dotAutoBuildPath = path.join(projectPath, autoClaudeDir);
 
   if (!existsSync(dotAutoBuildPath)) {
     return {
@@ -368,20 +374,23 @@ export function ensureDataDirectories(projectPath: string): InitializationResult
 /**
  * Get the auto-claude folder path for a project.
  *
- * IMPORTANT: Only .auto-claude/ is considered a valid "installed" auto-claude.
- * The auto-claude/ folder (if it exists) is the SOURCE CODE being developed,
+ * In dev mode, uses .auto-claude-dev/ to isolate dev data from production.
+ * In production, uses .auto-claude/ as the installed auto-claude directory.
+ *
+ * IMPORTANT: The auto-claude/ folder (without dot) is the SOURCE CODE being developed,
  * not an installation. This allows Auto Claude to be used to develop itself.
  */
 export function getAutoBuildPath(projectPath: string): string | null {
-  const dotAutoBuildPath = path.join(projectPath, '.auto-claude');
+  const autoClaudeDir = getAutoClaudeDir();
+  const dotAutoBuildPath = path.join(projectPath, autoClaudeDir);
 
-  debug('getAutoBuildPath called', { projectPath, dotAutoBuildPath });
+  debug('getAutoBuildPath called', { projectPath, dotAutoBuildPath, autoClaudeDir });
 
   if (existsSync(dotAutoBuildPath)) {
-    debug('Returning .auto-claude (installed version)');
-    return '.auto-claude';
+    debug(`Returning ${autoClaudeDir} (installed version)`);
+    return autoClaudeDir;
   }
 
-  debug('No .auto-claude folder found - project not initialized');
+  debug(`No ${autoClaudeDir} folder found - project not initialized`);
   return null;
 }

@@ -35,6 +35,7 @@ import { registerScreenshotHandlers } from './screenshot-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
 import { registerManagerHandlers } from './manager-handlers';
 import { registerReviewHandlers } from './review-handlers';
+import { registerClaudeMdHandlers } from './claude-md-handlers';
 import { notificationService } from '../notification-service';
 
 /**
@@ -126,6 +127,9 @@ export function setupIpcHandlers(
   // Review workflow handlers
   registerReviewHandlers();
 
+  // CLAUDE.md generation handlers
+  registerClaudeMdHandlers(getMainWindow);
+
   console.warn('[IPC] All handler modules registered successfully');
 }
 
@@ -154,5 +158,6 @@ export {
   registerProfileHandlers,
   registerScreenshotHandlers,
   registerManagerHandlers,
-  registerReviewHandlers
+  registerReviewHandlers,
+  registerClaudeMdHandlers
 };

@@ -3,17 +3,27 @@
  *
  * Centralizes all worktree path constants and helper functions to avoid duplication
  * and ensure consistent path handling across the application.
+ *
+ * In dev mode, uses .auto-claude-dev/ to isolate dev data from production.
  */
 
 import path from 'path';
 import { existsSync } from 'fs';
+import { getAutoClaudeDir } from './dev-mode';
 
-// Path constants for worktree directories
-export const TASK_WORKTREE_DIR = '.auto-claude/worktrees/tasks';
-export const TERMINAL_WORKTREE_DIR = '.auto-claude/worktrees/terminal';
+// Export getters that use dynamic paths with proper cross-platform path handling
+// These call getAutoClaudeDir() on each invocation to ensure fresh values
+export function getTaskWorktreeDirPath(): string {
+  return path.join(getAutoClaudeDir(), 'worktrees', 'tasks');
+}
 
-// Metadata directories (separate from git worktrees to avoid uncommitted files)
-export const TERMINAL_WORKTREE_METADATA_DIR = '.auto-claude/terminal/metadata';
+export function getTerminalWorktreeDirPath(): string {
+  return path.join(getAutoClaudeDir(), 'worktrees', 'terminal');
+}
+
+export function getTerminalWorktreeMetadataDirPath(): string {
+  return path.join(getAutoClaudeDir(), 'terminal', 'metadata');
+}
 
 // Legacy path for backwards compatibility
 export const LEGACY_WORKTREE_DIR = '.worktrees';
@@ -22,14 +32,14 @@ export const LEGACY_WORKTREE_DIR = '.worktrees';
  * Get the task worktrees directory path
  */
 export function getTaskWorktreeDir(projectPath: string): string {
-  return path.join(projectPath, TASK_WORKTREE_DIR);
+  return path.join(projectPath, getTaskWorktreeDirPath());
 }
 
 /**
  * Get the full path for a specific task worktree
  */
 export function getTaskWorktreePath(projectPath: string, specId: string): string {
-  return path.join(projectPath, TASK_WORKTREE_DIR, specId);
+  return path.join(projectPath, getTaskWorktreeDirPath(), specId);
 }
 
 /**
@@ -50,8 +60,8 @@ function isPathWithinBase(resolvedPath: string, basePath: string): boolean {
 export function findTaskWorktree(projectPath: string, specId: string): string | null {
   const normalizedProject = path.resolve(projectPath);
 
-  // Check new path first
-  const newPath = path.join(projectPath, TASK_WORKTREE_DIR, specId);
+  // Check new path first (uses dynamic getter for dev/prod awareness)
+  const newPath = path.join(projectPath, getTaskWorktreeDirPath(), specId);
   const resolvedNewPath = path.resolve(newPath);
 
   // Validate path stays within project (defense against path traversal)
@@ -81,26 +91,26 @@ export function findTaskWorktree(projectPath: string, specId: string): string | 
  * Get the terminal worktrees directory path
  */
 export function getTerminalWorktreeDir(projectPath: string): string {
-  return path.join(projectPath, TERMINAL_WORKTREE_DIR);
+  return path.join(projectPath, getTerminalWorktreeDirPath());
 }
 
 /**
  * Get the full path for a specific terminal worktree
  */
 export function getTerminalWorktreePath(projectPath: string, name: string): string {
-  return path.join(projectPath, TERMINAL_WORKTREE_DIR, name);
+  return path.join(projectPath, getTerminalWorktreeDirPath(), name);
 }
 
 /**
  * Find a terminal worktree path, checking new location first then legacy
  * Returns the path if found, null otherwise
- * Includes path traversal protection to ensure paths stay within project
+ * Includes path traversal protection to ensure paths stays within project
  */
 export function findTerminalWorktree(projectPath: string, name: string): string | null {
   const normalizedProject = path.resolve(projectPath);
 
-  // Check new path first
-  const newPath = path.join(projectPath, TERMINAL_WORKTREE_DIR, name);
+  // Check new path first (uses dynamic getter for dev/prod awareness)
+  const newPath = path.join(projectPath, getTerminalWorktreeDirPath(), name);
   const resolvedNewPath = path.resolve(newPath);
 
   // Validate path stays within project (defense against path traversal)
@@ -131,12 +141,12 @@ export function findTerminalWorktree(projectPath: string, name: string): string 
  * This is separate from the git worktree to avoid uncommitted files
  */
 export function getTerminalWorktreeMetadataDir(projectPath: string): string {
-  return path.join(projectPath, TERMINAL_WORKTREE_METADATA_DIR);
+  return path.join(projectPath, getTerminalWorktreeMetadataDirPath());
 }
 
 /**
  * Get the metadata file path for a specific terminal worktree
  */
 export function getTerminalWorktreeMetadataPath(projectPath: string, name: string): string {
-  return path.join(projectPath, TERMINAL_WORKTREE_METADATA_DIR, `${name}.json`);
+  return path.join(projectPath, getTerminalWorktreeMetadataDirPath(), `${name}.json`);
 }
