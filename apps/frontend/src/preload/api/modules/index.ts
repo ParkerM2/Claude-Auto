@@ -14,3 +14,4 @@ export * from './jira-api';
 export * from './shell-api';
 export * from './debug-api';
 export * from './manager-api';
+export * from './claude-md-api';
