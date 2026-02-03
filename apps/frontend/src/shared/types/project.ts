@@ -347,6 +347,10 @@ export interface ProjectEnvConfig {
 
   // Custom MCP servers defined by the user
   customMcpServers?: CustomMcpServer[];
+
+  // E2E Testing Configuration
+  /** E2E testing configuration for QA agent automated testing */
+  e2eTestingConfig?: E2ETestingConfig;
 }
 
 // ============================================
