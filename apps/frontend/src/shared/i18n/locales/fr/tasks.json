@@ -209,6 +209,60 @@
   "review": {
     "mergeTooltip": "Fusionne les changements de la branche worktree de la tâche vers votre branche de base. L'IA résoudra les conflits éventuels. Vous pourrez ensuite choisir de conserver ou de supprimer le worktree."
   },
+  "conflictStrategies": {
+    "title": "Résolution des conflits de fusion",
+    "description": "Choisissez comment résoudre automatiquement les conflits de fusion",
+    "strategies": {
+      "acceptIncoming": "Accepter les modifications entrantes",
+      "acceptCurrent": "Accepter les modifications actuelles",
+      "acceptBoth": "Accepter les deux",
+      "manual": "Résolution manuelle",
+      "ai": "Résolution IA"
+    },
+    "labels": {
+      "strategy": "Stratégie de résolution",
+      "selectStrategy": "Sélectionner la stratégie de résolution",
+      "analyzing": "Analyse des conflits...",
+      "resolving": "Résolution des conflits...",
+      "resolved": "Conflits résolus",
+      "failed": "Échec de la résolution"
+    },
+    "descriptions": {
+      "acceptIncoming": "Accepter toutes les modifications de la branche entrante",
+      "acceptCurrent": "Conserver toutes les modifications de la branche actuelle",
+      "acceptBoth": "Combiner les modifications des deux branches",
+      "manual": "Résoudre manuellement chaque conflit",
+      "ai": "Laisser l'IA analyser et résoudre les conflits intelligemment"
+    },
+    "actions": {
+      "resolve": "Résoudre les conflits",
+      "abort": "Annuler la fusion",
+      "retry": "Réessayer la résolution",
+      "viewConflicts": "Voir les conflits",
+      "continueAfterResolution": "Continuer après la résolution"
+    },
+    "status": {
+      "noConflicts": "Aucun conflit détecté",
+      "conflictsDetected": "{{count}} conflit(s) détecté(s)",
+      "conflictsDetectedOne": "{{count}} conflit détecté",
+      "conflictsDetectedOther": "{{count}} conflits détectés",
+      "resolutionInProgress": "Résolution en cours...",
+      "resolutionComplete": "Tous les conflits résolus",
+      "resolutionFailed": "Échec de la résolution des conflits"
+    },
+    "errors": {
+      "resolutionFailed": "Échec de la résolution automatique des conflits. Veuillez résoudre manuellement.",
+      "strategyNotSupported": "La stratégie sélectionnée n'est pas prise en charge pour ce type de conflit.",
+      "analysisError": "Erreur lors de l'analyse des conflits : {{error}}"
+    },
+    "tooltips": {
+      "acceptIncoming": "Utiliser les modifications de la branche en cours de fusion",
+      "acceptCurrent": "Conserver la version de la branche actuelle",
+      "acceptBoth": "Tenter d'inclure les modifications des deux branches",
+      "manual": "Ouvrir les fichiers dans l'éditeur pour résoudre manuellement les conflits",
+      "ai": "Utiliser l'IA pour résoudre intelligemment les conflits en fonction du contexte du code"
+    }
+  },
   "edit": {
     "title": "Modifier la tâche",
     "description": "Mettez à jour les détails de la tâche, y compris le titre, la description, la classification, les images et les paramètres. Les modifications seront enregistrées dans les fichiers de spécification.",
