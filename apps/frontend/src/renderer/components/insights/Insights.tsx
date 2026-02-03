@@ -40,6 +40,7 @@ import {
 import { loadTasks } from '../../stores/task-store';
 import { ChatHistorySidebar } from '../layout/ChatHistorySidebar';
 import { InsightsModelSelector } from './InsightsModelSelector';
+import { PatternsDashboard } from './PatternsDashboard';
 import type { InsightsChatMessage, InsightsModelConfig } from '../../../shared/types';
 import {
   TASK_CATEGORY_LABELS,
@@ -411,16 +412,17 @@ export function Insights({ projectId }: InsightsProps) {
 
           {/* Patterns Tab Content */}
           <TabsContent value="patterns" className="flex-1 flex flex-col mt-0">
-            <div className="flex h-full items-center justify-center p-6">
-              <div className="text-center">
-                <h3 className="text-lg font-medium text-foreground">
-                  Patterns Dashboard
-                </h3>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Coming soon...
-                </p>
+            {projectId ? (
+              <PatternsDashboard projectId={projectId} />
+            ) : (
+              <div className="flex h-full items-center justify-center p-6">
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground">
+                    No project selected
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>
