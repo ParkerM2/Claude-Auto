@@ -19,7 +19,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X, Settings, ListPlus, LayoutGrid, Rows3, Table2 } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, GitPullRequest, X, Settings, ListPlus } from 'lucide-react';
 import { Checkbox } from '../ui/checkbox';
 import { ScrollArea } from '../ui/scroll-area';
 import { Button } from '../ui/button';
@@ -59,8 +59,6 @@ interface KanbanBoardProps {
   tasks: Task[];
   onTaskClick: (task: Task) => void;
   onNewTaskClick?: () => void;
-  onRefresh?: () => void;
-  isRefreshing?: boolean;
 }
 
 interface DroppableColumnProps {
@@ -306,7 +304,8 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
     <div
       ref={setNodeRef}
       className={cn(
-        'flex min-w-72 max-w-[30rem] flex-1 flex-col rounded-xl border border-white/5 bg-linear-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200',
+        'flex flex-1 flex-col rounded-xl border border-white/5 bg-linear-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200',
+        compact ? 'min-w-56 max-w-[24rem]' : 'min-w-72 max-w-[30rem]',
         getColumnBorderColor(),
         'border-t-2',
         isOver && 'drop-zone-highlight'
@@ -476,12 +475,12 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
   );
 }, droppableColumnPropsAreEqual);
 
-export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isRefreshing }: KanbanBoardProps) {
+export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardProps) {
   const { t } = useTranslation(['tasks', 'dialogs', 'common']);
   const { toast } = useToast();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
-  const { showArchived, toggleShowArchived, viewMode, setViewMode } = useViewState();
+  const { showArchived, toggleShowArchived, viewMode } = useViewState();
 
   // Project store for queue settings
   const projects = useProjectStore((state) => state.projects);
@@ -1088,93 +1087,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
   return (
     <div className="flex h-full flex-col">
-      {/* Kanban header with view mode toggle and refresh button */}
-      <div className="flex items-center justify-between px-6 pt-4 pb-2">
-        {/* View mode toggle buttons */}
-        <div className="flex items-center gap-1 rounded-lg border border-border/50 bg-muted/30 p-1">
-          <Tooltip delayDuration={200}>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setViewMode('kanban-full')}
-                className={cn(
-                  "h-8 w-8 p-0 transition-colors",
-                  viewMode === 'kanban-full'
-                    ? "bg-primary/10 text-primary hover:bg-primary/20"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                )}
-                aria-label={t('tasks:viewMode.switchToKanban')}
-                aria-pressed={viewMode === 'kanban-full'}
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              {t('tasks:viewMode.kanban')}
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip delayDuration={200}>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setViewMode('kanban-compact')}
-                className={cn(
-                  "h-8 w-8 p-0 transition-colors",
-                  viewMode === 'kanban-compact'
-                    ? "bg-primary/10 text-primary hover:bg-primary/20"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                )}
-                aria-label={t('tasks:viewMode.switchToKanban')}
-                aria-pressed={viewMode === 'kanban-compact'}
-              >
-                <Rows3 className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              {t('tasks:viewMode.kanban')} (Compact)
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip delayDuration={200}>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setViewMode('table')}
-                className={cn(
-                  "h-8 w-8 p-0 transition-colors",
-                  viewMode === 'table'
-                    ? "bg-primary/10 text-primary hover:bg-primary/20"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                )}
-                aria-label={t('tasks:viewMode.switchToTable')}
-                aria-pressed={viewMode === 'table'}
-              >
-                <Table2 className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              {t('tasks:viewMode.table')}
-            </TooltipContent>
-          </Tooltip>
-        </div>
-
-        {/* Refresh button */}
-        {onRefresh && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            className="gap-2 text-muted-foreground hover:text-foreground"
-          >
-            <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-            {isRefreshing ? t('common:buttons.refreshing') : t('tasks:refreshTasks')}
-          </Button>
-        )}
-      </div>
-
       {/* Conditional rendering based on view mode */}
       {viewMode === 'table' ? (
         /* Table view - Jira-style list */
@@ -1192,7 +1104,12 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           onDragEnd={handleDragEnd}
         >
           <div className="flex flex-1 gap-4 overflow-x-auto p-6">
-            {TASK_STATUS_COLUMNS.map((status) => (
+            {TASK_STATUS_COLUMNS.map((status) => {
+              // Hide empty columns in compact mode
+              if (viewMode === 'kanban-compact' && tasksByStatus[status].length === 0) {
+                return null;
+              }
+              return (
               <DroppableColumn
                 key={status}
                 status={status}
@@ -1219,7 +1136,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
                 onDeselectAll={status === 'human_review' ? deselectAllTasks : undefined}
                 onToggleSelect={status === 'human_review' ? toggleTaskSelection : undefined}
               />
-            ))}
+              );
+            })}
           </div>
 
           {/* Drag overlay - enhanced visual feedback */}
