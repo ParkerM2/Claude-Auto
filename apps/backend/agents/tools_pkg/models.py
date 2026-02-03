@@ -481,15 +481,16 @@ def get_required_mcp_servers(
         if str(linear_mcp_enabled).lower() != "false":
             servers.append("linear")
 
-    # Handle dynamic "browser" → electron/puppeteer based on project type and config
+    # Handle dynamic "browser" → electron/chrome-devtools/puppeteer based on project type and config
     if "browser" in servers:
         servers = [s for s in servers if s != "browser"]
         if project_capabilities:
             is_electron = project_capabilities.get("is_electron", False)
             is_web_frontend = project_capabilities.get("is_web_frontend", False)
 
-            # Check per-project overrides (default false for both)
+            # Check per-project overrides (default false for all)
             electron_enabled = mcp_config.get("ELECTRON_MCP_ENABLED", "false")
+            chrome_devtools_enabled = mcp_config.get("CHROME_DEVTOOLS_MCP_ENABLED", "false")
             puppeteer_enabled = mcp_config.get("PUPPETEER_MCP_ENABLED", "false")
 
             # Electron: enabled by project config OR global env var
@@ -497,9 +498,11 @@ def get_required_mcp_servers(
                 str(electron_enabled).lower() == "true" or is_electron_mcp_enabled()
             ):
                 servers.append("electron")
-            # Puppeteer: enabled by project config (no global env var)
+            # Web frontend (non-Electron): chrome-devtools has priority over puppeteer
             elif is_web_frontend and not is_electron:
-                if str(puppeteer_enabled).lower() == "true":
+                if str(chrome_devtools_enabled).lower() == "true":
+                    servers.append("chrome-devtools")
+                elif str(puppeteer_enabled).lower() == "true":
                     servers.append("puppeteer")
 
     # Filter graphiti if not enabled
