@@ -58,7 +58,9 @@ def import_jira_issue(
         print("\nError: JIRA_API_TOKEN is not set")
         print("Set it in apps/backend/.env:")
         print("  JIRA_API_TOKEN=your-api-token")
-        print("\nGenerate a token at: https://id.atlassian.com/manage-profile/security/api-tokens")
+        print(
+            "\nGenerate a token at: https://id.atlassian.com/manage-profile/security/api-tokens"
+        )
         sys.exit(1)
 
     # Create Jira client
@@ -79,7 +81,7 @@ def import_jira_issue(
         spec_dir = asyncio.run(client.import_issue(issue_key, specs_dir, spec_name))
         print(f"✓ Successfully imported {issue_key}")
         print(f"  Spec created at: {spec_dir}")
-        print(f"\nTo build this spec:")
+        print("\nTo build this spec:")
         print(f"  python auto-claude/run.py --spec {spec_dir.name}")
     except Exception as e:
         print(f"\n✗ Failed to import {issue_key}")

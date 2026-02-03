@@ -31,7 +31,6 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-
 # =============================================================================
 # ENUMS
 # =============================================================================
@@ -215,7 +214,9 @@ class DiffAnalyzer:
     FILE_HEADER_PATTERN = re.compile(r"^diff --git a/(.*) b/(.*)$")
     OLD_FILE_PATTERN = re.compile(r"^--- (.*)$")
     NEW_FILE_PATTERN = re.compile(r"^\+\+\+ (.*)$")
-    HUNK_HEADER_PATTERN = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)$")
+    HUNK_HEADER_PATTERN = re.compile(
+        r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)$"
+    )
     RENAME_PATTERN = re.compile(r"^rename from (.*)$")
     RENAME_TO_PATTERN = re.compile(r"^rename to (.*)$")
     MODE_PATTERN = re.compile(r"^(new|deleted|old|new) mode (\d+)$")

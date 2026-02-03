@@ -4,8 +4,8 @@ Jira Integration Module
 Provides async Jira REST API client for fetching issues, users, and projects.
 """
 
-from .jira_client import JiraClient, JiraTimeoutError, JiraAuthError, JiraApiError
-from .models import JiraIssue, JiraUser, JiraStatus, JiraProject
+from .jira_client import JiraApiError, JiraAuthError, JiraClient, JiraTimeoutError
+from .models import JiraIssue, JiraProject, JiraStatus, JiraUser
 
 __all__ = [
     "JiraClient",

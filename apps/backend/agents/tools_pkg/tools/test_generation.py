@@ -311,7 +311,7 @@ class TestIntegration:
 
 def _generate_js_integration_template(description: str, framework: str) -> str:
     """Generate a JavaScript/TypeScript integration test template."""
-    return f'''/**
+    return f"""/**
  * Integration Test
  * ================
  *
@@ -364,4 +364,4 @@ describe('Integration Test Suite', () => {{
     // TODO: Verify data persistence
   }});
 }});
-'''
+"""

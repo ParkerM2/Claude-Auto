@@ -29,7 +29,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-
 # =============================================================================
 # DATA CLASSES
 # =============================================================================
@@ -220,8 +219,7 @@ class CodeQualityTracker:
         if previous:
             # Calculate deltas
             trend.metrics_delta = {
-                "complexity": current.average_complexity
-                - previous.average_complexity,
+                "complexity": current.average_complexity - previous.average_complexity,
                 "maintainability": current.average_maintainability
                 - previous.average_maintainability,
                 "technical_debt": current.technical_debt_score
@@ -276,9 +274,7 @@ class CodeQualityTracker:
 
     def _load_history(self) -> None:
         """Load all metrics files from disk and populate cache."""
-        metrics_files = sorted(
-            self.metrics_dir.glob("metrics_*.json"), reverse=True
-        )
+        metrics_files = sorted(self.metrics_dir.glob("metrics_*.json"), reverse=True)
 
         snapshots = []
         for metrics_file in metrics_files:
@@ -292,9 +288,7 @@ class CodeQualityTracker:
                     total_files=metrics.get("total_files", 0),
                     total_lines=metrics.get("total_lines", 0),
                     average_complexity=metrics.get("average_complexity", 0.0),
-                    average_maintainability=metrics.get(
-                        "average_maintainability", 0.0
-                    ),
+                    average_maintainability=metrics.get("average_maintainability", 0.0),
                     high_complexity_count=metrics.get("high_complexity_count", 0),
                     critical_complexity_count=metrics.get(
                         "critical_complexity_count", 0
@@ -338,9 +332,7 @@ class CodeQualityTracker:
                 "⚠️ Maintainability is decreasing - review code structure and documentation"
             )
         elif trend.maintainability_trend == "improving":
-            recommendations.append(
-                "✅ Maintainability is improving - good progress"
-            )
+            recommendations.append("✅ Maintainability is improving - good progress")
 
         # Technical debt recommendations
         if trend.debt_trend == "degrading":
@@ -381,6 +373,8 @@ class CodeQualityTracker:
             )
 
         if not recommendations:
-            recommendations.append("✅ Code quality is stable - no immediate actions needed")
+            recommendations.append(
+                "✅ Code quality is stable - no immediate actions needed"
+            )
 
         return recommendations

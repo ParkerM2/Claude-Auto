@@ -12,9 +12,8 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
 
-from .jira_client import JiraClient, JiraApiError
+from .jira_client import JiraApiError, JiraClient
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -69,16 +68,15 @@ class JiraPRLinker:
             JiraApiError: If API request fails
         """
         try:
-            logger.info(
-                f"Linking GitHub PR to Jira issue {issue_key}: {pr_url}"
-            )
+            logger.info(f"Linking GitHub PR to Jira issue {issue_key}: {pr_url}")
 
             # Build remote link object
             # See: https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-remote-links/
             link_data = {
                 "object": {
                     "url": pr_url,
-                    "title": pr_title or f"Pull Request #{self._extract_pr_number(pr_url)}",
+                    "title": pr_title
+                    or f"Pull Request #{self._extract_pr_number(pr_url)}",
                 }
             }
 
@@ -89,15 +87,11 @@ class JiraPRLinker:
                 data=link_data,
             )
 
-            logger.info(
-                f"Successfully linked PR {pr_url} to Jira issue {issue_key}"
-            )
+            logger.info(f"Successfully linked PR {pr_url} to Jira issue {issue_key}")
             return True
 
         except JiraApiError as e:
-            logger.error(
-                f"Failed to link PR {pr_url} to Jira issue {issue_key}: {e}"
-            )
+            logger.error(f"Failed to link PR {pr_url} to Jira issue {issue_key}: {e}")
             raise
 
     async def on_pr_created(

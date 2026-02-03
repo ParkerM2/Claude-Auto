@@ -19,7 +19,6 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +55,7 @@ class RecoveryLearner:
     - Track which strategies work best for different failure types
     """
 
-    def __init__(self, spec_dir: Path, project_dir: Optional[Path] = None):
+    def __init__(self, spec_dir: Path, project_dir: Path | None = None):
         """
         Initialize recovery learner.
 
@@ -91,7 +90,7 @@ class RecoveryLearner:
             "metadata": {
                 "created_at": datetime.now().isoformat(),
                 "last_updated": datetime.now().isoformat(),
-            }
+            },
         }
         with open(self.patterns_file, "w", encoding="utf-8") as f:
             json.dump(initial_data, f, indent=2)
@@ -108,7 +107,7 @@ class RecoveryLearner:
                 self._graphiti_memory = get_graphiti_memory(
                     self.spec_dir,
                     self.project_dir,
-                    group_id_mode="project"  # Use project-wide learning
+                    group_id_mode="project",  # Use project-wide learning
                 )
                 self._graphiti_available = self._graphiti_memory.is_enabled
 
@@ -145,7 +144,7 @@ class RecoveryLearner:
         failure_type: str,
         strategy_used: str,
         attempts_before_success: int,
-        error_message: Optional[str] = None,
+        error_message: str | None = None,
     ) -> None:
         """
         Record a successful recovery for learning.
@@ -218,7 +217,7 @@ class RecoveryLearner:
         failure_type: str,
         strategy_used: str,
         attempts_before_success: int,
-        error_message: Optional[str] = None,
+        error_message: str | None = None,
     ) -> None:
         """
         Save successful recovery to Graphiti memory.
@@ -264,7 +263,7 @@ class RecoveryLearner:
     def get_learned_insights(
         self,
         failure_type: str,
-        subtask_description: Optional[str] = None,
+        subtask_description: str | None = None,
         limit: int = 5,
     ) -> list[str]:
         """
@@ -285,14 +284,11 @@ class RecoveryLearner:
 
         # Filter patterns by failure type
         matching_patterns = [
-            p for p in patterns["patterns"]
-            if p["failure_type"] == failure_type
+            p for p in patterns["patterns"] if p["failure_type"] == failure_type
         ]
 
         if not matching_patterns:
-            insights.append(
-                f"No learned patterns yet for failure type: {failure_type}"
-            )
+            insights.append(f"No learned patterns yet for failure type: {failure_type}")
             return insights
 
         # Add strategy recommendations based on success rates
@@ -305,8 +301,7 @@ class RecoveryLearner:
 
         # Sort by success count for this failure type
         relevant_strategies.sort(
-            key=lambda x: x[1]["failure_types"].get(failure_type, 0),
-            reverse=True
+            key=lambda x: x[1]["failure_types"].get(failure_type, 0), reverse=True
         )
 
         if relevant_strategies:
@@ -326,9 +321,7 @@ class RecoveryLearner:
 
         # Add specific examples from recent patterns
         recent_patterns = sorted(
-            matching_patterns,
-            key=lambda x: x.get("timestamp", ""),
-            reverse=True
+            matching_patterns, key=lambda x: x.get("timestamp", ""), reverse=True
         )[:3]
 
         if recent_patterns:
@@ -339,7 +332,9 @@ class RecoveryLearner:
                     f"{pattern['attempts_before_success']} attempts"
                 )
                 if pattern.get("subtask_description"):
-                    insights.append(f"    Context: {pattern['subtask_description'][:80]}...")
+                    insights.append(
+                        f"    Context: {pattern['subtask_description'][:80]}..."
+                    )
 
         # Try to get insights from Graphiti if available
         if self._graphiti_available and self._graphiti_memory and subtask_description:
@@ -376,8 +371,7 @@ class RecoveryLearner:
         try:
             # Search for similar task outcomes
             similar_outcomes = await self._graphiti_memory.get_similar_task_outcomes(
-                subtask_description,
-                limit=limit
+                subtask_description, limit=limit
             )
 
             insights = []
@@ -401,7 +395,7 @@ class RecoveryLearner:
     def get_best_strategy(
         self,
         failure_type: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Get the best strategy based on past success for a failure type.
 

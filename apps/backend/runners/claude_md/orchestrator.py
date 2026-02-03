@@ -14,7 +14,6 @@ This orchestrator:
 
 import asyncio
 import json
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -442,9 +441,7 @@ Output ONLY the CLAUDE.md content, no explanations or preamble. Start directly w
 
         # Add tech stack info
         if tech_stack.get("languages"):
-            prompt_parts.append(
-                f"\n## Languages: {', '.join(tech_stack['languages'])}"
-            )
+            prompt_parts.append(f"\n## Languages: {', '.join(tech_stack['languages'])}")
         if tech_stack.get("frameworks"):
             prompt_parts.append(
                 f"\n## Frameworks: {', '.join(tech_stack['frameworks'])}"

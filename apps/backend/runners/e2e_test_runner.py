@@ -31,9 +31,9 @@ Options:
 import sys
 
 # Python version check
-if sys.version_info < (3, 10):
+if sys.version_info < (3, 12):
     sys.exit(
-        f"Error: Auto Claude requires Python 3.10 or higher.\n"
+        f"Error: Auto Claude requires Python 3.12 or higher.\n"
         f"You are running Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     )
 
@@ -88,16 +88,14 @@ elif dev_env_file.exists():
 
 import argparse
 import json
-import subprocess
 import time
 import urllib.request
 from datetime import datetime
 from typing import Any
 
 import yaml
-
-from debug import debug, debug_error, debug_section, debug_success
-from ui import Icons, highlight, muted, print_section, print_status
+from debug import debug_error, debug_section
+from ui import Icons, muted, print_section, print_status
 
 
 def check_cdp_connection(port: int, timeout: float = 5.0) -> dict[str, Any]:
@@ -122,7 +120,7 @@ def load_scenario(scenario_path: Path) -> dict[str, Any]:
         return {"error": f"Scenario file not found: {scenario_path}"}
 
     try:
-        with open(scenario_path, "r", encoding="utf-8") as f:
+        with open(scenario_path, encoding="utf-8") as f:
             return yaml.safe_load(f)
     except Exception as e:
         return {"error": f"Failed to load scenario: {e}"}
@@ -455,9 +453,13 @@ Examples:
         results.append(result)
 
         if result.get("status") == "completed":
-            print_status(Icons.CHECK, f"Scenario completed: {result.get('summary', 'N/A')}")
+            print_status(
+                Icons.CHECK, f"Scenario completed: {result.get('summary', 'N/A')}"
+            )
         else:
-            print_status(Icons.ERROR, f"Scenario failed: {result.get('error', 'Unknown error')}")
+            print_status(
+                Icons.ERROR, f"Scenario failed: {result.get('error', 'Unknown error')}"
+            )
 
     # Generate report
     report_dir = args.report_dir or (project_dir / "e2e" / "reports")

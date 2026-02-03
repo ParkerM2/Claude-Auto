@@ -10,7 +10,6 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 # Reviewer assignment file name
 REVIEWER_ASSIGNMENT_FILE = "reviewer_assignment.json"
@@ -169,7 +168,7 @@ class ReviewerAssignment:
         except (OSError, json.JSONDecodeError, UnicodeDecodeError):
             return cls()
 
-    def get_reviewer(self, username: str) -> Optional[ReviewerInfo]:
+    def get_reviewer(self, username: str) -> ReviewerInfo | None:
         """
         Get a reviewer by username.
 
@@ -189,7 +188,7 @@ class ReviewerAssignment:
         username: str,
         assigned_by: str = "user",
         auto_save: bool = False,
-        spec_dir: Optional[Path] = None,
+        spec_dir: Path | None = None,
     ) -> ReviewerInfo:
         """
         Add a new reviewer to the assignment.
@@ -224,7 +223,7 @@ class ReviewerAssignment:
         self,
         username: str,
         auto_save: bool = False,
-        spec_dir: Optional[Path] = None,
+        spec_dir: Path | None = None,
     ) -> bool:
         """
         Remove a reviewer from the assignment.
@@ -250,7 +249,7 @@ class ReviewerAssignment:
         username: str,
         feedback: str = "",
         auto_save: bool = False,
-        spec_dir: Optional[Path] = None,
+        spec_dir: Path | None = None,
     ) -> bool:
         """
         Mark a reviewer's approval.
@@ -276,7 +275,7 @@ class ReviewerAssignment:
         self,
         username: str,
         auto_save: bool = False,
-        spec_dir: Optional[Path] = None,
+        spec_dir: Path | None = None,
     ) -> bool:
         """
         Revoke a reviewer's approval.
@@ -344,12 +343,8 @@ class ReviewerAssignment:
         total_reviewers = len(self.reviewers)
         approved_count = self.get_approval_count()
         required_count = self.get_required_approval_count()
-        pending_reviewers = [
-            r.username for r in self.reviewers if not r.approved
-        ]
-        approved_reviewers = [
-            r.username for r in self.reviewers if r.approved
-        ]
+        pending_reviewers = [r.username for r in self.reviewers if not r.approved]
+        approved_reviewers = [r.username for r in self.reviewers if r.approved]
 
         return {
             "total_reviewers": total_reviewers,
@@ -365,7 +360,7 @@ class ReviewerAssignment:
 
     def reset_approvals(
         self,
-        spec_dir: Optional[Path] = None,
+        spec_dir: Path | None = None,
         auto_save: bool = False,
     ) -> None:
         """
@@ -383,7 +378,7 @@ class ReviewerAssignment:
 
     def clear_reviewers(
         self,
-        spec_dir: Optional[Path] = None,
+        spec_dir: Path | None = None,
         auto_save: bool = False,
     ) -> None:
         """

@@ -20,7 +20,6 @@ import heapq
 import os
 import re
 from pathlib import Path
-from typing import Any
 
 from .analyzers.base import SKIP_DIRS
 
@@ -85,11 +84,7 @@ class ContextSelector:
 
         # Weighted combination
         # Path matches are most important, then filename, then content
-        total_score = (
-            path_score * 0.4 +
-            name_score * 0.3 +
-            content_score * 0.3
-        )
+        total_score = path_score * 0.4 + name_score * 0.3 + content_score * 0.3
 
         # Normalize to 0.0-1.0 range
         final_score = min(1.0, max(0.0, total_score))
@@ -113,17 +108,74 @@ class ContextSelector:
         text = text.lower()
 
         # Split on non-alphanumeric characters
-        words = re.findall(r'\b\w+\b', text)
+        words = re.findall(r"\b\w+\b", text)
 
         # Filter out common stop words
         stop_words = {
-            'a', 'an', 'and', 'the', 'is', 'are', 'was', 'were', 'be', 'been',
-            'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would',
-            'should', 'could', 'may', 'might', 'must', 'can', 'to', 'of', 'in',
-            'on', 'at', 'for', 'with', 'from', 'by', 'as', 'or', 'but', 'not',
-            'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it',
-            'we', 'they', 'them', 'my', 'your', 'his', 'her', 'its', 'our',
-            'their', 'what', 'which', 'who', 'when', 'where', 'why', 'how',
+            "a",
+            "an",
+            "and",
+            "the",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "being",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "should",
+            "could",
+            "may",
+            "might",
+            "must",
+            "can",
+            "to",
+            "of",
+            "in",
+            "on",
+            "at",
+            "for",
+            "with",
+            "from",
+            "by",
+            "as",
+            "or",
+            "but",
+            "not",
+            "this",
+            "that",
+            "these",
+            "those",
+            "i",
+            "you",
+            "he",
+            "she",
+            "it",
+            "we",
+            "they",
+            "them",
+            "my",
+            "your",
+            "his",
+            "her",
+            "its",
+            "our",
+            "their",
+            "what",
+            "which",
+            "who",
+            "when",
+            "where",
+            "why",
+            "how",
         }
 
         keywords = [w for w in words if w not in stop_words and len(w) > 2]
@@ -142,7 +194,7 @@ class ContextSelector:
             Score from 0.0 to 1.0
         """
         path_str = str(file_path).lower()
-        path_parts = path_str.split('/')
+        path_parts = path_str.split("/")
 
         matches = 0
         for keyword in keywords:
@@ -201,7 +253,7 @@ class ContextSelector:
             return 0.0
 
         try:
-            content = file_path.read_text(encoding='utf-8').lower()
+            content = file_path.read_text(encoding="utf-8").lower()
         except (OSError, UnicodeDecodeError):
             # Can't read file or not text
             return 0.0
@@ -210,7 +262,7 @@ class ContextSelector:
         total_matches = 0
         for keyword in keywords:
             # Use word boundaries to avoid partial matches
-            pattern = rf'\b{re.escape(keyword)}\b'
+            pattern = rf"\b{re.escape(keyword)}\b"
             matches = len(re.findall(pattern, content))
             # Diminishing returns for multiple occurrences
             total_matches += min(3, matches) / 3
@@ -239,7 +291,7 @@ class ContextSelector:
             return 0
 
         try:
-            content = file_path.read_text(encoding='utf-8')
+            content = file_path.read_text(encoding="utf-8")
             # Estimate: 1 token ≈ 4 characters
             return len(content) // 4
         except (OSError, UnicodeDecodeError):
@@ -277,7 +329,7 @@ class ContextSelector:
         keyword_set = set(keywords)
 
         if max_files is None:
-            max_files = float('inf')
+            max_files = float("inf")
 
         # Min-heap: keep only top max_files by score
         # Heap contains: (score, file_path)
@@ -323,7 +375,9 @@ class ContextSelector:
             cumulative_tokens = 0
 
             for score, path in results:
-                file_path = self.path / path if not Path(path).is_absolute() else Path(path)
+                file_path = (
+                    self.path / path if not Path(path).is_absolute() else Path(path)
+                )
                 tokens = self.estimate_tokens(file_path)
 
                 # Would adding this file exceed the limit?
@@ -348,12 +402,14 @@ class ContextSelector:
         try:
             for root, dirs, files in os.walk(self.path):
                 # Filter out directories to skip (modifies dirs in-place to skip traversal)
-                dirs[:] = [d for d in dirs if d not in SKIP_DIRS and not d.startswith('.')]
+                dirs[:] = [
+                    d for d in dirs if d not in SKIP_DIRS and not d.startswith(".")
+                ]
 
                 # Yield all files in this directory
                 for file_name in files:
                     # Skip hidden files
-                    if file_name.startswith('.'):
+                    if file_name.startswith("."):
                         continue
 
                     yield Path(root) / file_name

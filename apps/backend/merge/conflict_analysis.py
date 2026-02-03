@@ -330,13 +330,9 @@ def suggest_resolution_strategies(conflict: ConflictRegion) -> list[str]:
                 "Auto-merge: Append all new functions after existing code"
             )
         elif conflict.merge_strategy == MergeStrategy.APPEND_METHODS:
-            strategies.append(
-                "Auto-merge: Add all new methods to the class in order"
-            )
+            strategies.append("Auto-merge: Add all new methods to the class in order")
         elif conflict.merge_strategy == MergeStrategy.COMBINE_PROPS:
-            strategies.append(
-                "Auto-merge: Merge JSX/object properties from both tasks"
-            )
+            strategies.append("Auto-merge: Merge JSX/object properties from both tasks")
         else:
             strategies.append(
                 f"Auto-merge: Apply {conflict.merge_strategy.value} strategy"
@@ -385,7 +381,10 @@ def suggest_resolution_strategies(conflict: ConflictRegion) -> list[str]:
     # Add change-type specific strategies
     change_types_set = set(conflict.change_types)
 
-    if ChangeType.REMOVE_FUNCTION in change_types_set or ChangeType.REMOVE_CLASS in change_types_set:
+    if (
+        ChangeType.REMOVE_FUNCTION in change_types_set
+        or ChangeType.REMOVE_CLASS in change_types_set
+    ):
         strategies.append(
             "Conflict resolution: One task removes code another modifies - determine if removal is still valid"
         )

@@ -10,12 +10,11 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Generator, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Generator, Iterator
 
 from .analyzers.base import SKIP_DIRS
-
 
 # =============================================================================
 # DATA CLASSES
@@ -112,6 +111,7 @@ class StreamingAnalyzer:
         """
         try:
             import psutil
+
             process = psutil.Process()
             return process.memory_info().rss / (1024 * 1024)
         except ImportError:
@@ -136,7 +136,7 @@ class StreamingAnalyzer:
             # Count lines (for text files)
             lines = 0
             try:
-                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                with open(file_path, encoding="utf-8", errors="ignore") as f:
                     lines = sum(1 for _ in f)
             except (OSError, UnicodeDecodeError):
                 # Binary file or unable to read - skip line counting
@@ -260,8 +260,7 @@ def stream_files(
     for dirpath, dirnames, filenames in os.walk(root):
         # Filter out directories to skip (modifies in-place to prevent os.walk from descending)
         dirnames[:] = [
-            d for d in dirnames
-            if d not in skip_dirs and not d.startswith('.')
+            d for d in dirnames if d not in skip_dirs and not d.startswith(".")
         ]
 
         # Process files in current directory
@@ -269,7 +268,7 @@ def stream_files(
             file_path = Path(dirpath) / filename
 
             # Skip hidden files
-            if filename.startswith('.'):
+            if filename.startswith("."):
                 continue
 
             batch.append(file_path)
@@ -313,14 +312,13 @@ def stream_files_iter(
     for dirpath, dirnames, filenames in os.walk(root):
         # Filter out directories to skip (modifies in-place to prevent os.walk from descending)
         dirnames[:] = [
-            d for d in dirnames
-            if d not in skip_dirs and not d.startswith('.')
+            d for d in dirnames if d not in skip_dirs and not d.startswith(".")
         ]
 
         # Yield files in current directory
         for filename in filenames:
             # Skip hidden files
-            if filename.startswith('.'):
+            if filename.startswith("."):
                 continue
 
             yield Path(dirpath) / filename

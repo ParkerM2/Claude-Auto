@@ -20,10 +20,8 @@ import sys
 import time
 import urllib.request
 from pathlib import Path
-from typing import Optional
 
 from debug import debug, debug_error, debug_section, debug_success, debug_warning
-
 
 # Default CDP port for Electron debugging
 DEFAULT_CDP_PORT = 9222
@@ -63,7 +61,7 @@ class ElectronAppManager:
         self.project_dir = Path(project_dir).resolve()
         self.port = port
         self.use_test_env = use_test_env
-        self.process: Optional[subprocess.Popen] = None
+        self.process: subprocess.Popen | None = None
         self._was_already_running = False
 
     async def __aenter__(self) -> "ElectronAppManager":
@@ -75,16 +73,19 @@ class ElectronAppManager:
         """Stop the Electron app if we started it."""
         await self.stop()
 
-    def _find_frontend_dir(self) -> Optional[Path]:
+    def _find_frontend_dir(self) -> Path | None:
         """Find the frontend directory containing the Electron app."""
         # Check if project_dir is already the frontend
         if (self.project_dir / "package.json").exists():
             pkg_json = self.project_dir / "package.json"
             try:
-                with open(pkg_json, "r", encoding="utf-8") as f:
+                with open(pkg_json, encoding="utf-8") as f:
                     pkg = json.load(f)
                     # Check if it's an Electron app
-                    deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
+                    deps = {
+                        **pkg.get("dependencies", {}),
+                        **pkg.get("devDependencies", {}),
+                    }
                     if "electron" in deps:
                         return self.project_dir
             except (json.JSONDecodeError, OSError):
@@ -108,7 +109,9 @@ class ElectronAppManager:
         try:
             with urllib.request.urlopen(url, timeout=timeout) as response:
                 data = json.loads(response.read().decode())
-                debug("electron_app", f"CDP connected: {data.get('Browser', 'Unknown')}")
+                debug(
+                    "electron_app", f"CDP connected: {data.get('Browser', 'Unknown')}"
+                )
                 return True
         except Exception:
             return False
@@ -136,7 +139,9 @@ class ElectronAppManager:
 
         # Check if already running
         if self._check_cdp_connection():
-            debug_success("electron_app", f"Electron app already running on port {self.port}")
+            debug_success(
+                "electron_app", f"Electron app already running on port {self.port}"
+            )
             self._was_already_running = True
             return True
 
@@ -229,7 +234,9 @@ class ElectronAppManager:
                 try:
                     stdout, stderr = self.process.communicate(timeout=2)
                     if stderr:
-                        debug_error("electron_app", f"App stderr: {stderr.decode()[:500]}")
+                        debug_error(
+                            "electron_app", f"App stderr: {stderr.decode()[:500]}"
+                        )
                 except subprocess.TimeoutExpired:
                     pass
             await self.stop()
@@ -256,7 +263,9 @@ class ElectronAppManager:
                 debug_success("electron_app", "Electron app stopped gracefully")
             except subprocess.TimeoutExpired:
                 # Force kill if graceful termination fails
-                debug_warning("electron_app", "Graceful shutdown timeout, force killing")
+                debug_warning(
+                    "electron_app", "Graceful shutdown timeout, force killing"
+                )
                 self.process.kill()
                 self.process.wait(timeout=5)
                 debug("electron_app", "Electron app force killed")
@@ -291,9 +300,12 @@ def is_electron_project(project_dir: Path) -> bool:
     for pkg_path in paths_to_check:
         if pkg_path.exists():
             try:
-                with open(pkg_path, "r", encoding="utf-8") as f:
+                with open(pkg_path, encoding="utf-8") as f:
                     pkg = json.load(f)
-                    deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
+                    deps = {
+                        **pkg.get("dependencies", {}),
+                        **pkg.get("devDependencies", {}),
+                    }
                     if "electron" in deps:
                         return True
             except (json.JSONDecodeError, OSError):

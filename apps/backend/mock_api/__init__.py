@@ -36,8 +36,10 @@ def __getattr__(name):
     """Lazy imports to avoid loading server dependencies unless needed."""
     if name == "MOCK_RESPONSES":
         from .data import MOCK_RESPONSES
+
         return MOCK_RESPONSES
     elif name == "app":
         from .server import app
+
         return app
     raise AttributeError(f"module 'mock_api' has no attribute '{name}'")

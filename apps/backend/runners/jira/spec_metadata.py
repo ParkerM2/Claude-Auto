@@ -115,10 +115,12 @@ def save_jira_metadata(spec_dir: Path, metadata: JiraSpecMetadata) -> Path:
         with open(metadata_file, "w", encoding="utf-8") as f:
             json.dump(metadata.to_dict(), f, indent=2)
 
-        logger.debug(f"Saved Jira metadata for issue {metadata.issue_key} to {metadata_file}")
+        logger.debug(
+            f"Saved Jira metadata for issue {metadata.issue_key} to {metadata_file}"
+        )
         return metadata_file
 
-    except IOError as e:
+    except OSError as e:
         logger.error(f"Failed to save Jira metadata to {metadata_file}: {e}")
         raise
 
@@ -142,13 +144,13 @@ def load_jira_metadata(spec_dir: Path) -> JiraSpecMetadata | None:
         return None
 
     try:
-        with open(metadata_file, "r", encoding="utf-8") as f:
+        with open(metadata_file, encoding="utf-8") as f:
             data = json.load(f)
             metadata = JiraSpecMetadata.from_dict(data)
             logger.debug(f"Loaded Jira metadata for issue {metadata.issue_key}")
             return metadata
 
-    except (json.JSONDecodeError, KeyError, IOError) as e:
+    except (OSError, json.JSONDecodeError, KeyError) as e:
         logger.error(f"Failed to load Jira metadata from {metadata_file}: {e}")
         return None
 

@@ -36,7 +36,6 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-
 # =============================================================================
 # ENUMS
 # =============================================================================
@@ -228,7 +227,9 @@ class PythonASTAnalyzer:
 
         # Extract top-level functions and classes
         for node in ast.walk(tree):
-            if isinstance(node, ast.FunctionDef) or isinstance(node, ast.AsyncFunctionDef):
+            if isinstance(node, ast.FunctionDef) or isinstance(
+                node, ast.AsyncFunctionDef
+            ):
                 # Only process top-level functions (not methods)
                 if self._is_top_level_function(node, tree):
                     func_info = self._extract_function_info(node)
@@ -267,7 +268,9 @@ class PythonASTAnalyzer:
             return TestFramework.UNITTEST
         return None
 
-    def _is_top_level_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef, tree: ast.AST) -> bool:
+    def _is_top_level_function(
+        self, node: ast.FunctionDef | ast.AsyncFunctionDef, tree: ast.AST
+    ) -> bool:
         """Check if function is at module level (not a method)."""
         for parent in ast.walk(tree):
             if isinstance(parent, ast.ClassDef):
@@ -288,7 +291,7 @@ class PythonASTAnalyzer:
     def _extract_function_info(
         self,
         node: ast.FunctionDef | ast.AsyncFunctionDef,
-        class_name: str | None = None
+        class_name: str | None = None,
     ) -> FunctionInfo:
         """Extract detailed information about a function."""
         is_async = isinstance(node, ast.AsyncFunctionDef)
@@ -313,13 +316,15 @@ class PythonASTAnalyzer:
         # Extract return type
         return_type = None
         if node.returns:
-            return_type = ast.unparse(node.returns) if hasattr(ast, 'unparse') else None
+            return_type = ast.unparse(node.returns) if hasattr(ast, "unparse") else None
 
         # Extract docstring
         docstring = ast.get_docstring(node)
 
         # Check if generator
-        is_generator = any(isinstance(n, (ast.Yield, ast.YieldFrom)) for n in ast.walk(node))
+        is_generator = any(
+            isinstance(n, (ast.Yield, ast.YieldFrom)) for n in ast.walk(node)
+        )
 
         return FunctionInfo(
             name=node.name,
@@ -344,43 +349,53 @@ class PythonASTAnalyzer:
 
         for arg, default in zip(all_args, defaults):
             # Skip 'self' and 'cls' parameters
-            if arg.arg in ('self', 'cls'):
+            if arg.arg in ("self", "cls"):
                 continue
 
             type_hint = None
             if arg.annotation:
-                type_hint = ast.unparse(arg.annotation) if hasattr(ast, 'unparse') else None
+                type_hint = (
+                    ast.unparse(arg.annotation) if hasattr(ast, "unparse") else None
+                )
 
             default_value = None
             has_default = default is not None
             if has_default:
                 try:
-                    default_value = ast.unparse(default) if hasattr(ast, 'unparse') else None
+                    default_value = (
+                        ast.unparse(default) if hasattr(ast, "unparse") else None
+                    )
                 except Exception:
                     default_value = "..."
 
-            parameters.append(Parameter(
-                name=arg.arg,
-                type_hint=type_hint,
-                default=default_value,
-                is_optional=has_default,
-            ))
+            parameters.append(
+                Parameter(
+                    name=arg.arg,
+                    type_hint=type_hint,
+                    default=default_value,
+                    is_optional=has_default,
+                )
+            )
 
         # *args
         if args.vararg:
-            parameters.append(Parameter(
-                name=f"*{args.vararg.arg}",
-                type_hint=None,
-                is_optional=True,
-            ))
+            parameters.append(
+                Parameter(
+                    name=f"*{args.vararg.arg}",
+                    type_hint=None,
+                    is_optional=True,
+                )
+            )
 
         # **kwargs
         if args.kwarg:
-            parameters.append(Parameter(
-                name=f"**{args.kwarg.arg}",
-                type_hint=None,
-                is_optional=True,
-            ))
+            parameters.append(
+                Parameter(
+                    name=f"**{args.kwarg.arg}",
+                    type_hint=None,
+                    is_optional=True,
+                )
+            )
 
         return parameters
 
@@ -391,7 +406,7 @@ class PythonASTAnalyzer:
         for base in node.bases:
             if isinstance(base, ast.Name):
                 base_classes.append(base.id)
-            elif hasattr(ast, 'unparse'):
+            elif hasattr(ast, "unparse"):
                 base_classes.append(ast.unparse(base))
 
         # Extract decorators
@@ -424,7 +439,7 @@ class PythonASTAnalyzer:
             return decorator.id
         elif isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Name):
             return decorator.func.id
-        elif hasattr(ast, 'unparse'):
+        elif hasattr(ast, "unparse"):
             return ast.unparse(decorator)
         return "unknown"
 
@@ -506,7 +521,9 @@ class JavaScriptTypeScriptAnalyzer:
         """Detect test framework from imports."""
         if "vitest" in imports or any("vitest" in imp for imp in imports):
             return TestFramework.VITEST
-        elif "jest" in imports or any("@jest" in imp or imp == "jest" for imp in imports):
+        elif "jest" in imports or any(
+            "@jest" in imp or imp == "jest" for imp in imports
+        ):
             return TestFramework.JEST
         return None
 
@@ -527,14 +544,18 @@ class JavaScriptTypeScriptAnalyzer:
             # Parse parameters
             parameters = self._parse_parameters(params_str)
 
-            functions.append(FunctionInfo(
-                name=func_name,
-                type=FunctionType.ASYNC_FUNCTION if is_async else FunctionType.FUNCTION,
-                parameters=parameters,
-                return_type=return_type,
-                is_async=is_async,
-                line_number=code[:match.start()].count('\n') + 1,
-            ))
+            functions.append(
+                FunctionInfo(
+                    name=func_name,
+                    type=FunctionType.ASYNC_FUNCTION
+                    if is_async
+                    else FunctionType.FUNCTION,
+                    parameters=parameters,
+                    return_type=return_type,
+                    is_async=is_async,
+                    line_number=code[: match.start()].count("\n") + 1,
+                )
+            )
 
         # Pattern for arrow functions assigned to const/let/var
         # const myFunc = (arg1, arg2) => { }
@@ -549,14 +570,18 @@ class JavaScriptTypeScriptAnalyzer:
             # Parse parameters
             parameters = self._parse_parameters(params_str)
 
-            functions.append(FunctionInfo(
-                name=func_name,
-                type=FunctionType.ASYNC_FUNCTION if is_async else FunctionType.FUNCTION,
-                parameters=parameters,
-                return_type=return_type,
-                is_async=is_async,
-                line_number=code[:match.start()].count('\n') + 1,
-            ))
+            functions.append(
+                FunctionInfo(
+                    name=func_name,
+                    type=FunctionType.ASYNC_FUNCTION
+                    if is_async
+                    else FunctionType.FUNCTION,
+                    parameters=parameters,
+                    return_type=return_type,
+                    is_async=is_async,
+                    line_number=code[: match.start()].count("\n") + 1,
+                )
+            )
 
         return functions
 
@@ -576,9 +601,9 @@ class JavaScriptTypeScriptAnalyzer:
             brace_count = 1
             class_end = class_start
             for i in range(class_start, len(code)):
-                if code[i] == '{':
+                if code[i] == "{":
                     brace_count += 1
-                elif code[i] == '}':
+                elif code[i] == "}":
                     brace_count -= 1
                     if brace_count == 0:
                         class_end = i
@@ -589,12 +614,14 @@ class JavaScriptTypeScriptAnalyzer:
             # Extract methods from class body
             methods = self._extract_methods(class_body, class_name)
 
-            classes.append(ClassInfo(
-                name=class_name,
-                methods=methods,
-                base_classes=[base_class] if base_class else [],
-                line_number=code[:match.start()].count('\n') + 1,
-            ))
+            classes.append(
+                ClassInfo(
+                    name=class_name,
+                    methods=methods,
+                    base_classes=[base_class] if base_class else [],
+                    line_number=code[: match.start()].count("\n") + 1,
+                )
+            )
 
         return classes
 
@@ -611,7 +638,7 @@ class JavaScriptTypeScriptAnalyzer:
             method_name = match.group(2)
 
             # Skip if this looks like a control structure (if, for, while, etc.)
-            if method_name in ('if', 'for', 'while', 'switch', 'catch'):
+            if method_name in ("if", "for", "while", "switch", "catch"):
                 continue
 
             params_str = match.group(3)
@@ -620,15 +647,17 @@ class JavaScriptTypeScriptAnalyzer:
             # Parse parameters
             parameters = self._parse_parameters(params_str)
 
-            methods.append(FunctionInfo(
-                name=method_name,
-                type=FunctionType.ASYNC_METHOD if is_async else FunctionType.METHOD,
-                parameters=parameters,
-                return_type=return_type,
-                is_async=is_async,
-                class_name=class_name,
-                line_number=class_body[:match.start()].count('\n') + 1,
-            ))
+            methods.append(
+                FunctionInfo(
+                    name=method_name,
+                    type=FunctionType.ASYNC_METHOD if is_async else FunctionType.METHOD,
+                    parameters=parameters,
+                    return_type=return_type,
+                    is_async=is_async,
+                    class_name=class_name,
+                    line_number=class_body[: match.start()].count("\n") + 1,
+                )
+            )
 
         return methods
 
@@ -648,19 +677,24 @@ class JavaScriptTypeScriptAnalyzer:
         brace_depth = 0
 
         for char in params_str + ",":
-            if char == '<':
+            if char == "<":
                 angle_depth += 1
-            elif char == '>':
+            elif char == ">":
                 angle_depth -= 1
-            elif char == '(':
+            elif char == "(":
                 paren_depth += 1
-            elif char == ')':
+            elif char == ")":
                 paren_depth -= 1
-            elif char == '{':
+            elif char == "{":
                 brace_depth += 1
-            elif char == '}':
+            elif char == "}":
                 brace_depth -= 1
-            elif char == ',' and angle_depth == 0 and paren_depth == 0 and brace_depth == 0:
+            elif (
+                char == ","
+                and angle_depth == 0
+                and paren_depth == 0
+                and brace_depth == 0
+            ):
                 if current_param.strip():
                     params.append(current_param.strip())
                 current_param = ""
@@ -670,46 +704,56 @@ class JavaScriptTypeScriptAnalyzer:
         # Parse each parameter
         for param in params:
             # Handle destructured parameters like { x, y } or { x, y }: Type
-            if param.startswith('{'):
+            if param.startswith("{"):
                 # Extract type annotation if present
                 type_hint = None
                 destructured_part = param
-                if '}:' in param:
-                    parts = param.split('}:', 1)
-                    destructured_part = parts[0] + '}'
+                if "}:" in param:
+                    parts = param.split("}:", 1)
+                    destructured_part = parts[0] + "}"
                     type_hint = parts[1].strip()
 
                 # Extract individual properties from destructured object
                 # Remove braces and split by comma
                 inner = destructured_part.strip()[1:-1]  # Remove { and }
-                prop_names = [p.strip().split(':')[0].strip() for p in inner.split(',') if p.strip()]
+                prop_names = [
+                    p.strip().split(":")[0].strip()
+                    for p in inner.split(",")
+                    if p.strip()
+                ]
 
                 # Add each destructured property as a separate parameter
                 for prop_name in prop_names:
                     if prop_name:
-                        parameters.append(Parameter(
-                            name=prop_name,
-                            type_hint=type_hint,
-                        ))
+                        parameters.append(
+                            Parameter(
+                                name=prop_name,
+                                type_hint=type_hint,
+                            )
+                        )
                 continue
 
             # Handle array destructured parameters like [x, y]
-            if param.startswith('['):
+            if param.startswith("["):
                 # Simplified: just use the whole thing as the name
-                parameters.append(Parameter(
-                    name=param.split(':')[0].strip() if ':' in param else param.strip(),
-                    type_hint=None,
-                ))
+                parameters.append(
+                    Parameter(
+                        name=param.split(":")[0].strip()
+                        if ":" in param
+                        else param.strip(),
+                        type_hint=None,
+                    )
+                )
                 continue
 
             # Check for default value: param = defaultValue
-            has_default = '=' in param
+            has_default = "=" in param
             if has_default:
-                param = param.split('=')[0].strip()
+                param = param.split("=")[0].strip()
 
             # Check for type annotation: param: Type
-            if ':' in param:
-                parts = param.split(':', 1)
+            if ":" in param:
+                parts = param.split(":", 1)
                 param_name = parts[0].strip()
                 type_hint = parts[1].strip()
             else:
@@ -717,16 +761,18 @@ class JavaScriptTypeScriptAnalyzer:
                 type_hint = None
 
             # Handle rest parameters: ...args
-            if param_name.startswith('...'):
+            if param_name.startswith("..."):
                 param_name = param_name[3:].strip()
                 type_hint = f"...{type_hint}" if type_hint else "...any"
 
             if param_name:  # Skip empty parameters
-                parameters.append(Parameter(
-                    name=param_name,
-                    type_hint=type_hint,
-                    is_optional=has_default,
-                ))
+                parameters.append(
+                    Parameter(
+                        name=param_name,
+                        type_hint=type_hint,
+                        is_optional=has_default,
+                    )
+                )
 
         return parameters
 
@@ -963,7 +1009,9 @@ class TestGenerator:
                     lines.append(f"    {param.name} = Mock()")
 
             # Instantiate with mocks
-            param_names = [p.name for p in init_method.parameters if p.name not in ("self", "cls")]
+            param_names = [
+                p.name for p in init_method.parameters if p.name not in ("self", "cls")
+            ]
             params_str = ", ".join(param_names)
             lines.append(f"    return {cls.name}({params_str})")
         else:
@@ -997,14 +1045,18 @@ class TestGenerator:
                 if param.name.startswith("*"):
                     continue
                 if param.type_hint:
-                    lines.append(f"    {param.name} = None  # TODO: Provide test value for {param.type_hint}")
+                    lines.append(
+                        f"    {param.name} = None  # TODO: Provide test value for {param.type_hint}"
+                    )
                 else:
                     lines.append(f"    {param.name} = None  # TODO: Provide test value")
             lines.append("")
 
             # Act: Call function
             lines.append("    # Act")
-            param_names = [p.name for p in func.parameters if not p.name.startswith("*")]
+            param_names = [
+                p.name for p in func.parameters if not p.name.startswith("*")
+            ]
             params_str = ", ".join(param_names)
             if func.is_async:
                 lines.append(f"    result = await {func.name}({params_str})")
@@ -1015,7 +1067,9 @@ class TestGenerator:
             # Assert: Check result
             lines.append("    # Assert")
             if func.return_type and func.return_type != "None":
-                lines.append(f"    assert result is not None  # TODO: Add specific assertions")
+                lines.append(
+                    "    assert result is not None  # TODO: Add specific assertions"
+                )
             else:
                 lines.append("    # TODO: Add assertions")
         else:
@@ -1028,7 +1082,9 @@ class TestGenerator:
             lines.append("")
             lines.append("    # Assert")
             if func.return_type and func.return_type != "None":
-                lines.append(f"    assert result is not None  # TODO: Add specific assertions")
+                lines.append(
+                    "    assert result is not None  # TODO: Add specific assertions"
+                )
             else:
                 lines.append("    # TODO: Add assertions")
 
@@ -1077,7 +1133,9 @@ class TestGenerator:
                     lines.append(f"    {param.name} = Mock()")
             lines.append("")
             lines.append("    # Act")
-            param_names = [p.name for p in method.parameters if p.name not in ("self", "cls")]
+            param_names = [
+                p.name for p in method.parameters if p.name not in ("self", "cls")
+            ]
             params_str = ", ".join(param_names)
             lines.append(f"    instance = {cls.name}({params_str})")
         else:
@@ -1114,17 +1172,23 @@ class TestGenerator:
                 if param.name.startswith("*"):
                     continue
                 if param.type_hint:
-                    lines.append(f"    {param.name} = None  # TODO: Provide test value for {param.type_hint}")
+                    lines.append(
+                        f"    {param.name} = None  # TODO: Provide test value for {param.type_hint}"
+                    )
                 else:
                     lines.append(f"    {param.name} = None  # TODO: Provide test value")
             lines.append("")
 
             # Act
             lines.append("    # Act")
-            param_names = [p.name for p in method.parameters if not p.name.startswith("*")]
+            param_names = [
+                p.name for p in method.parameters if not p.name.startswith("*")
+            ]
             params_str = ", ".join(param_names)
             if method.is_async:
-                lines.append(f"    result = await {fixture_name}.{method.name}({params_str})")
+                lines.append(
+                    f"    result = await {fixture_name}.{method.name}({params_str})"
+                )
             else:
                 lines.append(f"    result = {fixture_name}.{method.name}({params_str})")
             lines.append("")
@@ -1132,7 +1196,9 @@ class TestGenerator:
             # Assert
             lines.append("    # Assert")
             if method.return_type and method.return_type != "None":
-                lines.append(f"    assert result is not None  # TODO: Add specific assertions")
+                lines.append(
+                    "    assert result is not None  # TODO: Add specific assertions"
+                )
             else:
                 lines.append("    # TODO: Add assertions")
         else:
@@ -1145,13 +1211,17 @@ class TestGenerator:
             lines.append("")
             lines.append("    # Assert")
             if method.return_type and method.return_type != "None":
-                lines.append(f"    assert result is not None  # TODO: Add specific assertions")
+                lines.append(
+                    "    assert result is not None  # TODO: Add specific assertions"
+                )
             else:
                 lines.append("    # TODO: Add assertions")
 
         return lines
 
-    def _generate_vitest_tests(self, analysis: CodeAnalysis, is_react: bool = False) -> str:
+    def _generate_vitest_tests(
+        self, analysis: CodeAnalysis, is_react: bool = False
+    ) -> str:
         """
         Generate vitest test code from code analysis.
 
@@ -1191,20 +1261,28 @@ class TestGenerator:
 
         return "\n".join(lines)
 
-    def _generate_vitest_imports(self, analysis: CodeAnalysis, is_react: bool) -> list[str]:
+    def _generate_vitest_imports(
+        self, analysis: CodeAnalysis, is_react: bool
+    ) -> list[str]:
         """Generate import statements for vitest tests."""
-        imports = ["import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';"]
+        imports = [
+            "import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';"
+        ]
 
         # Add React testing library imports if needed
         if is_react:
-            imports.append("import { render, screen, fireEvent } from '@testing-library/react';")
+            imports.append(
+                "import { render, screen, fireEvent } from '@testing-library/react';"
+            )
             imports.append("import '@testing-library/jest-dom/vitest';")
 
         imports.append("")
 
         # Add TODO comment to import the code being tested
         if analysis.file_path:
-            imports.append(f"// TODO: Import functions/classes from '{analysis.file_path}'")
+            imports.append(
+                f"// TODO: Import functions/classes from '{analysis.file_path}'"
+            )
         else:
             imports.append("// TODO: Import functions/classes to test")
 
@@ -1228,7 +1306,7 @@ class TestGenerator:
         lines.append(f"describe('{func.name}', () => {{")
 
         # Add basic rendering test
-        lines.append(f"  it('should render successfully', () => {{")
+        lines.append("  it('should render successfully', () => {")
         lines.append("    // Arrange & Act")
 
         if func.parameters:
@@ -1238,9 +1316,13 @@ class TestGenerator:
                 if param.name.startswith("..."):
                     continue
                 if param.type_hint:
-                    lines.append(f"      {param.name}: null, // TODO: Provide test value for {param.type_hint}")
+                    lines.append(
+                        f"      {param.name}: null, // TODO: Provide test value for {param.type_hint}"
+                    )
                 else:
-                    lines.append(f"      {param.name}: null, // TODO: Provide test value")
+                    lines.append(
+                        f"      {param.name}: null, // TODO: Provide test value"
+                    )
             lines.append("    };")
             lines.append(f"    render(<{func.name} {{...props}} />);")
         else:
@@ -1249,23 +1331,29 @@ class TestGenerator:
 
         lines.append("")
         lines.append("    // Assert")
-        lines.append("    // TODO: Add assertions using screen.getByText(), screen.getByRole(), etc.")
+        lines.append(
+            "    // TODO: Add assertions using screen.getByText(), screen.getByRole(), etc."
+        )
         lines.append("    expect(document.body).toBeTruthy();")
         lines.append("  });")
 
         # Add props rendering test if component has parameters
         if func.parameters:
             lines.append("")
-            lines.append(f"  it('should render with props', () => {{")
+            lines.append("  it('should render with props', () => {")
             lines.append("    // Arrange")
             lines.append("    const props = {")
             for param in func.parameters:
                 if param.name.startswith("..."):
                     continue
                 if param.type_hint:
-                    lines.append(f"      {param.name}: null, // TODO: Provide test value for {param.type_hint}")
+                    lines.append(
+                        f"      {param.name}: null, // TODO: Provide test value for {param.type_hint}"
+                    )
                 else:
-                    lines.append(f"      {param.name}: null, // TODO: Provide test value")
+                    lines.append(
+                        f"      {param.name}: null, // TODO: Provide test value"
+                    )
             lines.append("    };")
             lines.append("")
             lines.append("    // Act")
@@ -1280,7 +1368,9 @@ class TestGenerator:
 
         return lines
 
-    def _generate_vitest_function_test(self, func: FunctionInfo, is_react: bool = False) -> list[str]:
+    def _generate_vitest_function_test(
+        self, func: FunctionInfo, is_react: bool = False
+    ) -> list[str]:
         """Generate vitest test for a function."""
         # Check if this is a React component
         if is_react and self._is_react_component(func):
@@ -1293,9 +1383,9 @@ class TestGenerator:
 
         # Add test case
         if func.is_async:
-            lines.append(f"  it('should work correctly', async () => {{")
+            lines.append("  it('should work correctly', async () => {")
         else:
-            lines.append(f"  it('should work correctly', () => {{")
+            lines.append("  it('should work correctly', () => {")
 
         # Generate test body
         if func.parameters:
@@ -1305,14 +1395,20 @@ class TestGenerator:
                 if param.name.startswith("..."):
                     continue
                 if param.type_hint:
-                    lines.append(f"    const {param.name} = null; // TODO: Provide test value for {param.type_hint}")
+                    lines.append(
+                        f"    const {param.name} = null; // TODO: Provide test value for {param.type_hint}"
+                    )
                 else:
-                    lines.append(f"    const {param.name} = null; // TODO: Provide test value")
+                    lines.append(
+                        f"    const {param.name} = null; // TODO: Provide test value"
+                    )
             lines.append("")
 
             # Act: Call function
             lines.append("    // Act")
-            param_names = [p.name for p in func.parameters if not p.name.startswith("...")]
+            param_names = [
+                p.name for p in func.parameters if not p.name.startswith("...")
+            ]
             params_str = ", ".join(param_names)
             if func.is_async:
                 lines.append(f"    const result = await {func.name}({params_str});")
@@ -1323,7 +1419,9 @@ class TestGenerator:
             # Assert: Check result
             lines.append("    // Assert")
             if func.return_type and func.return_type not in ("void", "undefined"):
-                lines.append("    expect(result).toBeDefined(); // TODO: Add specific assertions")
+                lines.append(
+                    "    expect(result).toBeDefined(); // TODO: Add specific assertions"
+                )
             else:
                 lines.append("    // TODO: Add assertions")
         else:
@@ -1336,7 +1434,9 @@ class TestGenerator:
             lines.append("")
             lines.append("    // Assert")
             if func.return_type and func.return_type not in ("void", "undefined"):
-                lines.append("    expect(result).toBeDefined(); // TODO: Add specific assertions")
+                lines.append(
+                    "    expect(result).toBeDefined(); // TODO: Add specific assertions"
+                )
             else:
                 lines.append("    // TODO: Add assertions")
 
@@ -1393,7 +1493,9 @@ class TestGenerator:
 
         return lines
 
-    def _generate_vitest_method_test(self, cls: ClassInfo, method: FunctionInfo) -> list[str]:
+    def _generate_vitest_method_test(
+        self, cls: ClassInfo, method: FunctionInfo
+    ) -> list[str]:
         """Generate vitest test for a class method."""
         lines = []
 
@@ -1411,17 +1513,25 @@ class TestGenerator:
                 if param.name.startswith("..."):
                     continue
                 if param.type_hint:
-                    lines.append(f"  const {param.name} = null; // TODO: Provide test value for {param.type_hint}")
+                    lines.append(
+                        f"  const {param.name} = null; // TODO: Provide test value for {param.type_hint}"
+                    )
                 else:
-                    lines.append(f"  const {param.name} = null; // TODO: Provide test value")
+                    lines.append(
+                        f"  const {param.name} = null; // TODO: Provide test value"
+                    )
             lines.append("")
 
             # Act
             lines.append("  // Act")
-            param_names = [p.name for p in method.parameters if not p.name.startswith("...")]
+            param_names = [
+                p.name for p in method.parameters if not p.name.startswith("...")
+            ]
             params_str = ", ".join(param_names)
             if method.is_async:
-                lines.append(f"  const result = await instance.{method.name}({params_str});")
+                lines.append(
+                    f"  const result = await instance.{method.name}({params_str});"
+                )
             else:
                 lines.append(f"  const result = instance.{method.name}({params_str});")
             lines.append("")
@@ -1429,7 +1539,9 @@ class TestGenerator:
             # Assert
             lines.append("  // Assert")
             if method.return_type and method.return_type not in ("void", "undefined"):
-                lines.append("  expect(result).toBeDefined(); // TODO: Add specific assertions")
+                lines.append(
+                    "  expect(result).toBeDefined(); // TODO: Add specific assertions"
+                )
             else:
                 lines.append("  // TODO: Add assertions")
         else:
@@ -1442,7 +1554,9 @@ class TestGenerator:
             lines.append("")
             lines.append("  // Assert")
             if method.return_type and method.return_type not in ("void", "undefined"):
-                lines.append("  expect(result).toBeDefined(); // TODO: Add specific assertions")
+                lines.append(
+                    "  expect(result).toBeDefined(); // TODO: Add specific assertions"
+                )
             else:
                 lines.append("  // TODO: Add assertions")
 
@@ -1450,7 +1564,9 @@ class TestGenerator:
 
         return lines
 
-    def _generate_jest_tests(self, analysis: CodeAnalysis, is_react: bool = False) -> str:
+    def _generate_jest_tests(
+        self, analysis: CodeAnalysis, is_react: bool = False
+    ) -> str:
         """
         Generate jest test code from code analysis.
 
@@ -1495,20 +1611,28 @@ class TestGenerator:
 
         return "\n".join(lines)
 
-    def _generate_jest_imports(self, analysis: CodeAnalysis, is_react: bool) -> list[str]:
+    def _generate_jest_imports(
+        self, analysis: CodeAnalysis, is_react: bool
+    ) -> list[str]:
         """Generate import statements for jest tests."""
-        imports = ["import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';"]
+        imports = [
+            "import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';"
+        ]
 
         # Add React testing library imports if needed
         if is_react:
-            imports.append("import { render, screen, fireEvent } from '@testing-library/react';")
+            imports.append(
+                "import { render, screen, fireEvent } from '@testing-library/react';"
+            )
             imports.append("import '@testing-library/jest-dom';")
 
         imports.append("")
 
         # Add TODO comment to import the code being tested
         if analysis.file_path:
-            imports.append(f"// TODO: Import functions/classes from '{analysis.file_path}'")
+            imports.append(
+                f"// TODO: Import functions/classes from '{analysis.file_path}'"
+            )
         else:
             imports.append("// TODO: Import functions/classes to test")
 

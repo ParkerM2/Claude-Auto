@@ -408,8 +408,8 @@ class GraphitiMemory:
         try:
             top_patterns = await self._aggregator.get_top_patterns(limit)
             common_gotchas = await self._aggregator.get_common_gotchas(limit)
-            improvement_suggestions = await self._aggregator.get_improvement_suggestions(
-                limit
+            improvement_suggestions = (
+                await self._aggregator.get_improvement_suggestions(limit)
             )
 
             return {

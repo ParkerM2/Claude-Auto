@@ -34,7 +34,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -95,14 +95,18 @@ class FileIndex:
         self.project_dir = Path(project_dir).resolve()
         self._index: dict[str, FileMetadata] = {}
         self._cache: dict[str, bool] = {}  # Cache for has_changed() results
-        self._dir_mtimes: dict[str, float] = {}  # Track directory mtimes for optimization
+        self._dir_mtimes: dict[
+            str, float
+        ] = {}  # Track directory mtimes for optimization
 
     @property
     def index_path(self) -> Path:
         """Get the path to the index file."""
         return self.project_dir / self.INDEX_FILENAME
 
-    def track_file(self, file_path: str | Path, compute_hash: bool = False) -> FileMetadata:
+    def track_file(
+        self, file_path: str | Path, compute_hash: bool = False
+    ) -> FileMetadata:
         """
         Track a file and store its metadata.
 

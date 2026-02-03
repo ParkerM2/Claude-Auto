@@ -16,7 +16,7 @@ Key Features:
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import List, Optional, Dict, Any
+from typing import Any
 
 
 class PatternType(Enum):
@@ -38,7 +38,7 @@ class PatternMatch:
     confidence: float  # 0.0 to 1.0
     evidence: str  # Human-readable explanation
     recommendation: str  # Suggested recovery action
-    metadata: Dict[str, Any]  # Additional pattern-specific data
+    metadata: dict[str, Any]  # Additional pattern-specific data
 
 
 class PatternDetector:
@@ -76,8 +76,10 @@ class PatternDetector:
         self.timeout_minutes = timeout_minutes
 
     def detect_patterns(
-        self, attempt_history: List[Dict[str, Any]], subtask_start_time: Optional[str] = None
-    ) -> List[PatternMatch]:
+        self,
+        attempt_history: list[dict[str, Any]],
+        subtask_start_time: str | None = None,
+    ) -> list[PatternMatch]:
         """
         Detect all patterns in the attempt history.
 
@@ -124,7 +126,9 @@ class PatternDetector:
 
         return patterns
 
-    def _detect_loop(self, attempt_history: List[Dict[str, Any]]) -> Optional[PatternMatch]:
+    def _detect_loop(
+        self, attempt_history: list[dict[str, Any]]
+    ) -> PatternMatch | None:
         """
         Detect if the same approach is being tried repeatedly.
 
@@ -138,7 +142,9 @@ class PatternDetector:
         recent_attempts = attempt_history[-self.loop_threshold :]
 
         # Get approaches (normalize by lowercasing and removing extra whitespace)
-        approaches = [self._normalize_approach(a.get("approach", "")) for a in recent_attempts]
+        approaches = [
+            self._normalize_approach(a.get("approach", "")) for a in recent_attempts
+        ]
 
         # Check if all approaches are the same
         if len(set(approaches)) == 1 and approaches[0]:
@@ -157,7 +163,9 @@ class PatternDetector:
 
         return None
 
-    def _detect_thrashing(self, attempt_history: List[Dict[str, Any]]) -> Optional[PatternMatch]:
+    def _detect_thrashing(
+        self, attempt_history: list[dict[str, Any]]
+    ) -> PatternMatch | None:
         """
         Detect if agent is cycling between 2-3 different approaches.
 
@@ -169,7 +177,9 @@ class PatternDetector:
 
         # Look at recent attempts
         recent_attempts = attempt_history[-self.thrashing_threshold :]
-        approaches = [self._normalize_approach(a.get("approach", "")) for a in recent_attempts]
+        approaches = [
+            self._normalize_approach(a.get("approach", "")) for a in recent_attempts
+        ]
 
         # Count unique approaches
         unique_approaches = set(approaches)
@@ -177,17 +187,21 @@ class PatternDetector:
         # Thrashing = cycling between 2-3 approaches
         if 2 <= len(unique_approaches) <= 3:
             # Check if there's actually cycling (not just trying 3 different things once)
-            approach_counts = {approach: approaches.count(approach) for approach in unique_approaches}
+            approach_counts = {
+                approach: approaches.count(approach) for approach in unique_approaches
+            }
 
             # If each approach tried at least twice, it's thrashing
             if all(count >= 2 for count in approach_counts.values()):
-                confidence = min(1.0, len(attempt_history) / (self.thrashing_threshold * 1.5))
+                confidence = min(
+                    1.0, len(attempt_history) / (self.thrashing_threshold * 1.5)
+                )
                 approach_list = list(unique_approaches)
                 return PatternMatch(
                     pattern_type=PatternType.THRASHING,
                     confidence=confidence,
                     evidence=f"Cycling between {len(unique_approaches)} approaches: "
-                    f"{', '.join([f'\"{a[:50]}...\"' for a in approach_list])}",
+                    f"{', '.join([f'"{a[:50]}..."' for a in approach_list])}",
                     recommendation="Break the cycle by trying a fundamentally different strategy",
                     metadata={
                         "approaches": approach_list,
@@ -199,8 +213,8 @@ class PatternDetector:
         return None
 
     def _detect_repeated_failure(
-        self, attempt_history: List[Dict[str, Any]]
-    ) -> Optional[PatternMatch]:
+        self, attempt_history: list[dict[str, Any]]
+    ) -> PatternMatch | None:
         """
         Detect if the same error is occurring repeatedly.
 
@@ -246,8 +260,8 @@ class PatternDetector:
         return None
 
     def _detect_timeout(
-        self, attempt_history: List[Dict[str, Any]], subtask_start_time: str
-    ) -> Optional[PatternMatch]:
+        self, attempt_history: list[dict[str, Any]], subtask_start_time: str
+    ) -> PatternMatch | None:
         """
         Detect if the subtask has exceeded the time limit.
 
@@ -259,12 +273,18 @@ class PatternDetector:
             PatternMatch if timeout detected, None otherwise
         """
         try:
-            start_time = datetime.fromisoformat(subtask_start_time.replace("Z", "+00:00"))
-            current_time = datetime.now(start_time.tzinfo) if start_time.tzinfo else datetime.now()
+            start_time = datetime.fromisoformat(
+                subtask_start_time.replace("Z", "+00:00")
+            )
+            current_time = (
+                datetime.now(start_time.tzinfo) if start_time.tzinfo else datetime.now()
+            )
             elapsed = current_time - start_time
 
             if elapsed > timedelta(minutes=self.timeout_minutes):
-                confidence = min(1.0, elapsed.total_seconds() / (self.timeout_minutes * 60 * 2))
+                confidence = min(
+                    1.0, elapsed.total_seconds() / (self.timeout_minutes * 60 * 2)
+                )
                 return PatternMatch(
                     pattern_type=PatternType.TIMEOUT,
                     confidence=confidence,
@@ -284,8 +304,8 @@ class PatternDetector:
         return None
 
     def _detect_context_exhaustion(
-        self, attempt_history: List[Dict[str, Any]]
-    ) -> Optional[PatternMatch]:
+        self, attempt_history: list[dict[str, Any]]
+    ) -> PatternMatch | None:
         """
         Detect if context exhaustion is occurring.
 
@@ -293,12 +313,22 @@ class PatternDetector:
             PatternMatch if context exhaustion detected, None otherwise
         """
         # Check if any recent errors mention context/token limits
-        context_keywords = ["context", "token limit", "maximum length", "too long", "context window"]
+        context_keywords = [
+            "context",
+            "token limit",
+            "maximum length",
+            "too long",
+            "context window",
+        ]
 
-        recent_errors = [a.get("error", "").lower() for a in attempt_history[-3:] if a.get("error")]
+        recent_errors = [
+            a.get("error", "").lower() for a in attempt_history[-3:] if a.get("error")
+        ]
 
         context_error_count = sum(
-            1 for error in recent_errors if any(keyword in error for keyword in context_keywords)
+            1
+            for error in recent_errors
+            if any(keyword in error for keyword in context_keywords)
         )
 
         if context_error_count >= 2:
@@ -359,8 +389,10 @@ class PatternDetector:
         return normalized
 
     def get_strongest_pattern(
-        self, attempt_history: List[Dict[str, Any]], subtask_start_time: Optional[str] = None
-    ) -> Optional[PatternMatch]:
+        self,
+        attempt_history: list[dict[str, Any]],
+        subtask_start_time: str | None = None,
+    ) -> PatternMatch | None:
         """
         Get the most confident pattern match.
 

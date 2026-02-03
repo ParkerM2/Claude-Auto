@@ -11,7 +11,6 @@ import os
 import re
 import subprocess
 from pathlib import Path
-from typing import Optional
 
 import yaml
 
@@ -432,7 +431,7 @@ def _load_prompt_file(filename: str) -> str:
     return prompt_file.read_text(encoding="utf-8")
 
 
-def _load_e2e_test_plan(spec_dir: Path) -> Optional[str]:
+def _load_e2e_test_plan(spec_dir: Path) -> str | None:
     """
     Load the E2E test plan from the spec directory if it exists.
 
@@ -474,7 +473,9 @@ specific instructions for testing the newly implemented feature via Electron MCP
         # Add navigation steps
         if plan.get("navigation"):
             formatted += "### Navigation to Feature\n\n"
-            formatted += "Follow these steps to navigate to the feature being tested:\n\n"
+            formatted += (
+                "Follow these steps to navigate to the feature being tested:\n\n"
+            )
             for i, step in enumerate(plan["navigation"], 1):
                 action = step.get("action", "unknown")
                 desc = step.get("step", step.get("description", ""))
@@ -490,7 +491,9 @@ specific instructions for testing the newly implemented feature via Electron MCP
         # Add test scenarios
         if plan.get("test_scenarios"):
             formatted += "### Test Scenarios\n\n"
-            formatted += "Execute these scenarios to verify the feature works correctly:\n\n"
+            formatted += (
+                "Execute these scenarios to verify the feature works correctly:\n\n"
+            )
 
             for scenario in plan["test_scenarios"]:
                 name = scenario.get("name", "Unnamed Test")
@@ -506,7 +509,9 @@ specific instructions for testing the newly implemented feature via Electron MCP
                     for j, step in enumerate(scenario["steps"], 1):
                         action = step.get("action", "unknown")
                         step_desc = step.get("description", "")
-                        target = step.get("target", step.get("selector", step.get("value", "")))
+                        target = step.get(
+                            "target", step.get("selector", step.get("value", ""))
+                        )
 
                         formatted += f"{j}. `{action}`"
                         if target:

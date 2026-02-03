@@ -11,7 +11,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 # Metrics file name
 REVIEW_METRICS_FILE = "review_metrics.json"
@@ -216,7 +216,7 @@ class ReviewMetrics:
     def start_iteration(
         self,
         auto_save: bool = False,
-        spec_dir: Optional[Path] = None,
+        spec_dir: Path | None = None,
     ) -> ReviewIteration:
         """
         Start a new review iteration.
@@ -250,7 +250,7 @@ class ReviewMetrics:
         reviewer: str = "",
         comments_count: int = 0,
         auto_save: bool = False,
-        spec_dir: Optional[Path] = None,
+        spec_dir: Path | None = None,
     ) -> bool:
         """
         Complete the current (latest) review iteration.
@@ -322,7 +322,7 @@ class ReviewMetrics:
         """Get the number of completed review iterations."""
         return sum(1 for it in self.iterations if it.outcome != "pending")
 
-    def get_approval_iteration(self) -> Optional[ReviewIteration]:
+    def get_approval_iteration(self) -> ReviewIteration | None:
         """
         Get the iteration where spec was approved (if any).
 
@@ -430,8 +430,12 @@ class ReviewMetrics:
             # Time metrics (hours, for readability)
             "total_cycle_time_hours": round(self.total_cycle_time_seconds / 3600, 2),
             "total_review_time_hours": round(self.total_review_time_seconds / 3600, 2),
-            "average_iteration_time_hours": round(self.get_average_iteration_time_seconds() / 3600, 2),
-            "time_to_first_review_hours": round(self.get_time_to_first_review_seconds() / 3600, 2),
+            "average_iteration_time_hours": round(
+                self.get_average_iteration_time_seconds() / 3600, 2
+            ),
+            "time_to_first_review_hours": round(
+                self.get_time_to_first_review_seconds() / 3600, 2
+            ),
             # Reviewer metrics
             "reviewer_response_times": reviewer_times,
             "unique_reviewers": len(reviewer_times),
@@ -442,7 +446,7 @@ class ReviewMetrics:
 
     def reset(
         self,
-        spec_dir: Optional[Path] = None,
+        spec_dir: Path | None = None,
         auto_save: bool = False,
     ) -> None:
         """

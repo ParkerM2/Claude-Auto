@@ -15,7 +15,6 @@ Key Features:
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional
 
 
 class StrategyType(Enum):
@@ -49,7 +48,7 @@ class Strategy:
     description: str
     guidance: str
     priority: int
-    applicable_failures: List[str]
+    applicable_failures: list[str]
 
     def is_applicable(self, failure_type: str) -> bool:
         """
@@ -61,7 +60,10 @@ class Strategy:
         Returns:
             True if strategy is applicable, False otherwise
         """
-        return failure_type in self.applicable_failures or "all" in self.applicable_failures
+        return (
+            failure_type in self.applicable_failures
+            or "all" in self.applicable_failures
+        )
 
 
 class RecoveryStrategy(ABC):
@@ -85,7 +87,7 @@ class RecoveryStrategy(ABC):
         self.priority = priority
 
     @abstractmethod
-    def get_guidance(self, context: Dict) -> str:
+    def get_guidance(self, context: dict) -> str:
         """
         Get strategy-specific guidance based on failure context.
 
@@ -98,7 +100,7 @@ class RecoveryStrategy(ABC):
         pass
 
     @abstractmethod
-    def is_applicable(self, failure_type: str, context: Dict) -> bool:
+    def is_applicable(self, failure_type: str, context: dict) -> bool:
         """
         Check if strategy is applicable to this failure.
 
@@ -122,7 +124,7 @@ class SimplifyStrategy(RecoveryStrategy):
             priority=8,
         )
 
-    def get_guidance(self, context: Dict) -> str:
+    def get_guidance(self, context: dict) -> str:
         return """
 Break down the subtask into smaller steps:
 1. Identify the minimal working implementation (MVP)
@@ -139,7 +141,7 @@ Example: If implementing a complex API endpoint, start with:
 - Add validation
 """
 
-    def is_applicable(self, failure_type: str, context: Dict) -> bool:
+    def is_applicable(self, failure_type: str, context: dict) -> bool:
         # Applicable to verification failures and circular fixes
         return failure_type in ["verification_failed", "circular_fix", "unknown"]
 
@@ -154,7 +156,7 @@ class AlternativeLibraryStrategy(RecoveryStrategy):
             priority=7,
         )
 
-    def get_guidance(self, context: Dict) -> str:
+    def get_guidance(self, context: dict) -> str:
         error = context.get("error", "")
         return f"""
 Try a different library or tool approach:
@@ -170,10 +172,10 @@ Common alternatives:
 - CLI: argparse → click, typer
 - Database: SQLAlchemy → peewee, django ORM
 
-Previous error: {error[:200] if error else 'N/A'}
+Previous error: {error[:200] if error else "N/A"}
 """
 
-    def is_applicable(self, failure_type: str, context: Dict) -> bool:
+    def is_applicable(self, failure_type: str, context: dict) -> bool:
         # Applicable when previous attempts failed, especially circular fixes
         return failure_type in ["circular_fix", "verification_failed", "unknown"]
 
@@ -188,7 +190,7 @@ class DifferentPatternStrategy(RecoveryStrategy):
             priority=8,
         )
 
-    def get_guidance(self, context: Dict) -> str:
+    def get_guidance(self, context: dict) -> str:
         return """
 Try a different implementation pattern:
 1. Review previous attempts to identify the pattern used
@@ -210,7 +212,7 @@ Example: If class-based state management failed, try:
 - Database-backed state
 """
 
-    def is_applicable(self, failure_type: str, context: Dict) -> bool:
+    def is_applicable(self, failure_type: str, context: dict) -> bool:
         # Especially useful for circular fixes and repeated failures
         return failure_type in ["circular_fix", "verification_failed"]
 
@@ -225,7 +227,7 @@ class IncrementalStrategy(RecoveryStrategy):
             priority=9,
         )
 
-    def get_guidance(self, context: Dict) -> str:
+    def get_guidance(self, context: dict) -> str:
         return """
 Implement incrementally with validation at each step:
 1. Start with the smallest possible change
@@ -247,7 +249,7 @@ Red flags to avoid:
 - Skipping intermediate validation steps
 """
 
-    def is_applicable(self, failure_type: str, context: Dict) -> bool:
+    def is_applicable(self, failure_type: str, context: dict) -> bool:
         # Useful for broken builds and verification failures
         return failure_type in ["broken_build", "verification_failed", "circular_fix"]
 
@@ -262,7 +264,7 @@ class RollbackRetryStrategy(RecoveryStrategy):
             priority=6,
         )
 
-    def get_guidance(self, context: Dict) -> str:
+    def get_guidance(self, context: dict) -> str:
         last_good_commit = context.get("last_good_commit", "unknown")
         return f"""
 Rollback to last working state and start fresh:
@@ -279,9 +281,12 @@ Key: Don't just try the same thing again. Think about:
 - What would an expert do differently?
 """
 
-    def is_applicable(self, failure_type: str, context: Dict) -> bool:
+    def is_applicable(self, failure_type: str, context: dict) -> bool:
         # Most useful for broken builds
-        return failure_type == "broken_build" and context.get("last_good_commit") is not None
+        return (
+            failure_type == "broken_build"
+            and context.get("last_good_commit") is not None
+        )
 
 
 class SkipSubtaskStrategy(RecoveryStrategy):
@@ -294,7 +299,7 @@ class SkipSubtaskStrategy(RecoveryStrategy):
             priority=3,
         )
 
-    def get_guidance(self, context: Dict) -> str:
+    def get_guidance(self, context: dict) -> str:
         subtask_id = context.get("subtask_id", "unknown")
         attempt_count = context.get("attempt_count", 0)
         return f"""
@@ -309,7 +314,7 @@ Consider: Is this subtask blocking other work?
 - If no: Safe to skip and continue
 """
 
-    def is_applicable(self, failure_type: str, context: Dict) -> bool:
+    def is_applicable(self, failure_type: str, context: dict) -> bool:
         # Applicable when we've exhausted other options
         attempt_count = context.get("attempt_count", 0)
         return attempt_count >= 3
@@ -325,13 +330,13 @@ class EscalateStrategy(RecoveryStrategy):
             priority=1,
         )
 
-    def get_guidance(self, context: Dict) -> str:
+    def get_guidance(self, context: dict) -> str:
         subtask_id = context.get("subtask_id", "unknown")
         error = context.get("error", "")
         return f"""
 Escalating subtask {subtask_id} to human intervention:
 
-Issue: {error[:300] if error else 'Multiple recovery attempts failed'}
+Issue: {error[:300] if error else "Multiple recovery attempts failed"}
 
 Next steps:
 1. Document all attempted approaches
@@ -341,11 +346,11 @@ Next steps:
 
 Information for human:
 - Subtask ID: {subtask_id}
-- Attempts made: {context.get('attempt_count', 0)}
-- Error summary: {error[:200] if error else 'N/A'}
+- Attempts made: {context.get("attempt_count", 0)}
+- Error summary: {error[:200] if error else "N/A"}
 """
 
-    def is_applicable(self, failure_type: str, context: Dict) -> bool:
+    def is_applicable(self, failure_type: str, context: dict) -> bool:
         # Always applicable as last resort
         return True
 
@@ -360,7 +365,7 @@ class StrategyRegistry:
 
     def __init__(self):
         """Initialize registry with default strategies."""
-        self.strategies: List[RecoveryStrategy] = []
+        self.strategies: list[RecoveryStrategy] = []
         self._register_default_strategies()
 
     def _register_default_strategies(self) -> None:
@@ -397,8 +402,8 @@ class StrategyRegistry:
         self.strategies.sort(key=lambda s: s.priority, reverse=True)
 
     def get_strategies(
-        self, failure_type: str, context: Optional[Dict] = None, top_n: int = 3
-    ) -> List[RecoveryStrategy]:
+        self, failure_type: str, context: dict | None = None, top_n: int = 3
+    ) -> list[RecoveryStrategy]:
         """
         Get applicable strategies for a failure type.
 
@@ -414,12 +419,14 @@ class StrategyRegistry:
             context = {}
 
         # Filter to applicable strategies
-        applicable = [s for s in self.strategies if s.is_applicable(failure_type, context)]
+        applicable = [
+            s for s in self.strategies if s.is_applicable(failure_type, context)
+        ]
 
         # Return top N strategies
         return applicable[:top_n]
 
-    def get_strategy(self, strategy_name: str) -> Optional[RecoveryStrategy]:
+    def get_strategy(self, strategy_name: str) -> RecoveryStrategy | None:
         """
         Get a specific strategy by name.
 
@@ -434,7 +441,7 @@ class StrategyRegistry:
                 return strategy
         return None
 
-    def list_strategies(self) -> List[str]:
+    def list_strategies(self) -> list[str]:
         """
         List all registered strategy names.
 
@@ -458,8 +465,12 @@ def get_default_registry() -> StrategyRegistry:
 
 
 def suggest_strategies(
-    failure_type: str, error: str, subtask_id: str, attempt_count: int, last_good_commit: Optional[str] = None
-) -> List[str]:
+    failure_type: str,
+    error: str,
+    subtask_id: str,
+    attempt_count: int,
+    last_good_commit: str | None = None,
+) -> list[str]:
     """
     Get strategy suggestions for a failure.
 
@@ -485,6 +496,8 @@ def suggest_strategies(
     suggestions = []
 
     for strategy in strategies:
-        suggestions.append(f"### {strategy.name}\n{strategy.description}\n{strategy.get_guidance(context)}")
+        suggestions.append(
+            f"### {strategy.name}\n{strategy.description}\n{strategy.get_guidance(context)}"
+        )
 
     return suggestions

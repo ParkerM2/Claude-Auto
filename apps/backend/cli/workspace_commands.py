@@ -27,6 +27,7 @@ from core.workspace.git_utils import (
 from core.worktree import PushAndCreatePRResult as CreatePRResult
 from core.worktree import WorktreeManager
 from debug import debug_warning
+
 # Import jira_updater functions lazily to avoid circular imports
 # These are imported inside the functions that need them
 from ui import (
@@ -1110,6 +1111,7 @@ def handle_create_pr_command(
         # Link PR to Jira issue if integration is enabled
         # Lazy import to avoid circular imports
         from jira_updater import is_jira_enabled, jira_pr_created
+
         if pr_url and is_jira_enabled():
             spec_path = project_dir / ".auto-claude" / "specs" / spec_name
             try:

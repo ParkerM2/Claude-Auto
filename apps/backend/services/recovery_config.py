@@ -8,9 +8,8 @@ Allows customization of retry limits, timeouts, and strategy preferences.
 
 import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 
 @dataclass
@@ -80,7 +79,7 @@ class RecoveryConfig:
 
 
 def load_config(
-    config_file: Optional[Path] = None, env_prefix: str = "RECOVERY_"
+    config_file: Path | None = None, env_prefix: str = "RECOVERY_"
 ) -> RecoveryConfig:
     """
     Load recovery configuration from file or environment variables.

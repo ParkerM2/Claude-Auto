@@ -20,7 +20,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 from .pattern_detector import PatternDetector
 from .recovery_config import RecoveryConfig, load_config
@@ -65,7 +64,7 @@ class RecoveryManager:
         self,
         spec_dir: Path,
         project_dir: Path,
-        config: Optional[RecoveryConfig] = None,
+        config: RecoveryConfig | None = None,
     ):
         """
         Initialize recovery manager.
@@ -91,7 +90,8 @@ class RecoveryManager:
                 loop_threshold=self.config.circular_fix_threshold,
                 thrashing_threshold=4,  # Use reasonable default
                 repeated_failure_threshold=self.config.circular_fix_threshold,
-                timeout_minutes=self.config.recovery_timeout // 60,  # Convert seconds to minutes
+                timeout_minutes=self.config.recovery_timeout
+                // 60,  # Convert seconds to minutes
             )
 
         # Initialize strategy registry
@@ -592,9 +592,12 @@ class RecoveryManager:
             try:
                 # Get the subtask description from the plan if available
                 from .utils import find_subtask_in_plan, load_implementation_plan
+
                 plan = load_implementation_plan(self.spec_dir)
                 subtask = find_subtask_in_plan(plan, subtask_id) if plan else None
-                subtask_description = subtask.get("description", "") if subtask else None
+                subtask_description = (
+                    subtask.get("description", "") if subtask else None
+                )
 
                 learned_insights = self.learner.get_learned_insights(
                     failure_type=failure_type.value,

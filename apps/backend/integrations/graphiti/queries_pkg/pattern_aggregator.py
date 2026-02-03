@@ -148,9 +148,7 @@ class PatternAggregator:
             logger.warning(f"Failed to get common gotchas: {e}")
             return []
 
-    async def get_improvement_suggestions(
-        self, limit: int = 5
-    ) -> list[dict[str, Any]]:
+    async def get_improvement_suggestions(self, limit: int = 5) -> list[dict[str, Any]]:
         """
         Get improvement suggestions based on past task outcomes.
 
@@ -185,8 +183,8 @@ class PatternAggregator:
                         if data.get("type") == EPISODE_TYPE_TASK_OUTCOME:
                             # Extract improvement suggestions from failed outcomes
                             if data.get("success") is False or data.get("issues"):
-                                suggestion_text = self._extract_improvement_from_outcome(
-                                    data
+                                suggestion_text = (
+                                    self._extract_improvement_from_outcome(data)
                                 )
                                 if suggestion_text:
                                     suggestions.append(

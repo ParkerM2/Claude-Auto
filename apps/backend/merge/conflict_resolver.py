@@ -117,7 +117,9 @@ class ConflictResolver:
                     if result.success:
                         merged_content = result.merged_content or merged_content
                         resolved.append(conflict)
-                        logger.info(f"Successfully applied user strategy: {user_strategy}")
+                        logger.info(
+                            f"Successfully applied user strategy: {user_strategy}"
+                        )
                         continue
                     else:
                         logger.warning(

@@ -688,8 +688,12 @@ async def _async_pattern_insights(args):
                 "data": {
                     "top_patterns": insights.get("top_patterns", []),
                     "common_gotchas": insights.get("common_gotchas", []),
-                    "improvement_suggestions": insights.get("improvement_suggestions", []),
-                    "last_updated": insights.get("last_updated", datetime.now().isoformat()),
+                    "improvement_suggestions": insights.get(
+                        "improvement_suggestions", []
+                    ),
+                    "last_updated": insights.get(
+                        "last_updated", datetime.now().isoformat()
+                    ),
                 },
             }
 

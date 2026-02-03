@@ -36,6 +36,13 @@ from .criteria import (
     should_run_fixes,
     should_run_qa,
 )
+
+# Electron E2E testing
+from .electron_app import (
+    ElectronAppManager,
+    is_electron_project,
+    should_use_electron_mcp,
+)
 from .fixer import (
     load_qa_fixer_prompt,
     run_qa_fixer_session,
@@ -65,13 +72,6 @@ from .report import (
 
 # Agent sessions
 from .reviewer import run_qa_agent_session
-
-# Electron E2E testing
-from .electron_app import (
-    ElectronAppManager,
-    is_electron_project,
-    should_use_electron_mcp,
-)
 
 # Public API
 __all__ = [

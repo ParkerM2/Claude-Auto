@@ -51,7 +51,6 @@ from ui import (
     highlight,
     icon,
     muted,
-    print_key_value,
     print_status,
 )
 

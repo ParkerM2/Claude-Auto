@@ -23,21 +23,18 @@ Endpoints:
     GET /mcp/tools - List available tools
 """
 
-import os
 import logging
-from typing import Any, Dict, Optional, TYPE_CHECKING
+import os
+from typing import TYPE_CHECKING, Any
 
 # Deferred imports to allow module import without FastAPI installed
 # FastAPI is only required when actually running the server
 if TYPE_CHECKING:
-    from fastapi import FastAPI, HTTPException, Request
-    from fastapi.responses import JSONResponse
-    from pydantic import BaseModel, Field
+    pass
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger("mock_mcp_server")
 
@@ -45,6 +42,7 @@ logger = logging.getLogger("mock_mcp_server")
 # =============================================================================
 # Factory Function - Creates FastAPI app when needed
 # =============================================================================
+
 
 def _create_fastapi_app():
     """
@@ -69,6 +67,7 @@ def _create_fastapi_app():
         # Return a stub that will fail with a helpful message if actually used
         class FastAPIStub:
             """Stub object when FastAPI is not installed."""
+
             def __init__(self):
                 self._error_msg = (
                     "FastAPI is required for the mock MCP server. "
@@ -96,17 +95,16 @@ def _create_fastapi_app():
     class ToolInvocationRequest(BaseModel):
         """Request model for MCP tool invocation."""
 
-        name: Optional[str] = Field(None, description="Tool name (optional if in URL)")
-        arguments: Optional[Dict[str, Any]] = Field(
-            default_factory=dict,
-            description="Tool arguments"
+        name: str | None = Field(None, description="Tool name (optional if in URL)")
+        arguments: dict[str, Any] | None = Field(
+            default_factory=dict, description="Tool arguments"
         )
 
         class Config:
             json_schema_extra = {
                 "example": {
                     "name": "search_nodes",
-                    "arguments": {"query": "authentication"}
+                    "arguments": {"query": "authentication"},
                 }
             }
 
@@ -114,9 +112,9 @@ def _create_fastapi_app():
         """Response model for MCP tool invocation."""
 
         success: bool = Field(True, description="Whether the tool call succeeded")
-        result: Optional[Dict[str, Any]] = Field(None, description="Tool result")
-        error: Optional[str] = Field(None, description="Error message if failed")
-        error_code: Optional[str] = Field(None, description="Error code if failed")
+        result: dict[str, Any] | None = Field(None, description="Tool result")
+        error: str | None = Field(None, description="Error message if failed")
+        error_code: str | None = Field(None, description="Error code if failed")
 
     # =============================================================================
     # FastAPI Application
@@ -127,7 +125,7 @@ def _create_fastapi_app():
         description="Lightweight mock server simulating Graphiti MCP tools for development and testing",
         version="0.1.0",
         docs_url="/docs",
-        redoc_url="/redoc"
+        redoc_url="/redoc",
     )
 
     # =============================================================================
@@ -164,7 +162,7 @@ def _create_fastapi_app():
             "service": "mock-graphiti-mcp",
             "version": "0.1.0",
             "mode": "development",
-            "available_tools": list_available_tools()
+            "available_tools": list_available_tools(),
         }
 
     # =============================================================================
@@ -185,11 +183,11 @@ def _create_fastapi_app():
                 {
                     "name": f"mcp__graphiti-memory__{tool}",
                     "description": f"Mock implementation of {tool}",
-                    "available": True
+                    "available": True,
                 }
                 for tool in tools
             ],
-            "total": len(tools)
+            "total": len(tools),
         }
 
     @app.post("/mcp/tools/{tool_name}")
@@ -207,7 +205,9 @@ def _create_fastapi_app():
         # Normalize tool name (remove prefix if present)
         normalized_name = tool_name.replace("mcp__graphiti-memory__", "")
 
-        logger.info(f"Tool invocation: {normalized_name} with args: {request.arguments}")
+        logger.info(
+            f"Tool invocation: {normalized_name} with args: {request.arguments}"
+        )
 
         # Get mock response
         result = get_mock_response(normalized_name, request.arguments)
@@ -218,15 +218,10 @@ def _create_fastapi_app():
                 success=False,
                 result=None,
                 error=result.get("message", result["error"]),
-                error_code=result["error_code"]
+                error_code=result["error_code"],
             )
 
-        return ToolResponse(
-            success=True,
-            result=result,
-            error=None,
-            error_code=None
-        )
+        return ToolResponse(success=True, result=result, error=None, error_code=None)
 
     @app.post("/mcp/invoke")
     async def invoke_tool_legacy(request: ToolInvocationRequest):
@@ -244,14 +239,15 @@ def _create_fastapi_app():
         """
         if not request.name:
             raise HTTPException(
-                status_code=400,
-                detail="Tool name is required in request body"
+                status_code=400, detail="Tool name is required in request body"
             )
 
         # Normalize tool name
         normalized_name = request.name.replace("mcp__graphiti-memory__", "")
 
-        logger.info(f"Tool invocation (legacy): {normalized_name} with args: {request.arguments}")
+        logger.info(
+            f"Tool invocation (legacy): {normalized_name} with args: {request.arguments}"
+        )
 
         # Get mock response
         result = get_mock_response(normalized_name, request.arguments)
@@ -262,15 +258,10 @@ def _create_fastapi_app():
                 success=False,
                 result=None,
                 error=result.get("message", result["error"]),
-                error_code=result["error_code"]
+                error_code=result["error_code"],
             )
 
-        return ToolResponse(
-            success=True,
-            result=result,
-            error=None,
-            error_code=None
-        )
+        return ToolResponse(success=True, result=result, error=None, error_code=None)
 
     # =============================================================================
     # Error Handlers
@@ -284,8 +275,8 @@ def _create_fastapi_app():
             content={
                 "success": False,
                 "error": exc.detail,
-                "error_code": f"HTTP_{exc.status_code}"
-            }
+                "error_code": f"HTTP_{exc.status_code}",
+            },
         )
 
     @app.exception_handler(Exception)
@@ -298,8 +289,10 @@ def _create_fastapi_app():
                 "success": False,
                 "error": "Internal server error",
                 "error_code": "INTERNAL_ERROR",
-                "message": str(exc) if os.environ.get("DEBUG") else "An unexpected error occurred"
-            }
+                "message": str(exc)
+                if os.environ.get("DEBUG")
+                else "An unexpected error occurred",
+            },
         )
 
     # =============================================================================
@@ -324,9 +317,9 @@ def _create_fastapi_app():
                 "tools_list": "/mcp/tools",
                 "tool_invoke": "/mcp/tools/{tool_name}",
                 "legacy_invoke": "/mcp/invoke",
-                "docs": "/docs"
+                "docs": "/docs",
             },
-            "message": "Mock MCP server for development and testing. See /docs for API documentation."
+            "message": "Mock MCP server for development and testing. See /docs for API documentation.",
         }
 
     return app

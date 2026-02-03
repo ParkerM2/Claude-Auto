@@ -24,14 +24,13 @@ Example:
     python mock_api/start_mock_server.py
 """
 
+import logging
 import os
 import sys
-import logging
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger("mock_server_startup")
 
@@ -82,13 +81,7 @@ def main():
 
     # Start server
     try:
-        uvicorn.run(
-            app,
-            host=host,
-            port=port,
-            log_level=log_level,
-            access_log=True
-        )
+        uvicorn.run(app, host=host, port=port, log_level=log_level, access_log=True)
     except KeyboardInterrupt:
         logger.info("\nServer stopped by user")
         sys.exit(0)

@@ -473,7 +473,9 @@ def get_required_mcp_servers(
 
             # Check per-project overrides (default false for all)
             electron_enabled = mcp_config.get("ELECTRON_MCP_ENABLED", "false")
-            chrome_devtools_enabled = mcp_config.get("CHROME_DEVTOOLS_MCP_ENABLED", "false")
+            chrome_devtools_enabled = mcp_config.get(
+                "CHROME_DEVTOOLS_MCP_ENABLED", "false"
+            )
             puppeteer_enabled = mcp_config.get("PUPPETEER_MCP_ENABLED", "false")
 
             # Electron: enabled by project config OR global env var

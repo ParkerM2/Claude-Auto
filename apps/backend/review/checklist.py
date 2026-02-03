@@ -10,7 +10,6 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 # Checklist file name
 REVIEW_CHECKLIST_FILE = "review_checklist.json"
@@ -160,7 +159,7 @@ class ReviewChecklist:
         except (OSError, json.JSONDecodeError, UnicodeDecodeError):
             return cls()
 
-    def get_item(self, item_id: str) -> Optional[ReviewChecklistItem]:
+    def get_item(self, item_id: str) -> ReviewChecklistItem | None:
         """
         Get a checklist item by ID.
 
@@ -181,7 +180,7 @@ class ReviewChecklist:
         description: str,
         required: bool = True,
         auto_save: bool = False,
-        spec_dir: Optional[Path] = None,
+        spec_dir: Path | None = None,
     ) -> ReviewChecklistItem:
         """
         Add a new checklist item.
@@ -218,7 +217,7 @@ class ReviewChecklist:
         self,
         item_id: str,
         auto_save: bool = False,
-        spec_dir: Optional[Path] = None,
+        spec_dir: Path | None = None,
     ) -> bool:
         """
         Remove a checklist item by ID.
@@ -244,7 +243,7 @@ class ReviewChecklist:
         item_id: str,
         completed_by: str = "user",
         auto_save: bool = False,
-        spec_dir: Optional[Path] = None,
+        spec_dir: Path | None = None,
     ) -> bool:
         """
         Mark a checklist item as complete.
@@ -270,7 +269,7 @@ class ReviewChecklist:
         self,
         item_id: str,
         auto_save: bool = False,
-        spec_dir: Optional[Path] = None,
+        spec_dir: Path | None = None,
     ) -> bool:
         """
         Mark a checklist item as incomplete.
@@ -328,7 +327,7 @@ class ReviewChecklist:
             ),
         }
 
-    def reset(self, spec_dir: Optional[Path] = None, auto_save: bool = False) -> None:
+    def reset(self, spec_dir: Path | None = None, auto_save: bool = False) -> None:
         """
         Reset all checklist items to incomplete.
 
@@ -343,7 +342,7 @@ class ReviewChecklist:
             self.save(spec_dir)
 
     @classmethod
-    def create_default(cls, spec_dir: Optional[Path] = None) -> "ReviewChecklist":
+    def create_default(cls, spec_dir: Path | None = None) -> "ReviewChecklist":
         """
         Create a checklist with default review items.
 

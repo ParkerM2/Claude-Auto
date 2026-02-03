@@ -236,7 +236,9 @@ class WorktreeManager:
 
         # 4. Fall back to current branch with warning
         current = self._get_current_branch()
-        print("Warning: Could not find 'feature', 'develop', 'main', or 'master' branch.")
+        print(
+            "Warning: Could not find 'feature', 'develop', 'main', or 'master' branch."
+        )
         print(f"Warning: Using current branch '{current}' as base for worktree.")
         print("Tip: Set FEATURE_BRANCH=your-branch in .env for three-tier strategy.")
         return current
@@ -739,7 +741,11 @@ class WorktreeManager:
                     status_result = self._run_git(["status", "--porcelain"])
                     conflicts = []
                     for line in status_result.stdout.strip().split("\n"):
-                        if line.startswith("UU ") or line.startswith("AA ") or line.startswith("DD "):
+                        if (
+                            line.startswith("UU ")
+                            or line.startswith("AA ")
+                            or line.startswith("DD ")
+                        ):
                             # Extract filename (skip status prefix)
                             conflicts.append(line[3:].strip())
 

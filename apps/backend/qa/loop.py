@@ -123,7 +123,7 @@ async def run_qa_validation_loop(
         if not await electron_app_manager.start():
             debug_warning(
                 "qa_loop",
-                "Could not start Electron app for E2E testing, continuing without"
+                "Could not start Electron app for E2E testing, continuing without",
             )
             print("⚠️  Could not start Electron app - E2E testing may be limited")
             electron_app_manager = None

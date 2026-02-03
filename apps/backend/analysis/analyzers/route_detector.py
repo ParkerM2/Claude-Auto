@@ -14,8 +14,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .base import BaseAnalyzer
 from ..streaming_analyzer import stream_files_iter
+from .base import BaseAnalyzer
 
 
 class RouteDetector(BaseAnalyzer):
@@ -268,7 +268,10 @@ class RouteDetector(BaseAnalyzer):
             # Use streaming iterator for memory efficiency
             for route_file in stream_files_iter(app_dir, skip_dirs=self.EXCLUDED_DIRS):
                 # Filter for route files with supported extensions
-                if not (route_file.name.startswith("route.") and route_file.suffix in {".ts", ".js", ".tsx", ".jsx"}):
+                if not (
+                    route_file.name.startswith("route.")
+                    and route_file.suffix in {".ts", ".js", ".tsx", ".jsx"}
+                ):
                     continue
                 # Convert file path to route path
                 # app/api/users/[id]/route.ts -> /api/users/:id

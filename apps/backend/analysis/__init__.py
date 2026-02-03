@@ -10,13 +10,13 @@ Code analysis and project scanning tools.
 from __future__ import annotations
 
 from .analyzers import (
-    ProjectAnalyzer as ModularProjectAnalyzer,
     CodeQualityAnalyzer,
-)
-from .analyzers import (
     ServiceAnalyzer,
     analyze_project,
     analyze_service,
+)
+from .analyzers import (
+    ProjectAnalyzer as ModularProjectAnalyzer,
 )
 from .ci_discovery import CIDiscovery
 

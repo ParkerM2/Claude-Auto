@@ -526,7 +526,9 @@ def main() -> None:
     import argparse
     import json
 
-    parser = argparse.ArgumentParser(description="Incremental indexer for change detection")
+    parser = argparse.ArgumentParser(
+        description="Incremental indexer for change detection"
+    )
     parser.add_argument(
         "project_dir",
         type=Path,

@@ -23,7 +23,6 @@ if sys.version_info < (3, 10):  # noqa: UP036
 import asyncio
 import io
 import json
-import os
 from pathlib import Path
 
 # Configure safe encoding on Windows BEFORE any imports that might print
@@ -141,14 +140,22 @@ Examples:
     project_dir = Path(args.project_dir).resolve()
     if not project_dir.exists():
         if args.json:
-            print(json.dumps({"success": False, "error": f"Directory not found: {project_dir}"}))
+            print(
+                json.dumps(
+                    {"success": False, "error": f"Directory not found: {project_dir}"}
+                )
+            )
         else:
             print_status(f"Directory not found: {project_dir}", "error")
         return 1
 
     if not project_dir.is_dir():
         if args.json:
-            print(json.dumps({"success": False, "error": f"Not a directory: {project_dir}"}))
+            print(
+                json.dumps(
+                    {"success": False, "error": f"Not a directory: {project_dir}"}
+                )
+            )
         else:
             print_status(f"Not a directory: {project_dir}", "error")
         return 1
@@ -157,11 +164,15 @@ Examples:
     claude_md_path = project_dir / "CLAUDE.md"
     if claude_md_path.exists():
         if args.json:
-            print(json.dumps({
-                "success": False,
-                "error": "CLAUDE.md already exists",
-                "existing_path": str(claude_md_path),
-            }))
+            print(
+                json.dumps(
+                    {
+                        "success": False,
+                        "error": "CLAUDE.md already exists",
+                        "existing_path": str(claude_md_path),
+                    }
+                )
+            )
         else:
             print_status(f"CLAUDE.md already exists at {claude_md_path}", "warning")
             print(f"  {muted('Delete it first if you want to regenerate.')}")
@@ -174,8 +185,7 @@ Examples:
     if not args.json:
         print(
             box(
-                f"Project: {project_dir}\n"
-                f"Model: {resolved_model}",
+                f"Project: {project_dir}\nModel: {resolved_model}",
                 title="CLAUDE.MD GENERATOR",
                 style="heavy",
             )
@@ -211,23 +221,33 @@ Examples:
             )
 
             if args.json:
-                print(json.dumps({
-                    "success": True,
-                    "output_path": result["output_path"],
-                }))
+                print(
+                    json.dumps(
+                        {
+                            "success": True,
+                            "output_path": result["output_path"],
+                        }
+                    )
+                )
             else:
                 print()
                 print_section("COMPLETE", Icons.CHECK)
-                print_status(f"CLAUDE.md created at: {result['output_path']}", "success")
+                print_status(
+                    f"CLAUDE.md created at: {result['output_path']}", "success"
+                )
             return 0
         else:
             debug_error("claude_md_runner", f"Generation failed: {result['error']}")
 
             if args.json:
-                print(json.dumps({
-                    "success": False,
-                    "error": result["error"],
-                }))
+                print(
+                    json.dumps(
+                        {
+                            "success": False,
+                            "error": result["error"],
+                        }
+                    )
+                )
             else:
                 print_status(f"Generation failed: {result['error']}", "error")
             return 1

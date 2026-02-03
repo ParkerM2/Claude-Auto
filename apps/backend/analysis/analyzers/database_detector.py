@@ -12,8 +12,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .base import BaseAnalyzer, SKIP_DIRS
 from ..streaming_analyzer import stream_files_iter
+from .base import SKIP_DIRS, BaseAnalyzer
 
 
 class DatabaseDetector(BaseAnalyzer):
@@ -121,8 +121,10 @@ class DatabaseDetector(BaseAnalyzer):
         # Use streaming iterator for memory efficiency
         for file_path in stream_files_iter(self.path, skip_dirs=SKIP_DIRS):
             # Filter for Django model files (models.py or files in models/ directory)
-            if not (file_path.name == "models.py" or
-                    (file_path.parent.name == "models" and file_path.suffix == ".py")):
+            if not (
+                file_path.name == "models.py"
+                or (file_path.parent.name == "models" and file_path.suffix == ".py")
+            ):
                 continue
             try:
                 content = file_path.read_text(encoding="utf-8")
@@ -220,8 +222,13 @@ class DatabaseDetector(BaseAnalyzer):
         # Use streaming iterator for memory efficiency
         for file_path in stream_files_iter(self.path, skip_dirs=SKIP_DIRS):
             # Filter for TypeORM entity files (.entity.ts or files in entities/ directory)
-            if not (file_path.suffix == ".ts" and
-                    (file_path.name.endswith(".entity.ts") or file_path.parent.name == "entities")):
+            if not (
+                file_path.suffix == ".ts"
+                and (
+                    file_path.name.endswith(".entity.ts")
+                    or file_path.parent.name == "entities"
+                )
+            ):
                 continue
             try:
                 content = file_path.read_text(encoding="utf-8")
@@ -302,7 +309,9 @@ class DatabaseDetector(BaseAnalyzer):
         # Use streaming iterator for memory efficiency
         for file_path in stream_files_iter(self.path, skip_dirs=SKIP_DIRS):
             # Filter for Mongoose model files (JS/TS files in models/ directory)
-            if not (file_path.parent.name == "models" and file_path.suffix in {".js", ".ts"}):
+            if not (
+                file_path.parent.name == "models" and file_path.suffix in {".js", ".ts"}
+            ):
                 continue
             try:
                 content = file_path.read_text(encoding="utf-8")

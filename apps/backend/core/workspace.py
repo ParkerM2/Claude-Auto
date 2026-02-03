@@ -17,6 +17,7 @@ This module has been refactored for better maintainability:
 Public API is exported via workspace/__init__.py for backward compatibility.
 """
 
+import json
 from pathlib import Path
 
 # Import git command helper for centralized logging and allowlist compliance
@@ -242,6 +243,7 @@ def merge_existing_build(
             manager,
             no_commit=no_commit,
             task_source_branch=base_branch,
+            conflict_resolutions=conflict_resolutions,
         )
 
         if smart_result is not None:
@@ -352,6 +354,7 @@ def _try_smart_merge(
     manager: WorktreeManager,
     no_commit: bool = False,
     task_source_branch: str | None = None,
+    conflict_resolutions: str | None = None,
 ) -> dict | None:
     """
     Try to use the intent-aware merge system.
@@ -378,6 +381,7 @@ def _try_smart_merge(
                 manager,
                 no_commit,
                 task_source_branch=task_source_branch,
+                conflict_resolutions=conflict_resolutions,
             )
     except MergeLockError as e:
         print(warning(f"  {e}"))
@@ -395,6 +399,7 @@ def _try_smart_merge_inner(
     manager: WorktreeManager,
     no_commit: bool = False,
     task_source_branch: str | None = None,
+    conflict_resolutions: str | None = None,
 ) -> dict | None:
     """Inner implementation of smart merge (called with lock held)."""
     debug(

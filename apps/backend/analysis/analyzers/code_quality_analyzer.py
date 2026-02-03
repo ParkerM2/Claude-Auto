@@ -19,11 +19,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .base import SKIP_DIRS, BaseAnalyzer
 from ..streaming_analyzer import stream_files_iter
+from .base import SKIP_DIRS, BaseAnalyzer
 
 try:
-    from radon.complexity import cc_visit, cc_rank
+    from radon.complexity import cc_rank, cc_visit
     from radon.metrics import mi_visit
 
     HAS_RADON = True
@@ -129,7 +129,7 @@ class SonarQubeConfig:
     enabled: bool = False
 
     @classmethod
-    def from_env(cls) -> "SonarQubeConfig":
+    def from_env(cls) -> SonarQubeConfig:
         """Create configuration from environment variables."""
         url = os.environ.get("SONARQUBE_URL", "").strip()
         token = os.environ.get("SONARQUBE_TOKEN", "").strip()
@@ -469,9 +469,7 @@ class CodeQualityAnalyzer(BaseAnalyzer):
                 total_complexity += result.complexity
 
             # Calculate average complexity
-            avg_complexity = (
-                total_complexity / len(functions) if functions else 0.0
-            )
+            avg_complexity = total_complexity / len(functions) if functions else 0.0
 
             # Get relative path
             try:
