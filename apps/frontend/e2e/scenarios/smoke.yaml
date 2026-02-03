@@ -1,0 +1,60 @@
+# Smoke Tests
+# Basic app functionality verification
+#
+# These tests verify core functionality is working after deployment.
+# Run with: npm run test:e2e:mcp:smoke
+# Or: python runners/e2e_test_runner.py --project apps/frontend --scenario smoke
+
+name: Smoke Tests
+description: Basic app functionality verification - ensures core features work
+
+scenarios:
+  - name: App Launch
+    description: Verify the application starts correctly
+    steps:
+      - action: verify_app_running
+        description: Confirm CDP connection is available
+      - action: take_screenshot
+        name: initial-load
+        description: Capture initial app state
+      - action: check_logs
+        expect_no_errors: true
+        description: Verify no console errors on startup
+
+  - name: Navigation
+    description: Test basic navigation between views
+    steps:
+      - action: get_page_structure
+        description: Get overview of available navigation elements
+      - action: click_by_text
+        text: Settings
+        description: Navigate to settings page
+      - action: take_screenshot
+        name: settings-page
+      - action: check_logs
+        expect_no_errors: true
+      - action: click_by_text
+        text: Back
+        fallback_selector: "[data-testid='back-button']"
+        description: Return to previous view
+
+  - name: Window Management
+    description: Verify window info is accessible
+    steps:
+      - action: get_electron_window_info
+        description: Get information about Electron windows
+      - action: verify_window_state
+        expected_state: focused
+        description: Confirm main window is focused
+
+  - name: UI Responsiveness
+    description: Verify UI responds to interactions
+    steps:
+      - action: get_page_structure
+        description: Get interactive elements
+      - action: verify_interactive_elements
+        min_buttons: 1
+        description: Confirm at least one interactive button exists
+      - action: take_screenshot
+        name: ui-state
+        description: Capture UI state for visual review

@@ -12,14 +12,6 @@ from pathlib import Path
 
 from core.client import create_client
 from debug import debug, debug_error, debug_section, debug_success, debug_warning
-from linear_updater import (
-    LinearTaskState,
-    is_linear_enabled,
-    linear_qa_approved,
-    linear_qa_max_iterations,
-    linear_qa_rejected,
-    linear_qa_started,
-)
 from phase_config import get_phase_model, get_phase_thinking_budget
 from phase_event import ExecutionPhase, emit_phase
 from progress import count_subtasks, is_build_complete
@@ -34,6 +26,7 @@ from .criteria import (
     get_qa_signoff_status,
     is_qa_approved,
 )
+from .electron_app import ElectronAppManager, should_use_electron_mcp
 from .fixer import run_qa_fixer_session
 from .report import (
     cleanup_session_artifacts,
@@ -117,8 +110,34 @@ async def run_qa_validation_loop(
         print(f"   Progress: {completed}/{total} subtasks completed")
         return False
 
+    # Check if this is an Electron project that should use MCP for E2E testing
+    use_electron_e2e = should_use_electron_mcp(project_dir)
+    electron_app_manager = None
+
+    if use_electron_e2e:
+        debug("qa_loop", "Electron project detected - will start app for E2E testing")
+        print("\n📱 Electron project detected - enabling E2E testing via MCP")
+        electron_app_manager = ElectronAppManager(project_dir)
+
+        # Start the Electron app for E2E testing
+        if not await electron_app_manager.start():
+            debug_warning(
+                "qa_loop",
+                "Could not start Electron app for E2E testing, continuing without"
+            )
+            print("⚠️  Could not start Electron app - E2E testing may be limited")
+            electron_app_manager = None
+        else:
+            # Set environment variable so create_client knows Electron MCP is available
+            os.environ["ELECTRON_MCP_ENABLED"] = "true"
+
     # Emit phase event at start of QA validation (before any early returns)
     emit_phase(ExecutionPhase.QA_REVIEW, "Starting QA validation")
+
+    # Helper to stop Electron app on exit
+    async def _cleanup_electron():
+        if electron_app_manager:
+            await electron_app_manager.stop()
 
     # Check if there's pending human feedback that needs to be processed
     fix_request_file = spec_dir / "QA_FIX_REQUEST.md"
@@ -128,6 +147,7 @@ async def run_qa_validation_loop(
     if is_qa_approved(spec_dir) and not has_human_feedback:
         debug_success("qa_loop", "Build already approved by QA")
         print("\n✅ Build already approved by QA.")
+        await _cleanup_electron()
         return True
 
     # If there's human feedback, we need to run the fixer first before re-validating
@@ -163,6 +183,7 @@ async def run_qa_validation_loop(
         if fix_status == "error":
             debug_error("qa_loop", f"Fixer error: {fix_response[:200]}")
             print(f"\n❌ Fixer encountered error: {fix_response}")
+            await _cleanup_electron()
             return False
 
         debug_success("qa_loop", "Human feedback fixes applied")
@@ -186,16 +207,6 @@ async def run_qa_validation_loop(
     # Start validation phase in task logger
     if task_logger:
         task_logger.start_phase(LogPhase.VALIDATION, "Starting QA validation...")
-
-    # Check Linear integration status
-    linear_task = None
-    if is_linear_enabled():
-        linear_task = LinearTaskState.load(spec_dir)
-        if linear_task and linear_task.task_id:
-            print(f"Linear task: {linear_task.task_id}")
-            # Update Linear to "In Review" when QA starts
-            await linear_qa_started(spec_dir)
-            print("Linear task moved to 'In Review'")
 
     qa_iteration = get_qa_iteration_count(spec_dir)
     consecutive_errors = 0
@@ -300,11 +311,7 @@ async def run_qa_validation_loop(
                     message="QA validation passed - all criteria met",
                 )
 
-            # Update Linear: QA approved, awaiting human review
-            if linear_task and linear_task.task_id:
-                await linear_qa_approved(spec_dir)
-                print("\nLinear: Task marked as QA approved, awaiting human review")
-
+            await _cleanup_electron()
             return True
 
         elif status == "rejected":
@@ -367,19 +374,8 @@ async def run_qa_validation_loop(
                         message=f"QA escalated to human after {qa_iteration} iterations due to recurring issues",
                     )
 
-                # Update Linear
-                if linear_task and linear_task.task_id:
-                    await linear_qa_max_iterations(spec_dir, qa_iteration)
-                    print(
-                        "\nLinear: Task marked as needing human intervention (recurring issues)"
-                    )
-
+                await _cleanup_electron()
                 return False
-
-            # Record rejection in Linear
-            if linear_task and linear_task.task_id:
-                issues_count = len(current_issues)
-                await linear_qa_rejected(spec_dir, issues_count, qa_iteration)
 
             if qa_iteration >= MAX_QA_ITERATIONS:
                 print("\n⚠️  Maximum QA iterations reached.")
@@ -480,6 +476,7 @@ async def run_qa_validation_loop(
                         success=False,
                         message=f"QA agent failed {MAX_CONSECUTIVE_ERRORS} consecutive times - unable to update implementation_plan.json",
                     )
+                await _cleanup_electron()
                 return False
 
             print("Retrying with error feedback...")
@@ -535,10 +532,6 @@ async def run_qa_validation_loop(
     if qa_report_file.exists():
         print(f"See: {qa_report_file}")
 
-    # Update Linear: max iterations reached, needs human intervention
-    if linear_task and linear_task.task_id:
-        await linear_qa_max_iterations(spec_dir, qa_iteration)
-        print("\nLinear: Task marked as needing human intervention")
-
     print("\nManual intervention required.")
+    await _cleanup_electron()
     return False
