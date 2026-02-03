@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical, ExternalLink } from 'lucide-react';
+import { Play, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical } from 'lucide-react';
 import { PRStatusBadge } from './PRStatusBadge';
 import { PRActionButtons } from './PRActionButtons';
 import { PRConfirmDialog, type PRActionType } from './PRConfirmDialog';
@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
-import { cn, formatRelativeTime, sanitizeMarkdownForDisplay } from '../../lib/utils';
+import { cn, sanitizeMarkdownForDisplay } from '../../lib/utils';
 import { useToast } from '../../hooks/use-toast';
 import { PhaseProgressIndicator } from './PhaseProgressIndicator';
 import {
@@ -194,11 +194,6 @@ export const TaskCard = memo(function TaskCard({
     return task.title;
   }, [task.title, t]);
 
-  // Memoize relative time (recalculates only when updatedAt changes)
-  const relativeTime = useMemo(
-    () => formatRelativeTime(task.updatedAt),
-    [task.updatedAt]
-  );
 
   // Memoize status menu items to avoid recreating on every render
   const statusMenuItems = useMemo(() => {
@@ -495,41 +490,169 @@ export const TaskCard = memo(function TaskCard({
       onClick={onClick}
     >
       <CardContent className={cn('p-4', compact && 'p-3')}>
-        <div className={isSelectable ? 'flex gap-3' : undefined}>
-          {/* Checkbox for selectable mode - stops event propagation */}
-          {isSelectable && (
-            <div className="flex-shrink-0 pt-0.5">
-              <Checkbox
-                checked={isSelected}
-                onCheckedChange={onToggleSelect}
-                onClick={(e) => e.stopPropagation()}
-                aria-label={t('tasks:actions.selectTask', { title: displayTitle })}
-              />
-            </div>
-          )}
-
-          <div className={isSelectable ? 'flex-1 min-w-0' : undefined}>
-            {/* Compact mode: Header with title and menu button in same row */}
-            {compact ? (
-              <div className="flex items-start justify-between gap-2">
-                <h3
-                  className="font-semibold text-sm text-foreground line-clamp-1 leading-snug flex-1 min-w-0"
-                  title={displayTitle}
-                >
-                  {displayTitle}
-                </h3>
-                {/* Menu button at top-right in compact mode */}
+        <div>
+          {/* Tags row at top with checkbox (if selectable) and menu button far right */}
+          {(task.metadata || isStuck || isIncomplete || hasActiveExecution || reviewReasonInfo || isSelectable) && (
+            <div className={cn('flex items-start justify-between gap-2 mb-2', compact && 'mb-1.5')}>
+              {/* Tags container with optional checkbox at start */}
+              <div className={cn('flex flex-wrap items-center gap-1.5', compact && 'gap-1')}>
+                {/* Checkbox for selectable mode - integrated into tags row */}
+                {isSelectable && (
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={onToggleSelect}
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label={t('tasks:actions.selectTask', { title: displayTitle })}
+                    className={cn('shrink-0', compact ? 'h-3.5 w-3.5' : 'h-4 w-4')}
+                  />
+                )}
+                  {/* Stuck indicator - highest priority */}
+                  {isStuck && (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'flex items-center gap-1 bg-warning/10 text-warning border-warning/30 badge-priority-urgent',
+                        compact ? 'text-[9px] px-1 py-0' : 'text-[10px] px-1.5 py-0.5'
+                      )}
+                    >
+                      <AlertTriangle className={compact ? 'h-2 w-2' : 'h-2.5 w-2.5'} />
+                      {t('labels.stuck')}
+                    </Badge>
+                  )}
+                  {/* Incomplete indicator */}
+                  {isIncomplete && !isStuck && (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'flex items-center gap-1 bg-orange-500/10 text-orange-400 border-orange-500/30',
+                        compact ? 'text-[9px] px-1 py-0' : 'text-[10px] px-1.5 py-0.5'
+                      )}
+                    >
+                      <AlertTriangle className={compact ? 'h-2 w-2' : 'h-2.5 w-2.5'} />
+                      {t('labels.incomplete')}
+                    </Badge>
+                  )}
+                  {/* Archived indicator - hidden in compact mode */}
+                  {!compact && task.metadata?.archivedAt && (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] px-1.5 py-0.5 flex items-center gap-1 bg-muted text-muted-foreground border-border"
+                    >
+                      <Archive className="h-2.5 w-2.5" />
+                      {t('status.archived')}
+                    </Badge>
+                  )}
+                  {/* PR status badge - hidden in compact mode */}
+                  {!compact && task.metadata?.prStatus && (
+                    <PRStatusBadge status={task.metadata.prStatus} compact />
+                  )}
+                  {/* Execution phase badge */}
+                  {hasActiveExecution && executionPhase && !isStuck && !isIncomplete && (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'flex items-center gap-1',
+                        EXECUTION_PHASE_BADGE_COLORS[executionPhase],
+                        compact ? 'text-[9px] px-1 py-0' : 'text-[10px] px-1.5 py-0.5'
+                      )}
+                    >
+                      <Loader2 className={cn('animate-spin', compact ? 'h-2 w-2' : 'h-2.5 w-2.5')} />
+                      {EXECUTION_PHASE_LABELS[executionPhase]}
+                    </Badge>
+                  )}
+                  {/* Status badge - hide when execution phase badge is showing */}
+                  {!hasActiveExecution && (
+                    <>
+                      {task.status === 'done' ? (
+                        <Badge
+                          variant={getStatusBadgeVariant(task.status)}
+                          className={compact ? 'text-[9px] px-1 py-0' : 'text-[10px] px-1.5 py-0.5'}
+                        >
+                          {getStatusLabel(task.status)}
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant={isStuck ? 'warning' : isIncomplete ? 'warning' : getStatusBadgeVariant(task.status)}
+                          className={compact ? 'text-[9px] px-1 py-0' : 'text-[10px] px-1.5 py-0.5'}
+                        >
+                          {isStuck ? t('labels.needsRecovery') : isIncomplete ? t('labels.needsResume') : getStatusLabel(task.status)}
+                        </Badge>
+                      )}
+                    </>
+                  )}
+                  {/* Review reason badge - hidden in compact mode */}
+                  {!compact && reviewReasonInfo && !isStuck && !isIncomplete && (
+                    <Badge
+                      variant={reviewReasonInfo.variant}
+                      className="text-[10px] px-1.5 py-0.5"
+                    >
+                      {reviewReasonInfo.label}
+                    </Badge>
+                  )}
+                  {/* Category badge with icon */}
+                  {task.metadata?.category && (
+                    <Badge
+                      variant="outline"
+                      className={cn(TASK_CATEGORY_COLORS[task.metadata.category], compact ? 'text-[9px] px-1 py-0' : 'text-[10px] px-1.5 py-0')}
+                    >
+                      {CategoryIcon[task.metadata.category] && (
+                        (() => {
+                          const Icon = CategoryIcon[task.metadata.category!];
+                          return <Icon className={cn('mr-0.5', compact ? 'h-2 w-2' : 'h-2.5 w-2.5')} />;
+                        })()
+                      )}
+                      {TASK_CATEGORY_LABELS[task.metadata.category]}
+                    </Badge>
+                  )}
+                  {/* Impact badge - hidden in compact mode */}
+                  {!compact && task.metadata?.impact && (task.metadata.impact === 'high' || task.metadata.impact === 'critical') && (
+                    <Badge
+                      variant="outline"
+                      className={cn('text-[10px] px-1.5 py-0', TASK_IMPACT_COLORS[task.metadata.impact])}
+                    >
+                      {TASK_IMPACT_LABELS[task.metadata.impact]}
+                    </Badge>
+                  )}
+                  {/* Complexity badge - hidden in compact mode */}
+                  {!compact && task.metadata?.complexity && (
+                    <Badge
+                      variant="outline"
+                      className={cn('text-[10px] px-1.5 py-0', TASK_COMPLEXITY_COLORS[task.metadata.complexity])}
+                    >
+                      {TASK_COMPLEXITY_LABELS[task.metadata.complexity]}
+                    </Badge>
+                  )}
+                  {/* Priority badge - hidden in compact mode */}
+                  {!compact && task.metadata?.priority && (task.metadata.priority === 'urgent' || task.metadata.priority === 'high') && (
+                    <Badge
+                      variant="outline"
+                      className={cn('text-[10px] px-1.5 py-0', TASK_PRIORITY_COLORS[task.metadata.priority])}
+                    >
+                      {TASK_PRIORITY_LABELS[task.metadata.priority]}
+                    </Badge>
+                  )}
+                  {/* Security severity - hidden in compact mode */}
+                  {!compact && task.metadata?.securitySeverity && (
+                    <Badge
+                      variant="outline"
+                      className={cn('text-[10px] px-1.5 py-0', TASK_IMPACT_COLORS[task.metadata.securitySeverity])}
+                    >
+                      {task.metadata.securitySeverity} {t('metadata.severity')}
+                    </Badge>
+                  )}
+                </div>
+                {/* Menu button at far right */}
                 {statusMenuItems && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 w-6 p-0 flex-shrink-0 -mt-0.5 -mr-1"
+                        className={cn('p-0 flex-shrink-0', compact ? 'h-5 w-5 -mt-0.5 -mr-1' : 'h-6 w-6')}
                         onClick={(e) => e.stopPropagation()}
                         aria-label={t('actions.taskActions')}
                       >
-                        <MoreVertical className="h-3.5 w-3.5" />
+                        <MoreVertical className={compact ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
@@ -540,320 +663,139 @@ export const TaskCard = memo(function TaskCard({
                   </DropdownMenu>
                 )}
               </div>
-            ) : (
-              /* Full mode: Title only, menu in footer */
-              <h3
-                className="font-semibold text-sm text-foreground line-clamp-2 leading-snug"
-                title={displayTitle}
-              >
-                {displayTitle}
-              </h3>
             )}
 
-        {/* Description - sanitized to handle markdown content (memoized) - hidden in compact mode */}
-        {!compact && sanitizedDescription && (
-          <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
-            {sanitizedDescription}
-          </p>
-        )}
+            {/* Title (1 row in compact, 2 in expanded) */}
+            <h3
+              className={cn(
+                'font-semibold text-foreground leading-snug',
+                compact ? 'text-xs line-clamp-1' : 'text-sm line-clamp-2'
+              )}
+              title={displayTitle}
+            >
+              {displayTitle}
+            </h3>
 
-        {/* Metadata badges - in compact mode show only essential badges */}
-        {(task.metadata || isStuck || isIncomplete || hasActiveExecution || reviewReasonInfo) && (
-          <div className={cn('mt-2.5 flex flex-wrap gap-1.5', compact && 'mt-2')}>
-            {/* Stuck indicator - highest priority - show in both modes */}
-            {isStuck && (
-              <Badge
-                variant="outline"
-                className="text-[10px] px-1.5 py-0.5 flex items-center gap-1 bg-warning/10 text-warning border-warning/30 badge-priority-urgent"
-              >
-                <AlertTriangle className="h-2.5 w-2.5" />
-                {t('labels.stuck')}
-              </Badge>
+            {/* Description - hidden in compact mode */}
+            {!compact && sanitizedDescription && (
+              <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
+                {sanitizedDescription}
+              </p>
             )}
-            {/* Incomplete indicator - task in human_review but no subtasks completed - show in both modes */}
-            {isIncomplete && !isStuck && (
-              <Badge
-                variant="outline"
-                className="text-[10px] px-1.5 py-0.5 flex items-center gap-1 bg-orange-500/10 text-orange-400 border-orange-500/30"
-              >
-                <AlertTriangle className="h-2.5 w-2.5" />
-                {t('labels.incomplete')}
-              </Badge>
-            )}
-            {/* Archived indicator - task has been released - hidden in compact mode */}
-            {!compact && task.metadata?.archivedAt && (
-              <Badge
-                variant="outline"
-                className="text-[10px] px-1.5 py-0.5 flex items-center gap-1 bg-muted text-muted-foreground border-border"
-              >
-                <Archive className="h-2.5 w-2.5" />
-                {t('status.archived')}
-              </Badge>
-            )}
-            {/* PR status badge - shown when task has a linked PR with status - hidden in compact mode */}
-            {!compact && task.metadata?.prStatus && (
-              <PRStatusBadge status={task.metadata.prStatus} compact />
-            )}
-            {/* Execution phase badge - shown when actively running - show in both modes */}
-            {hasActiveExecution && executionPhase && !isStuck && !isIncomplete && (
-              <Badge
-                variant="outline"
-                className={cn(
-                  'text-[10px] px-1.5 py-0.5 flex items-center gap-1',
-                  EXECUTION_PHASE_BADGE_COLORS[executionPhase]
-                )}
-              >
-                <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                {EXECUTION_PHASE_LABELS[executionPhase]}
-              </Badge>
-            )}
-             {/* Status badge - hide when execution phase badge is showing - show in both modes */}
-             {!hasActiveExecution && (
-               <>
-                  {task.status === 'done' ? (
-                    <Badge
-                      variant={getStatusBadgeVariant(task.status)}
-                      className="text-[10px] px-1.5 py-0.5"
-                    >
-                      {getStatusLabel(task.status)}
-                    </Badge>
-                  ) : (
-                   <Badge
-                     variant={isStuck ? 'warning' : isIncomplete ? 'warning' : getStatusBadgeVariant(task.status)}
-                     className="text-[10px] px-1.5 py-0.5"
-                   >
-                     {isStuck ? t('labels.needsRecovery') : isIncomplete ? t('labels.needsResume') : getStatusLabel(task.status)}
-                   </Badge>
-                 )}
-               </>
-             )}
-            {/* Review reason badge - explains why task needs human review - hidden in compact mode */}
-            {!compact && reviewReasonInfo && !isStuck && !isIncomplete && (
-              <Badge
-                variant={reviewReasonInfo.variant}
-                className="text-[10px] px-1.5 py-0.5"
-              >
-                {reviewReasonInfo.label}
-              </Badge>
-            )}
-            {/* Category badge with icon - show in both modes (type tag) */}
-            {task.metadata?.category && (
-              <Badge
-                variant="outline"
-                className={cn('text-[10px] px-1.5 py-0', TASK_CATEGORY_COLORS[task.metadata.category])}
-              >
-                {CategoryIcon[task.metadata.category] && (
-                  (() => {
-                    const Icon = CategoryIcon[task.metadata.category!];
-                    return <Icon className="h-2.5 w-2.5 mr-0.5" />;
-                  })()
-                )}
-                {TASK_CATEGORY_LABELS[task.metadata.category]}
-              </Badge>
-            )}
-            {/* Impact badge - high visibility for important tasks - hidden in compact mode */}
-            {!compact && task.metadata?.impact && (task.metadata.impact === 'high' || task.metadata.impact === 'critical') && (
-              <Badge
-                variant="outline"
-                className={cn('text-[10px] px-1.5 py-0', TASK_IMPACT_COLORS[task.metadata.impact])}
-              >
-                {TASK_IMPACT_LABELS[task.metadata.impact]}
-              </Badge>
-            )}
-            {/* Complexity badge - hidden in compact mode */}
-            {!compact && task.metadata?.complexity && (
-              <Badge
-                variant="outline"
-                className={cn('text-[10px] px-1.5 py-0', TASK_COMPLEXITY_COLORS[task.metadata.complexity])}
-              >
-                {TASK_COMPLEXITY_LABELS[task.metadata.complexity]}
-              </Badge>
-            )}
-            {/* Priority badge - only show urgent/high - hidden in compact mode */}
-            {!compact && task.metadata?.priority && (task.metadata.priority === 'urgent' || task.metadata.priority === 'high') && (
-              <Badge
-                variant="outline"
-                className={cn('text-[10px] px-1.5 py-0', TASK_PRIORITY_COLORS[task.metadata.priority])}
-              >
-                {TASK_PRIORITY_LABELS[task.metadata.priority]}
-              </Badge>
-            )}
-            {/* Security severity - always show - hidden in compact mode */}
-            {!compact && task.metadata?.securitySeverity && (
-              <Badge
-                variant="outline"
-                className={cn('text-[10px] px-1.5 py-0', TASK_IMPACT_COLORS[task.metadata.securitySeverity])}
-              >
-                {task.metadata.securitySeverity} {t('metadata.severity')}
-              </Badge>
-            )}
-          </div>
-        )}
 
-        {/* Progress section - Phase-aware with animations - show in both modes */}
-        {(task.subtasks.length > 0 || hasActiveExecution || isRunning || isStuck) && (
-          <div className={cn('mt-4', compact && 'mt-2.5')}>
-            <PhaseProgressIndicator
-              phase={executionPhase}
-              subtasks={task.subtasks}
-              phaseProgress={task.executionProgress?.phaseProgress}
-              isStuck={isStuck}
-              isRunning={isRunning}
-            />
-          </div>
-        )}
-
-        {/* Footer - hidden in compact mode (menu is at top-right) */}
-        {!compact && (
-          <div className="mt-4 flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Clock className="h-3 w-3" />
-              <span>{relativeTime}</span>
-            </div>
-
-          <div className="flex items-center gap-1.5">
-            {/* Action buttons */}
-            {isStuck ? (
-              <Button
-                variant="warning"
-                size="sm"
-                className="h-7 px-2.5"
-                onClick={handleRecover}
-                disabled={isRecovering}
-              >
-                {isRecovering ? (
-                  <>
-                    <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-                    {t('labels.recovering')}
-                  </>
-                ) : (
-                  <>
-                    <RotateCcw className="mr-1.5 h-3 w-3" />
-                    {t('actions.recover')}
-                  </>
-                )}
-              </Button>
-            ) : isIncomplete ? (
-              <Button
-                variant="default"
-                size="sm"
-                className="h-7 px-2.5"
-                onClick={handleStartStop}
-              >
-                <Play className="mr-1.5 h-3 w-3" />
-                {t('actions.resume')}
-              </Button>
-            ) : task.metadata?.prStatus && task.metadata?.prUrl && selectedProjectId ? (
-              <div className="flex gap-1 items-center">
-                <PRActionButtons
-                  prNumber={task.metadata.prStatus.prNumber}
-                  prState={task.metadata.prStatus.state}
-                  prHtmlUrl={task.metadata.prUrl}
-                  projectId={selectedProjectId}
-                  isApproved={task.metadata.prStatus.reviewDecision === 'approved'}
-                  isMergeable={task.metadata.prStatus.mergeable === 'MERGEABLE'}
-                  onApprove={handleApprovePR}
-                  onRequestChanges={handleRequestChangesPR}
-                  onMerge={handleMergePR}
-                  disabled={isApprovingPR || isRequestingChanges || isMergingPR}
-                  className="text-xs"
+            {/* Progress section */}
+            {(task.subtasks.length > 0 || hasActiveExecution || isRunning || isStuck) && (
+              <div className={cn('mt-3', compact && 'mt-2')}>
+                <PhaseProgressIndicator
+                  phase={executionPhase}
+                  subtasks={task.subtasks}
+                  phaseProgress={task.executionProgress?.phaseProgress}
+                  isStuck={isStuck}
+                  isRunning={isRunning}
                 />
-                {!task.metadata?.archivedAt && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 cursor-pointer"
-                    onClick={handleArchive}
-                    title={t('tooltips.archiveTask')}
-                  >
-                    <Archive className="h-3 w-3" />
-                  </Button>
-                )}
               </div>
-            ) : task.status === 'done' && task.metadata?.prUrl ? (
-              <div className="flex gap-1">
-                {task.metadata?.prUrl && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 cursor-pointer"
-                    onClick={handleViewPR}
-                    title={t('tooltips.viewPR')}
-                  >
-                    <GitPullRequest className="h-3 w-3" />
-                  </Button>
-                )}
-                {!task.metadata?.archivedAt && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 cursor-pointer"
-                    onClick={handleArchive}
-                    title={t('tooltips.archiveTask')}
-                  >
-                    <Archive className="h-3 w-3" />
-                  </Button>
-                )}
-              </div>
-            ) : task.status === 'done' && !task.metadata?.archivedAt ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2.5 hover:bg-muted-foreground/10"
-                onClick={handleArchive}
-                title={t('tooltips.archiveTask')}
-              >
-                <Archive className="mr-1.5 h-3 w-3" />
-                {t('actions.archive')}
-              </Button>
-            ) : (task.status === 'backlog' || task.status === 'in_progress') && (
-              <Button
-                variant={isRunning ? 'destructive' : 'default'}
-                size="sm"
-                className="h-7 px-2.5"
-                onClick={handleStartStop}
-              >
-                {isRunning ? (
-                  <>
-                    <Square className="mr-1.5 h-3 w-3" />
-                    {t('actions.stop')}
-                  </>
-                ) : (
-                  <>
-                    <Play className="mr-1.5 h-3 w-3" />
-                    {t('actions.start')}
-                  </>
-                )}
-              </Button>
             )}
 
-              {/* Move to menu for keyboard accessibility */}
-              {statusMenuItems && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
+            {/* Footer - action buttons only, no timestamp, hidden in compact mode */}
+            {!compact && (
+              <div className="mt-4 flex items-center justify-end">
+                <div className="flex items-center gap-1.5">
+                  {/* Action buttons */}
+                  {isStuck ? (
+                    <Button
+                      variant="warning"
+                      size="sm"
+                      className="h-7 px-2.5"
+                      onClick={handleRecover}
+                      disabled={isRecovering}
+                    >
+                      {isRecovering ? (
+                        <>
+                          <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                          {t('labels.recovering')}
+                        </>
+                      ) : (
+                        <>
+                          <RotateCcw className="mr-1.5 h-3 w-3" />
+                          {t('actions.recover')}
+                        </>
+                      )}
+                    </Button>
+                  ) : isIncomplete ? (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="h-7 px-2.5"
+                      onClick={handleStartStop}
+                    >
+                      <Play className="mr-1.5 h-3 w-3" />
+                      {t('actions.resume')}
+                    </Button>
+                  ) : task.metadata?.prStatus && task.metadata?.prUrl && selectedProjectId ? (
+                    <div className="flex gap-1 items-center">
+                      <PRActionButtons
+                        prNumber={task.metadata.prStatus.prNumber}
+                        prState={task.metadata.prStatus.state}
+                        prHtmlUrl={task.metadata.prUrl}
+                        projectId={selectedProjectId}
+                        isApproved={task.metadata.prStatus.reviewDecision === 'approved'}
+                        isMergeable={task.metadata.prStatus.mergeable === 'MERGEABLE'}
+                        onApprove={handleApprovePR}
+                        onRequestChanges={handleRequestChangesPR}
+                        onMerge={handleMergePR}
+                        disabled={isApprovingPR || isRequestingChanges || isMergingPR}
+                        className="text-xs"
+                      />
+                      {!task.metadata?.archivedAt && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 cursor-pointer"
+                          onClick={handleArchive}
+                          title={t('tooltips.archiveTask')}
+                        >
+                          <Archive className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  ) : task.status === 'done' && task.metadata?.prUrl ? (
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 cursor-pointer"
+                        onClick={handleViewPR}
+                        title={t('tooltips.viewPR')}
+                      >
+                        <GitPullRequest className="h-3 w-3" />
+                      </Button>
+                      {!task.metadata?.archivedAt && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 cursor-pointer"
+                          onClick={handleArchive}
+                          title={t('tooltips.archiveTask')}
+                        >
+                          <Archive className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  ) : task.status === 'done' && !task.metadata?.archivedAt ? (
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-7 w-7 p-0"
-                      onClick={(e) => e.stopPropagation()}
-                      aria-label={t('actions.taskActions')}
+                      className="h-7 px-2.5 hover:bg-muted-foreground/10"
+                      onClick={handleArchive}
+                      title={t('tooltips.archiveTask')}
                     >
-                      <MoreVertical className="h-4 w-4" />
+                      <Archive className="mr-1.5 h-3 w-3" />
+                      {t('actions.archive')}
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenuLabel>{t('actions.moveTo')}</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {statusMenuItems}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
-          </div>
-        )}
-        {/* Close content wrapper for selectable mode */}
-        </div>
-        {/* Close flex container for selectable mode */}
+                  ) : null}
+                </div>
+              </div>
+            )}
         </div>
       </CardContent>
 
