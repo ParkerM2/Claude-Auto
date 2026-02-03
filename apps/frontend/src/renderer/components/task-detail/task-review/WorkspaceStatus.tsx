@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import {
   GitBranch,
   FileCode,
@@ -111,6 +112,13 @@ export function WorkspaceStatus({
   const { settings } = useSettingsStore();
   const preferredIDE = settings.preferredIDE || 'vscode';
   const preferredTerminal = settings.preferredTerminal || 'system';
+
+  // Auto-load merge preview when component mounts (review tab opens)
+  useEffect(() => {
+    if (!mergePreview && !isLoadingPreview) {
+      onLoadMergePreview();
+    }
+  }, [mergePreview, isLoadingPreview, onLoadMergePreview]);
 
   const handleOpenInIDE = async () => {
     if (!worktreeStatus.worktreePath) return;
