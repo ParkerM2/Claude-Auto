@@ -121,10 +121,11 @@ class FileIndex:
         Raises:
             FileNotFoundError: If file does not exist
         """
-        # Convert to absolute path
+        # Convert to absolute path and resolve to handle Windows short paths
         abs_path = Path(file_path)
         if not abs_path.is_absolute():
             abs_path = self.project_dir / file_path
+        abs_path = abs_path.resolve()
 
         if not abs_path.exists():
             raise FileNotFoundError(f"File not found: {abs_path}")
