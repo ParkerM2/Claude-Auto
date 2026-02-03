@@ -60,6 +60,10 @@
     "deleting": "Deleting...",
     "deleteSelected": "Delete Selected"
   },
+  "worktreeDiff": {
+    "title": "Worktree Changes",
+    "description": "View detailed changes made in this worktree"
+  },
   "worktreeCleanup": {
     "title": "Complete Task",
     "hasWorktree": "The task <strong>\"{{taskTitle}}\"</strong> still has an isolated workspace (worktree).",

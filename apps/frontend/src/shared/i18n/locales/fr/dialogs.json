@@ -60,6 +60,10 @@
     "deleting": "Suppression...",
     "deleteSelected": "Supprimer la sélection"
   },
+  "worktreeDiff": {
+    "title": "Modifications du worktree",
+    "description": "Voir les modifications détaillées apportées dans ce worktree"
+  },
   "worktreeCleanup": {
     "title": "Terminer la tâche",
     "hasWorktree": "La tâche <strong>\"{{taskTitle}}\"</strong> a encore un espace de travail isolé (worktree).",
