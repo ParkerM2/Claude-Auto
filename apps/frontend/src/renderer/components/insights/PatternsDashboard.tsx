@@ -95,65 +95,48 @@ export function PatternsDashboard({ projectId }: PatternsDashboardProps) {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      // TODO: Replace with actual API call in phase-3
-      // const result = await window.electronAPI.getPatternInsights(projectId);
-      // setData(result);
-
-      // Mock data for now
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      const result = await window.electronAPI.getPatternInsights(projectId);
+      if (result.success && result.data) {
+        // Transform backend data to include IDs (using content hash or index)
+        const transformedData = {
+          top_patterns: result.data.top_patterns.map((item, idx) => ({
+            id: `pattern-${idx}-${item.content.slice(0, 20).replace(/\s/g, '-')}`,
+            content: item.content,
+            frequency: item.frequency,
+            lastSeen: item.last_seen
+          })),
+          common_gotchas: result.data.common_gotchas.map((item, idx) => ({
+            id: `gotcha-${idx}-${item.content.slice(0, 20).replace(/\s/g, '-')}`,
+            content: item.content,
+            frequency: item.frequency,
+            lastSeen: item.last_seen
+          })),
+          improvement_suggestions: result.data.improvement_suggestions.map((item, idx) => ({
+            id: `suggestion-${idx}-${item.content.slice(0, 20).replace(/\s/g, '-')}`,
+            content: item.content,
+            frequency: item.frequency,
+            lastSeen: item.last_seen
+          })),
+          last_updated: result.data.last_updated
+        };
+        setData(transformedData);
+      } else {
+        // Set empty data if API call failed
+        setData({
+          top_patterns: [],
+          common_gotchas: [],
+          improvement_suggestions: [],
+          last_updated: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      // Handle error by setting empty data
       setData({
-        top_patterns: [
-          {
-            id: 'p1',
-            content: 'Use React hooks for state management instead of class components',
-            frequency: 12,
-            lastSeen: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-          },
-          {
-            id: 'p2',
-            content: 'Follow shadcn/ui component patterns for consistent styling',
-            frequency: 8,
-            lastSeen: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
-          },
-          {
-            id: 'p3',
-            content: 'Use i18n translation keys for all user-facing text',
-            frequency: 15,
-            lastSeen: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
-          }
-        ],
-        common_gotchas: [
-          {
-            id: 'g1',
-            content: 'Remember to use relative paths starting with ./ for file operations',
-            frequency: 5,
-            lastSeen: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
-          },
-          {
-            id: 'g2',
-            content: 'Always run pwd before git commands to verify current directory',
-            frequency: 7,
-            lastSeen: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()
-          }
-        ],
-        improvement_suggestions: [
-          {
-            id: 's1',
-            content: 'Add error boundaries to catch rendering errors in React components',
-            frequency: 3,
-            lastSeen: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-          },
-          {
-            id: 's2',
-            content: 'Implement loading states for all async operations',
-            frequency: 4,
-            lastSeen: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString()
-          }
-        ],
+        top_patterns: [],
+        common_gotchas: [],
+        improvement_suggestions: [],
         last_updated: new Date().toISOString()
       });
-    } catch (error) {
-      // Handle error silently for now
     } finally {
       setIsLoading(false);
     }
@@ -174,8 +157,7 @@ export function PatternsDashboard({ projectId }: PatternsDashboardProps) {
 
   const handleConfirmPattern = (id: string) => {
     setActionPending(id);
-    // TODO: Implement confirm action in phase-3
-    // For now, just remove from dismissed if it was dismissed
+    // Remove from dismissed if it was dismissed
     const newDismissed = new Set(dismissedPatterns);
     newDismissed.delete(id);
     setDismissedPatterns(newDismissed);
