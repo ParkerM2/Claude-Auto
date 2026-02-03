@@ -174,5 +174,19 @@
     "step3": "Cliquez sur « Réauthentifier » sur votre profil",
     "gotIt": "Compris",
     "goToSettings": "Aller aux paramètres"
+  },
+  "conflictDetails": {
+    "title": "Aperçu des conflits de fusion",
+    "conflictsDetected": "{{count}} conflit{{plural}} potentiel{{plural}} détecté{{plural}}.",
+    "canAutoMerge": "{{count}} peuvent être fusionnés automatiquement.",
+    "autoMergeBadge": "fusion auto",
+    "location": "Emplacement :",
+    "reason": "Raison :",
+    "aiStrategies": "Stratégies suggérées par l'IA :",
+    "strategy": "Stratégie :",
+    "noConflicts": "Aucun conflit détecté",
+    "close": "Fermer",
+    "stageWithAI": "Indexer avec fusion IA",
+    "mergeWithAI": "Fusionner avec l'IA"
   }
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AlertTriangle, GitMerge } from 'lucide-react';
 import {
   AlertDialog,
@@ -37,6 +38,7 @@ export function ConflictDetailsDialog({
   onMerge,
   onStrategiesChange
 }: ConflictDetailsDialogProps) {
+  const { t } = useTranslation(['dialogs']);
   // Track selected strategy for each conflict (indexed by conflict index)
   const [selectedStrategies, setSelectedStrategies] = useState<Record<number, string>>({});
 
@@ -62,13 +64,18 @@ export function ConflictDetailsDialog({
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-warning" />
-            Merge Conflicts Preview
+            {t('dialogs:conflictDetails.title')}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {mergePreview?.conflicts.length || 0} potential conflict{(mergePreview?.conflicts.length || 0) !== 1 ? 's' : ''} detected.
+            {t('dialogs:conflictDetails.conflictsDetected', {
+              count: mergePreview?.conflicts.length || 0,
+              plural: (mergePreview?.conflicts.length || 0) !== 1 ? 's' : ''
+            })}
             {mergePreview && mergePreview.summary.autoMergeable > 0 && (
               <span className="text-success ml-1">
-                {mergePreview.summary.autoMergeable} can be auto-merged.
+                {t('dialogs:conflictDetails.canAutoMerge', {
+                  count: mergePreview.summary.autoMergeable
+                })}
               </span>
             )}
           </AlertDialogDescription>
@@ -102,22 +109,22 @@ export function ConflictDetailsDialog({
                       </Badge>
                       {conflict.canAutoMerge && (
                         <Badge variant="secondary" className="text-xs bg-success/10 text-success">
-                          auto-merge
+                          {t('dialogs:conflictDetails.autoMergeBadge')}
                         </Badge>
                       )}
                     </div>
                   </div>
                   <div className="text-xs text-muted-foreground space-y-1">
                     {conflict.location && (
-                      <div><span className="text-foreground/70">Location:</span> {conflict.location}</div>
+                      <div><span className="text-foreground/70">{t('dialogs:conflictDetails.location')}</span> {conflict.location}</div>
                     )}
                     {conflict.reason && (
-                      <div><span className="text-foreground/70">Reason:</span> {conflict.reason}</div>
+                      <div><span className="text-foreground/70">{t('dialogs:conflictDetails.reason')}</span> {conflict.reason}</div>
                     )}
                     {/* Display AI-suggested resolution strategies with selection */}
                     {conflict.resolutionStrategies && conflict.resolutionStrategies.length > 0 && (
                       <div className="mt-2 pt-2 border-t border-border/50">
-                        <div className="text-foreground/70 mb-1.5 font-medium">AI-Suggested Strategies:</div>
+                        <div className="text-foreground/70 mb-1.5 font-medium">{t('dialogs:conflictDetails.aiStrategies')}</div>
                         <RadioGroup
                           value={selectedStrategies[idx] || ''}
                           onValueChange={(value) => {
@@ -156,7 +163,7 @@ export function ConflictDetailsDialog({
                     )}
                     {/* Fallback to single strategy field if no resolutionStrategies */}
                     {!conflict.resolutionStrategies && conflict.strategy && (
-                      <div><span className="text-foreground/70">Strategy:</span> {conflict.strategy}</div>
+                      <div><span className="text-foreground/70">{t('dialogs:conflictDetails.strategy')}</span> {conflict.strategy}</div>
                     )}
                   </div>
                 </div>
@@ -164,12 +171,12 @@ export function ConflictDetailsDialog({
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              No conflicts detected
+              {t('dialogs:conflictDetails.noConflicts')}
             </div>
           )}
         </div>
         <AlertDialogFooter className="mt-4">
-          <AlertDialogCancel>Close</AlertDialogCancel>
+          <AlertDialogCancel>{t('dialogs:conflictDetails.close')}</AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();
@@ -180,7 +187,7 @@ export function ConflictDetailsDialog({
             className="bg-warning text-warning-foreground hover:bg-warning/90"
           >
             <GitMerge className="mr-2 h-4 w-4" />
-            {stageOnly ? 'Stage with AI Merge' : 'Merge with AI'}
+            {stageOnly ? t('dialogs:conflictDetails.stageWithAI') : t('dialogs:conflictDetails.mergeWithAI')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
