@@ -48,6 +48,7 @@ import { useProjectStore } from '../../stores/project-store';
 import { useTaskStore } from '../../stores/task-store';
 import type { WorktreeListItem, WorktreeMergeResult, TerminalWorktreeConfig, WorktreeStatus, Task, WorktreeCreatePROptions, WorktreeCreatePRResult } from '../../../shared/types';
 import { CreatePRDialog } from '../task-detail/task-review/CreatePRDialog';
+import { WorktreeDiffViewer } from './WorktreeDiffViewer';
 
 // Prefix constants for worktree ID parsing
 const TASK_PREFIX = 'task:';
@@ -91,6 +92,10 @@ export function Worktrees({ projectId }: WorktreesProps) {
   const [showCreatePRDialog, setShowCreatePRDialog] = useState(false);
   const [prWorktree, setPrWorktree] = useState<WorktreeListItem | null>(null);
   const [prTask, setPrTask] = useState<Task | null>(null);
+
+  // Diff viewer dialog state
+  const [showDiffViewer, setShowDiffViewer] = useState(false);
+  const [diffTaskId, setDiffTaskId] = useState<string | null>(null);
 
   // Selection state
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -297,6 +302,12 @@ export function Worktrees({ projectId }: WorktreesProps) {
     setPrWorktree(worktree);
     setPrTask(task);
     setShowCreatePRDialog(true);
+  };
+
+  // Open Diff Viewer
+  const openDiffViewer = (task: Task) => {
+    setDiffTaskId(task.id);
+    setShowDiffViewer(true);
   };
 
   // Handle Create PR
@@ -626,6 +637,16 @@ export function Worktrees({ projectId }: WorktreesProps) {
                             <GitMerge className="h-3.5 w-3.5 mr-1.5" />
                             Merge to {worktree.baseBranch}
                           </Button>
+                          {task && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openDiffViewer(task)}
+                            >
+                              <FileCode className="h-3.5 w-3.5 mr-1.5" />
+                              View Diff
+                            </Button>
+                          )}
                           {task && (
                             <Button
                               variant="info"
@@ -994,6 +1015,15 @@ export function Worktrees({ projectId }: WorktreesProps) {
           worktreeStatus={worktreeToStatus(prWorktree)}
           onOpenChange={setShowCreatePRDialog}
           onCreatePR={handleCreatePR}
+        />
+      )}
+
+      {/* Diff Viewer Dialog */}
+      {diffTaskId && (
+        <WorktreeDiffViewer
+          taskId={diffTaskId}
+          open={showDiffViewer}
+          onClose={() => setShowDiffViewer(false)}
         />
       )}
     </div>
