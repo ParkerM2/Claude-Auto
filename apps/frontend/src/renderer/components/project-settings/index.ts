@@ -19,3 +19,6 @@ export { PasswordInput } from './PasswordInput';
 export { StatusBadge } from './StatusBadge';
 export { ConnectionStatus } from './ConnectionStatus';
 export { InfrastructureStatus } from './InfrastructureStatus';
+
+// E2E Testing components
+export { E2ESettingsPanel } from './E2ESettingsPanel';

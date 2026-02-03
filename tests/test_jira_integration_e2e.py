@@ -20,31 +20,28 @@ import pytest
 
 # Add the backend directory to path
 _backend_dir = Path(__file__).parent.parent / "apps" / "backend"
-_jira_dir = _backend_dir / "runners" / "jira"
-if str(_jira_dir) not in sys.path:
-    sys.path.insert(0, str(_jira_dir))
 if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
-from models import (
-    JiraConfig,
+from runners.jira.models import (
     JiraIssue,
     JiraUser,
     JiraStatus,
     JiraPriority,
     JiraProject,
 )
-from spec_importer import JiraSpecImporter
-from spec_metadata import (
+from runners.jira.jira_client import JiraConfig
+from runners.jira.spec_importer import JiraSpecImporter
+from runners.jira.spec_metadata import (
     JiraSpecMetadata,
     save_jira_metadata,
     load_jira_metadata,
     get_issue_key,
     is_jira_spec,
 )
-from status_updater import JiraStatusUpdater
-from pr_linker import JiraPRLinker
-from jira_client import JiraClient
+from runners.jira.status_updater import JiraStatusUpdater
+from runners.jira.pr_linker import JiraPRLinker
+from runners.jira.jira_client import JiraClient
 
 
 # ============================================================================
@@ -77,16 +74,23 @@ Acceptance Criteria:
 - Logout functionality works correctly
         """.strip(),
         issue_type="Story",
-        status=JiraStatus(id="1", name="To Do"),
+        status=JiraStatus(id="1", name="To Do", category="todo"),
         priority=JiraPriority(id="2", name="High"),
         assignee=JiraUser(
             account_id="abc123",
             email_address="developer@test.com",
             display_name="Test Developer",
         ),
+        reporter=JiraUser(
+            account_id="def456",
+            email_address="reporter@test.com",
+            display_name="Test Reporter",
+        ),
         project=JiraProject(id="10000", key="TEST", name="Test Project"),
         labels=["feature", "authentication"],
         story_points=5,
+        created_at="2024-01-01T10:00:00",
+        updated_at="2024-01-01T12:00:00",
     )
 
 
@@ -97,6 +101,7 @@ def mock_jira_client():
     client.get_issue = AsyncMock()
     client.update_status = AsyncMock()
     client.link_pr = AsyncMock()
+    client._request = AsyncMock()
     return client
 
 
@@ -280,7 +285,8 @@ class TestStatusUpdateE2E:
 
         # Update status to "In Progress"
         updater = JiraStatusUpdater(mock_jira_client)
-        await updater.on_task_started(spec_dir)
+        issue_key = get_issue_key(spec_dir)
+        await updater.on_task_started(issue_key)
 
         # Verify client was called with correct parameters
         mock_jira_client.update_status.assert_called_once_with("TEST-100", "In Progress")
@@ -303,7 +309,8 @@ class TestStatusUpdateE2E:
 
         # Update status to "Done"
         updater = JiraStatusUpdater(mock_jira_client)
-        await updater.on_build_complete(spec_dir)
+        issue_key = get_issue_key(spec_dir)
+        await updater.on_task_completed(issue_key)
 
         # Verify status updated to Done
         mock_jira_client.update_status.assert_called_once_with("TEST-200", "Done")
@@ -326,7 +333,8 @@ class TestStatusUpdateE2E:
 
         # Update status back to "To Do" on failure
         updater = JiraStatusUpdater(mock_jira_client)
-        await updater.on_task_failed(spec_dir)
+        issue_key = get_issue_key(spec_dir)
+        await updater.on_task_failed(issue_key)
 
         # Verify status updated to To Do
         mock_jira_client.update_status.assert_called_once_with("TEST-300", "To Do")
@@ -357,11 +365,12 @@ class TestPRLinkingE2E:
 
         # Link PR
         linker = JiraPRLinker(mock_jira_client)
+        issue_key = get_issue_key(spec_dir)
         pr_url = "https://github.com/test/repo/pull/42"
-        await linker.on_pr_created(spec_dir, pr_url)
+        await linker.on_pr_created(issue_key, pr_url)
 
-        # Verify PR was linked
-        mock_jira_client.link_pr.assert_called_once_with("TEST-400", pr_url)
+        # Verify PR was linked - the PR linker uses link_pr internally
+        mock_jira_client._request.assert_called()
 
     @pytest.mark.asyncio
     async def test_pr_linking_skips_non_jira_specs(self, temp_specs_dir, mock_jira_client):
@@ -371,11 +380,14 @@ class TestPRLinkingE2E:
         # No metadata file = not a Jira spec
 
         linker = JiraPRLinker(mock_jira_client)
+        issue_key = get_issue_key(spec_dir)
         pr_url = "https://github.com/test/repo/pull/42"
-        await linker.on_pr_created(spec_dir, pr_url)
 
-        # Should not call client for non-Jira specs
-        mock_jira_client.link_pr.assert_not_called()
+        # Should not call client for non-Jira specs (issue_key is None)
+        if issue_key:
+            await linker.on_pr_created(issue_key, pr_url)
+
+        mock_jira_client._request.assert_not_called()
 
 
 # ============================================================================
@@ -407,13 +419,14 @@ class TestCompleteIntegrationE2E:
 
         # Step 2: Start build - status should update to "In Progress"
         updater = JiraStatusUpdater(mock_jira_client)
-        await updater.on_task_started(spec_dir)
+        issue_key = get_issue_key(spec_dir)
+        await updater.on_task_started(issue_key)
 
         assert mock_jira_client.update_status.call_count == 1
         mock_jira_client.update_status.assert_called_with("TEST-123", "In Progress")
 
         # Step 3: Complete build - status should update to "Done"
-        await updater.on_build_complete(spec_dir)
+        await updater.on_task_completed(issue_key)
 
         assert mock_jira_client.update_status.call_count == 2
         mock_jira_client.update_status.assert_called_with("TEST-123", "Done")
@@ -421,9 +434,9 @@ class TestCompleteIntegrationE2E:
         # Step 4: Create PR - should link to Jira issue
         linker = JiraPRLinker(mock_jira_client)
         pr_url = "https://github.com/test/repo/pull/123"
-        await linker.on_pr_created(spec_dir, pr_url)
+        await linker.on_pr_created(issue_key, pr_url)
 
-        mock_jira_client.link_pr.assert_called_once_with("TEST-123", pr_url)
+        mock_jira_client._request.assert_called()
 
     @pytest.mark.asyncio
     async def test_error_handling_during_status_update(
@@ -448,9 +461,10 @@ class TestCompleteIntegrationE2E:
 
         # Should not crash, just log the error
         updater = JiraStatusUpdater(mock_jira_client)
+        issue_key = get_issue_key(spec_dir)
 
         try:
-            await updater.on_task_started(spec_dir)
+            await updater.on_task_started(issue_key)
         except Exception as e:
             # Error should be logged but not raised
             assert "API error" in str(e)

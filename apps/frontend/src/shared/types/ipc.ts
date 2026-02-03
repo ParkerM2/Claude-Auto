@@ -156,10 +156,13 @@ export interface ElectronAPI {
   // Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/
   getWorktreeStatus: (taskId: string) => Promise<IPCResult<WorktreeStatus>>;
   getWorktreeDiff: (taskId: string) => Promise<IPCResult<WorktreeDiff>>;
-  mergeWorktree: (taskId: string, options?: { noCommit?: boolean }) => Promise<IPCResult<WorktreeMergeResult>>;
+  getDetailedWorktreeDiff: (taskId: string) => Promise<IPCResult<WorktreeDiff>>;
+  mergeWorktree: (taskId: string, options?: { noCommit?: boolean; conflictResolutions?: Record<string, string> }) => Promise<IPCResult<WorktreeMergeResult>>;
   mergeWorktreePreview: (taskId: string) => Promise<IPCResult<WorktreeMergeResult>>;
+  previewMergeConflicts: (taskId: string) => Promise<IPCResult<WorktreeMergeResult>>;
   createWorktreePR: (taskId: string, options?: WorktreeCreatePROptions) => Promise<IPCResult<WorktreeCreatePRResult>>;
   discardWorktree: (taskId: string, skipStatusChange?: boolean) => Promise<IPCResult<WorktreeDiscardResult>>;
+  discardWorktreeDirect: (projectPath: string, specName: string) => Promise<IPCResult<WorktreeDiscardResult>>;
   clearStagedState: (taskId: string) => Promise<IPCResult<{ cleared: boolean }>>;
   listWorktrees: (projectId: string) => Promise<IPCResult<WorktreeListResult>>;
   worktreeOpenInIDE: (worktreePath: string, ide: SupportedIDE, customPath?: string) => Promise<IPCResult<{ opened: boolean }>>;
@@ -608,6 +611,12 @@ export interface ElectronAPI {
   deleteInsightsSession: (projectId: string, sessionId: string) => Promise<IPCResult>;
   renameInsightsSession: (projectId: string, sessionId: string, newTitle: string) => Promise<IPCResult>;
   updateInsightsModelConfig: (projectId: string, sessionId: string, modelConfig: InsightsModelConfig) => Promise<IPCResult>;
+  getPatternInsights: (projectId: string) => Promise<IPCResult<{
+    top_patterns: Array<{ content: string; frequency: number; last_seen: string }>;
+    common_gotchas: Array<{ content: string; frequency: number; last_seen: string }>;
+    improvement_suggestions: Array<{ content: string; frequency: number; last_seen: string }>;
+    last_updated?: string;
+  }>>;
 
   // Insights event listeners
   onInsightsStreamChunk: (
@@ -641,6 +650,7 @@ export interface ElectronAPI {
   getGitBranches: (projectPath: string) => Promise<IPCResult<string[]>>;
   getCurrentGitBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
   detectMainBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
+  createGitBranch: (projectPath: string, branchName: string, sourceBranch: string) => Promise<IPCResult<string>>;
   checkGitStatus: (projectPath: string) => Promise<IPCResult<GitStatus>>;
   initializeGit: (projectPath: string) => Promise<IPCResult<InitializationResult>>;
 
@@ -702,6 +712,9 @@ export interface ElectronAPI {
   // Jira API (nested for organized access)
   jira: import('../../preload/api/modules/jira-api').JiraAPI;
 
+  // CLAUDE.md generation API (nested for organized access)
+  claudeMd: import('../../preload/api/modules/claude-md-api').ClaudeMdAPI;
+
   // Claude Code CLI operations
   checkClaudeCodeVersion: () => Promise<IPCResult<import('./cli').ClaudeCodeVersionInfo>>;
   installClaudeCode: () => Promise<IPCResult<{ command: string }>>;
@@ -730,6 +743,10 @@ export interface ElectronAPI {
   // MCP Server health check operations
   checkMcpHealth: (server: CustomMcpServer) => Promise<IPCResult<McpHealthCheckResult>>;
   testMcpConnection: (server: CustomMcpServer) => Promise<IPCResult<McpTestConnectionResult>>;
+
+  // E2E Testing Credential operations (secure storage via safeStorage API)
+  e2eStoreCredential: (projectPath: string, password: string) => Promise<IPCResult<boolean>>;
+  e2eRetrieveCredential: (projectPath: string) => Promise<IPCResult<string | null>>;
 
   // Screenshot capture operations
   getSources: () => Promise<IPCResult<Array<{

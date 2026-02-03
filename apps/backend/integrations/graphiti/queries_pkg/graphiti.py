@@ -16,6 +16,7 @@ from pathlib import Path
 from graphiti_config import GraphitiConfig, GraphitiState
 
 from .client import GraphitiClient
+from .pattern_aggregator import PatternAggregator
 from .queries import GraphitiQueries
 from .schema import MAX_CONTEXT_RESULTS, GroupIdMode
 from .search import GraphitiSearch
@@ -66,6 +67,7 @@ class GraphitiMemory:
         self._client: GraphitiClient | None = None
         self._queries: GraphitiQueries | None = None
         self._search: GraphitiSearch | None = None
+        self._aggregator: PatternAggregator | None = None
 
         self._available = False
 
@@ -187,6 +189,12 @@ class GraphitiMemory:
                 self.project_dir,
             )
 
+            self._aggregator = PatternAggregator(
+                self._client,
+                self.group_id,
+                self.spec_context_id,
+            )
+
             logger.info(
                 f"Graphiti initialized for group: {self.group_id} "
                 f"(mode: {self.group_id_mode}, providers: {self.config.get_provider_summary()})"
@@ -208,6 +216,7 @@ class GraphitiMemory:
             self._client = None
             self._queries = None
             self._search = None
+            self._aggregator = None
 
     # Delegate methods to query module
 
@@ -370,6 +379,54 @@ class GraphitiMemory:
         return await self._search.get_patterns_and_gotchas(
             query, num_results, min_score
         )
+
+    async def get_pattern_insights(self, limit: int = 5) -> dict:
+        """
+        Get aggregated pattern insights including top patterns, gotchas, and suggestions.
+
+        This method provides dashboard-ready insights by aggregating historical
+        patterns, gotchas, and improvement suggestions with frequency and recency data.
+
+        Args:
+            limit: Maximum number of items per category
+
+        Returns:
+            Dict with keys:
+                - top_patterns: List of recurring patterns with frequency
+                - common_gotchas: List of common pitfalls with frequency
+                - improvement_suggestions: List of suggestions based on failures
+                - last_updated: ISO timestamp of when insights were generated
+        """
+        if not await self._ensure_initialized():
+            return {
+                "top_patterns": [],
+                "common_gotchas": [],
+                "improvement_suggestions": [],
+                "last_updated": datetime.now(timezone.utc).isoformat(),
+            }
+
+        try:
+            top_patterns = await self._aggregator.get_top_patterns(limit)
+            common_gotchas = await self._aggregator.get_common_gotchas(limit)
+            improvement_suggestions = (
+                await self._aggregator.get_improvement_suggestions(limit)
+            )
+
+            return {
+                "top_patterns": top_patterns,
+                "common_gotchas": common_gotchas,
+                "improvement_suggestions": improvement_suggestions,
+                "last_updated": datetime.now(timezone.utc).isoformat(),
+            }
+
+        except Exception as e:
+            logger.warning(f"Failed to get pattern insights: {e}")
+            return {
+                "top_patterns": [],
+                "common_gotchas": [],
+                "improvement_suggestions": [],
+                "last_updated": datetime.now(timezone.utc).isoformat(),
+            }
 
     # Status and utility methods
 

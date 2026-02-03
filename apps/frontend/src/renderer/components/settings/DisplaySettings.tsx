@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Monitor, ZoomIn, ZoomOut, RotateCcw, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { Label } from '../ui/label';
 import { SettingsSection } from './SettingsSection';
+import { FontSettings, preloadFonts } from './fonts';
 import { useSettingsStore } from '../../stores/settings-store';
 import { UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT, UI_SCALE_STEP } from '../../../shared/constants';
 import type { AppSettings } from '../../../shared/types';
@@ -30,6 +31,13 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
   const updateStoreSettings = useSettingsStore((state) => state.updateSettings);
 
   const currentScale = settings.uiScale ?? UI_SCALE_DEFAULT;
+
+  // Preload currently selected fonts on mount
+  useEffect(() => {
+    if (settings.fontSettings) {
+      preloadFonts(settings.fontSettings);
+    }
+  }, [settings.fontSettings]);
 
   // Local state for pending scale changes - prevents view reload until user applies
   const [pendingScale, setPendingScale] = useState<number | null>(null);
@@ -91,6 +99,7 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
   };
 
   return (
+    <div className="space-y-8">
     <SettingsSection
       title={t('sections.display.title')}
       description={t('sections.display.description')}
@@ -242,5 +251,9 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
         </div>
       </div>
     </SettingsSection>
+
+    {/* Font Settings */}
+    <FontSettings settings={settings} onSettingsChange={onSettingsChange} />
+    </div>
   );
 }

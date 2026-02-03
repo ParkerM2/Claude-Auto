@@ -34,13 +34,15 @@ interface TaskReviewProps {
   mergePreview: { files: string[]; conflicts: MergeConflict[]; summary: MergeStats; gitConflicts?: GitConflictInfo; uncommittedChanges?: { hasChanges: boolean; files: string[]; count: number } | null } | null;
   isLoadingPreview: boolean;
   showConflictDialog: boolean;
+  selectedConflictStrategies?: Record<string, string>;
+  onSelectedConflictStrategiesChange?: (strategies: Record<string, string>) => void;
   onFeedbackChange: (value: string) => void;
   onReject: () => void;
   /** Image attachments for visual feedback */
   images?: ImageAttachment[];
   /** Callback when images change */
   onImagesChange?: (images: ImageAttachment[]) => void;
-  onMerge: () => void;
+  onMerge: (conflictResolutions?: Record<string, string>) => void;
   onDiscard: () => void;
   onShowDiscardDialog: (show: boolean) => void;
   onShowDiffDialog: (show: boolean) => void;
@@ -100,6 +102,8 @@ export function TaskReview({
   mergePreview,
   isLoadingPreview,
   showConflictDialog,
+  selectedConflictStrategies,
+  onSelectedConflictStrategiesChange,
   onFeedbackChange,
   onReject,
   images,
@@ -169,6 +173,7 @@ export function TaskReview({
           isDiscarding={isDiscarding}
           isCreatingPR={isCreatingPR}
           approvalGate={approvalGate}
+          selectedConflictStrategies={selectedConflictStrategies}
           onShowDiffDialog={onShowDiffDialog}
           onShowDiscardDialog={onShowDiscardDialog}
           onShowConflictDialog={onShowConflictDialog}
@@ -249,6 +254,7 @@ export function TaskReview({
         stageOnly={stageOnly}
         onOpenChange={onShowConflictDialog}
         onMerge={onMerge}
+        onStrategiesChange={onSelectedConflictStrategiesChange}
       />
 
       {/* Create PR Dialog */}

@@ -29,7 +29,7 @@ from typing import Any
 
 import aiohttp
 
-from .models import JiraIssue, JiraUser, JiraProject
+from .models import JiraIssue, JiraProject, JiraUser
 from .spec_importer import JiraSpecImporter
 
 # Configure logger
@@ -218,7 +218,11 @@ class JiraClient:
 
                         # Handle authentication errors
                         if response.status == 401:
-                            auth_method = "OAuth token" if self.config.oauth_token else "email and API token"
+                            auth_method = (
+                                "OAuth token"
+                                if self.config.oauth_token
+                                else "email and API token"
+                            )
                             raise JiraAuthError(
                                 f"Authentication failed. Check your {auth_method}."
                             )

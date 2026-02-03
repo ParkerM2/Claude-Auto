@@ -8,6 +8,7 @@ Modular QA validation system with:
 - Recurring issue detection
 - QA reviewer and fixer agents
 - Main orchestration loop
+- Electron E2E testing via MCP
 
 Usage:
     from qa import run_qa_validation_loop, should_run_qa, is_qa_approved
@@ -18,6 +19,7 @@ Module structure:
     - fixer.py: QA fixer agent session
     - report.py: Issue tracking, reporting, escalation
     - criteria.py: Acceptance criteria and status management
+    - electron_app.py: Electron app lifecycle for E2E testing
 """
 
 # Configuration constants
@@ -33,6 +35,13 @@ from .criteria import (
     save_implementation_plan,
     should_run_fixes,
     should_run_qa,
+)
+
+# Electron E2E testing
+from .electron_app import (
+    ElectronAppManager,
+    is_electron_project,
+    should_use_electron_mcp,
 )
 from .fixer import (
     load_qa_fixer_prompt,
@@ -100,4 +109,8 @@ __all__ = [
     "run_qa_agent_session",
     "load_qa_fixer_prompt",
     "run_qa_fixer_session",
+    # Electron E2E testing
+    "ElectronAppManager",
+    "is_electron_project",
+    "should_use_electron_mcp",
 ]

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Terminal,
   Loader2,
@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '../ui/collapsible';
+import { MarkdownContent } from '../ui/markdown-content';
 import { cn } from '../../lib/utils';
 import type { Task, TaskLogs, TaskLogPhase, TaskPhaseLog, TaskLogEntry, TaskMetadata } from '../../../shared/types';
 import type { PhaseModelConfig, PhaseThinkingConfig, ThinkingLevel, ModelTypeShort } from '../../../shared/types/settings';
@@ -295,9 +296,40 @@ interface LogEntryProps {
   entry: TaskLogEntry;
 }
 
+/**
+ * Detect if content contains markdown formatting.
+ * Checks for common markdown patterns.
+ */
+function containsMarkdown(content: string): boolean {
+  // Check for common markdown patterns
+  const markdownPatterns = [
+    /^#{1,6}\s/m,         // Headers (# Header)
+    /\*\*[^*]+\*\*/,      // Bold (**text**)
+    /\*[^*]+\*/,          // Italic (*text*)
+    /`[^`]+`/,            // Inline code (`code`)
+    /```[\s\S]*?```/,     // Code blocks (```code```)
+    /^\s*[-*+]\s/m,       // Unordered lists (- item)
+    /^\s*\d+\.\s/m,       // Ordered lists (1. item)
+    /\[.+\]\(.+\)/,       // Links ([text](url))
+    /^\s*>/m,             // Blockquotes (> quote)
+  ];
+
+  return markdownPatterns.some(pattern => pattern.test(content));
+}
+
 function LogEntry({ entry }: LogEntryProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasDetail = Boolean(entry.detail);
+
+  // Detect if content or detail contains markdown
+  const contentHasMarkdown = useMemo(
+    () => entry.content ? containsMarkdown(entry.content) : false,
+    [entry.content]
+  );
+  const detailHasMarkdown = useMemo(
+    () => entry.detail ? containsMarkdown(entry.detail) : false,
+    [entry.detail]
+  );
 
   const getToolInfo = (toolName: string) => {
     switch (toolName) {
@@ -449,14 +481,23 @@ function LogEntry({ entry }: LogEntryProps) {
     );
   }
 
-  // Default text entry
+  // Default text entry - render as markdown if detected
   return (
     <div className="flex flex-col">
       <div className="flex items-start gap-2 text-xs text-muted-foreground py-0.5">
         <span className="text-[10px] text-muted-foreground/60 tabular-nums shrink-0">
           {formatTime(entry.timestamp)}
         </span>
-        <span className="break-words whitespace-pre-wrap flex-1">{entry.content}</span>
+        {contentHasMarkdown ? (
+          <div className="flex-1 min-w-0">
+            <MarkdownContent
+              content={entry.content || ''}
+              className="text-xs [&_p]:my-1 [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5"
+            />
+          </div>
+        ) : (
+          <span className="break-words whitespace-pre-wrap flex-1">{entry.content}</span>
+        )}
         <SubphaseBadge />
         {hasDetail && (
           <button
@@ -483,9 +524,16 @@ function LogEntry({ entry }: LogEntryProps) {
       </div>
       {hasDetail && isExpanded && (
         <div className="mt-1.5 ml-12 p-2 bg-secondary/30 rounded-md border border-border/50 overflow-x-auto">
-          <pre className="text-[10px] text-muted-foreground whitespace-pre-wrap break-words font-mono max-h-[300px] overflow-y-auto">
-            {entry.detail}
-          </pre>
+          {detailHasMarkdown ? (
+            <MarkdownContent
+              content={entry.detail || ''}
+              className="text-[10px] max-h-[300px] overflow-y-auto [&_p]:my-1 [&_pre]:text-[10px]"
+            />
+          ) : (
+            <pre className="text-[10px] text-muted-foreground whitespace-pre-wrap break-words font-mono max-h-[300px] overflow-y-auto">
+              {entry.detail}
+            </pre>
+          )}
         </div>
       )}
     </div>

@@ -55,10 +55,6 @@ export class ManagerProcessManager extends EventEmitter {
   private backendPath: string | null = null;
   private stdoutBuffer = '';
 
-  constructor() {
-    super();
-  }
-
   /**
    * Configure the manager with paths
    */

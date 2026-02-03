@@ -20,6 +20,20 @@ export const UI_SCALE_DEFAULT = 100;
 export const UI_SCALE_STEP = 5;
 
 // ============================================
+// Font Settings Constants
+// ============================================
+
+export const LETTER_SPACING_MIN = -0.05;
+export const LETTER_SPACING_MAX = 0.1;
+export const LETTER_SPACING_DEFAULT = 0;
+export const LETTER_SPACING_STEP = 0.005;
+
+// Default font families (system fonts as fallback)
+export const DEFAULT_FONT_SANS_SERIF = 'Inter';
+export const DEFAULT_FONT_SERIF = 'Georgia';
+export const DEFAULT_FONT_MONO = 'JetBrains Mono';
+
+// ============================================
 // Default App Settings
 // ============================================
 
@@ -90,12 +104,22 @@ export const DEFAULT_PROJECT_SETTINGS = {
 // Auto Build File Paths
 // ============================================
 
+// Default auto-claude directory (production). In dev mode, main process uses .auto-claude-dev
+// via getAutoClaudeDir() from dev-mode.ts. The actual directory is stored in project.autoBuildPath.
+const DEFAULT_AUTO_CLAUDE_DIR = '.auto-claude';
+
 // File paths relative to project
-// IMPORTANT: All paths use .auto-claude/ (the installed instance), NOT auto-claude/ (source code)
+// NOTE: Directory paths (SPECS_DIR, ROADMAP_DIR, etc.) use the default production path.
+// Main process code should use the helper functions or project.autoBuildPath for dev-aware paths.
 export const AUTO_BUILD_PATHS = {
-  SPECS_DIR: '.auto-claude/specs',
-  ROADMAP_DIR: '.auto-claude/roadmap',
-  IDEATION_DIR: '.auto-claude/ideation',
+  // Directory paths (relative to project root) - these use DEFAULT for backwards compatibility
+  // For dev-aware paths, use getSpecsDir/getRoadmapDir/getIdeationDir with project.autoBuildPath
+  SPECS_DIR: `${DEFAULT_AUTO_CLAUDE_DIR}/specs`,
+  ROADMAP_DIR: `${DEFAULT_AUTO_CLAUDE_DIR}/roadmap`,
+  IDEATION_DIR: `${DEFAULT_AUTO_CLAUDE_DIR}/ideation`,
+  PROJECT_INDEX: `${DEFAULT_AUTO_CLAUDE_DIR}/project_index.json`,
+
+  // File names (relative to spec/feature directory) - these don't change between dev/prod
   IMPLEMENTATION_PLAN: 'implementation_plan.json',
   SPEC_FILE: 'spec.md',
   QA_REPORT: 'qa_report.md',
@@ -107,15 +131,42 @@ export const AUTO_BUILD_PATHS = {
   COMPETITOR_ANALYSIS: 'competitor_analysis.json',
   IDEATION_FILE: 'ideation.json',
   IDEATION_CONTEXT: 'ideation_context.json',
-  PROJECT_INDEX: '.auto-claude/project_index.json',
   GRAPHITI_STATE: '.graphiti_state.json'
 } as const;
 
 /**
  * Get the specs directory path.
- * All specs go to .auto-claude/specs/ (the project's data directory).
+ * Uses the provided autoBuildPath (which is dev-aware in main process).
+ * Falls back to production default if not provided.
  */
 export function getSpecsDir(autoBuildPath: string | undefined): string {
-  const basePath = autoBuildPath || '.auto-claude';
+  const basePath = autoBuildPath || DEFAULT_AUTO_CLAUDE_DIR;
   return `${basePath}/specs`;
+}
+
+/**
+ * Get the roadmap directory path.
+ * Uses the provided autoBuildPath (which is dev-aware in main process).
+ */
+export function getRoadmapDir(autoBuildPath: string | undefined): string {
+  const basePath = autoBuildPath || DEFAULT_AUTO_CLAUDE_DIR;
+  return `${basePath}/roadmap`;
+}
+
+/**
+ * Get the ideation directory path.
+ * Uses the provided autoBuildPath (which is dev-aware in main process).
+ */
+export function getIdeationDir(autoBuildPath: string | undefined): string {
+  const basePath = autoBuildPath || DEFAULT_AUTO_CLAUDE_DIR;
+  return `${basePath}/ideation`;
+}
+
+/**
+ * Get the project index file path.
+ * Uses the provided autoBuildPath (which is dev-aware in main process).
+ */
+export function getProjectIndexPath(autoBuildPath: string | undefined): string {
+  const basePath = autoBuildPath || DEFAULT_AUTO_CLAUDE_DIR;
+  return `${basePath}/project_index.json`;
 }

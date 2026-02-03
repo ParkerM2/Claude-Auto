@@ -48,6 +48,7 @@ import { useProjectStore } from '../../stores/project-store';
 import { useTaskStore } from '../../stores/task-store';
 import type { WorktreeListItem, WorktreeMergeResult, TerminalWorktreeConfig, WorktreeStatus, Task, WorktreeCreatePROptions, WorktreeCreatePRResult } from '../../../shared/types';
 import { CreatePRDialog } from '../task-detail/task-review/CreatePRDialog';
+import { WorktreeDiffViewer } from './WorktreeDiffViewer';
 
 // Prefix constants for worktree ID parsing
 const TASK_PREFIX = 'task:';
@@ -55,9 +56,11 @@ const TERMINAL_PREFIX = 'terminal:';
 
 interface WorktreesProps {
   projectId: string;
+  /** Register refresh function with parent */
+  registerRefresh?: (fn: (() => void | Promise<void>) | null) => void;
 }
 
-export function Worktrees({ projectId }: WorktreesProps) {
+export function Worktrees({ projectId, registerRefresh }: WorktreesProps) {
   const { t } = useTranslation(['common', 'dialogs']);
   const projects = useProjectStore((state) => state.projects);
   const selectedProject = projects.find((p) => p.id === projectId);
@@ -91,6 +94,10 @@ export function Worktrees({ projectId }: WorktreesProps) {
   const [showCreatePRDialog, setShowCreatePRDialog] = useState(false);
   const [prWorktree, setPrWorktree] = useState<WorktreeListItem | null>(null);
   const [prTask, setPrTask] = useState<Task | null>(null);
+
+  // Diff viewer dialog state
+  const [showDiffViewer, setShowDiffViewer] = useState(false);
+  const [diffTaskId, setDiffTaskId] = useState<string | null>(null);
 
   // Selection state
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -198,6 +205,12 @@ export function Worktrees({ projectId }: WorktreesProps) {
     loadWorktrees();
   }, [loadWorktrees]);
 
+  // Register refresh function with parent
+  useEffect(() => {
+    registerRefresh?.(loadWorktrees);
+    return () => registerRefresh?.(null);
+  }, [registerRefresh, loadWorktrees]);
+
   // Find task for a worktree
   const findTaskForWorktree = useCallback((specName: string) => {
     return tasks.find(t => t.specId === specName);
@@ -240,27 +253,27 @@ export function Worktrees({ projectId }: WorktreesProps) {
 
   // Handle delete
   const handleDelete = async () => {
-    if (!worktreeToDelete) return;
+    if (!worktreeToDelete || !selectedProject) return;
 
     const task = findTaskForWorktree(worktreeToDelete.specName);
-    if (!task) {
-      setError('Task not found for this worktree');
-      return;
-    }
 
     setIsDeleting(true);
     try {
-      const result = await window.electronAPI.discardWorktree(task.id);
+      // Try task-based deletion if task exists, otherwise use direct deletion
+      const result = task
+        ? await window.electronAPI.discardWorktree(task.id)
+        : await window.electronAPI.discardWorktreeDirect(selectedProject.path, worktreeToDelete.specName);
+
       if (result.success) {
         // Refresh worktrees after successful delete
         await loadWorktrees();
         setShowDeleteConfirm(false);
         setWorktreeToDelete(null);
       } else {
-        setError(result.error || 'Failed to delete worktree');
+        setError(result.error || t('common:errors.failedToDeleteWorktree'));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete worktree');
+      setError(err instanceof Error ? err.message : t('common:errors.failedToDeleteWorktree'));
     } finally {
       setIsDeleting(false);
     }
@@ -297,6 +310,12 @@ export function Worktrees({ projectId }: WorktreesProps) {
     setPrWorktree(worktree);
     setPrTask(task);
     setShowCreatePRDialog(true);
+  };
+
+  // Open Diff Viewer
+  const openDiffViewer = (task: Task) => {
+    setDiffTaskId(task.id);
+    setShowDiffViewer(true);
   };
 
   // Handle Create PR
@@ -351,13 +370,13 @@ export function Worktrees({ projectId }: WorktreesProps) {
     // Delete task worktrees
     for (const specName of taskSpecNames) {
       const task = findTaskForWorktree(specName);
-      if (!task) {
-        errors.push(t('common:errors.taskNotFoundForWorktree', { specName }));
-        continue;
-      }
 
       try {
-        const result = await window.electronAPI.discardWorktree(task.id);
+        // Use task-based deletion if task exists, otherwise use direct deletion for orphan worktrees
+        const result = task
+          ? await window.electronAPI.discardWorktree(task.id)
+          : await window.electronAPI.discardWorktreeDirect(selectedProject.path, specName);
+
         if (!result.success) {
           errors.push(result.error || t('common:errors.failedToDeleteTaskWorktree', { specName }));
         }
@@ -628,6 +647,16 @@ export function Worktrees({ projectId }: WorktreesProps) {
                           </Button>
                           {task && (
                             <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openDiffViewer(task)}
+                            >
+                              <FileCode className="h-3.5 w-3.5 mr-1.5" />
+                              View Diff
+                            </Button>
+                          )}
+                          {task && (
+                            <Button
                               variant="info"
                               size="sm"
                               onClick={() => openCreatePRDialog(worktree, task)}
@@ -662,7 +691,6 @@ export function Worktrees({ projectId }: WorktreesProps) {
                             size="sm"
                             className="text-destructive hover:text-destructive hover:bg-destructive/10"
                             onClick={() => confirmDelete(worktree)}
-                            disabled={!task}
                           >
                             <Trash2 className="h-3.5 w-3.5 mr-1.5" />
                             Delete
@@ -994,6 +1022,15 @@ export function Worktrees({ projectId }: WorktreesProps) {
           worktreeStatus={worktreeToStatus(prWorktree)}
           onOpenChange={setShowCreatePRDialog}
           onCreatePR={handleCreatePR}
+        />
+      )}
+
+      {/* Diff Viewer Dialog */}
+      {diffTaskId && (
+        <WorktreeDiffViewer
+          taskId={diffTaskId}
+          open={showDiffViewer}
+          onClose={() => setShowDiffViewer(false)}
         />
       )}
     </div>

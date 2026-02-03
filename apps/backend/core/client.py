@@ -126,10 +126,10 @@ def invalidate_project_cache(project_dir: Path | None = None) -> None:
 
 
 from agents.tools_pkg import (
+    CHROME_DEVTOOLS_TOOLS,
     CONTEXT7_TOOLS,
     ELECTRON_TOOLS,
     GRAPHITI_MCP_TOOLS,
-    LINEAR_TOOLS,
     PUPPETEER_TOOLS,
     create_auto_claude_mcp_server,
     get_allowed_tools,
@@ -143,7 +143,6 @@ from core.auth import (
     require_auth_token,
     validate_token_not_encrypted,
 )
-from linear_updater import is_linear_enabled
 from prompts_pkg.project_context import detect_project_capabilities, load_project_index
 from security import bash_security_hook
 
@@ -338,6 +337,7 @@ def load_project_mcp_config(project_dir: Path) -> dict:
         "LINEAR_MCP_ENABLED",
         "ELECTRON_MCP_ENABLED",
         "PUPPETEER_MCP_ENABLED",
+        "CHROME_DEVTOOLS_MCP_ENABLED",
     }
 
     try:
@@ -540,10 +540,6 @@ def create_client(
     elif is_windows():
         logger.warning("Git Bash path not detected on Windows!")
 
-    # Check if Linear integration is enabled
-    linear_enabled = is_linear_enabled()
-    linear_api_key = os.environ.get("LINEAR_API_KEY", "")
-
     # Check if custom auto-claude tools are available
     auto_claude_tools_enabled = is_tools_available()
 
@@ -561,7 +557,6 @@ def create_client(
     allowed_tools_list = get_allowed_tools(
         agent_type,
         project_capabilities,
-        linear_enabled,
         mcp_config,
     )
 
@@ -571,7 +566,6 @@ def create_client(
     required_servers = get_required_mcp_servers(
         agent_type,
         project_capabilities,
-        linear_enabled,
         mcp_config,
     )
 
@@ -582,6 +576,8 @@ def create_client(
     browser_tools_permissions = []
     if "electron" in required_servers:
         browser_tools_permissions = ELECTRON_TOOLS
+    elif "chrome-devtools" in required_servers:
+        browser_tools_permissions = CHROME_DEVTOOLS_TOOLS
     elif "puppeteer" in required_servers:
         browser_tools_permissions = PUPPETEER_TOOLS
 
@@ -671,11 +667,6 @@ def create_client(
                     else []
                 ),
                 *(
-                    [f"{tool}(*)" for tool in LINEAR_TOOLS]
-                    if "linear" in required_servers
-                    else []
-                ),
-                *(
                     [f"{tool}(*)" for tool in GRAPHITI_MCP_TOOLS]
                     if graphiti_mcp_enabled
                     else []
@@ -711,8 +702,6 @@ def create_client(
         )
     if "puppeteer" in required_servers:
         mcp_servers_list.append("puppeteer (browser automation)")
-    if "linear" in required_servers:
-        mcp_servers_list.append("linear (project management)")
     if graphiti_mcp_enabled:
         mcp_servers_list.append("graphiti-memory (knowledge graph)")
     if "auto-claude" in required_servers and auto_claude_tools_enabled:
@@ -757,7 +746,17 @@ def create_client(
             "args": ["puppeteer-mcp-server"],
         }
 
+    if "chrome-devtools" in required_servers:
+        # Chrome DevTools MCP for web app testing (external React apps)
+        # Requires Chrome 144+ running with remote debugging enabled
+        # --autoConnect: Automatically connects to existing Chrome browser sessions
+        mcp_servers["chrome-devtools"] = {
+            "command": "npx",
+            "args": ["-y", "chrome-devtools-mcp@latest", "--autoConnect"],
+        }
+
     if "linear" in required_servers:
+        linear_api_key = os.environ.get("LINEAR_API_KEY", "")
         mcp_servers["linear"] = {
             "type": "http",
             "url": "https://mcp.linear.app/mcp",

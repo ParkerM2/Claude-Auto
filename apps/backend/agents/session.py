@@ -3,7 +3,7 @@ Agent Session Management
 ========================
 
 Handles running agent sessions and post-session processing including
-memory updates, recovery tracking, and Linear integration.
+memory updates and recovery tracking.
 """
 
 import logging
@@ -12,10 +12,6 @@ from pathlib import Path
 from claude_agent_sdk import ClaudeSDKClient
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
 from insight_extractor import extract_session_insights
-from linear_updater import (
-    linear_subtask_completed,
-    linear_subtask_failed,
-)
 from progress import (
     count_subtasks_detailed,
     is_build_complete,
@@ -54,7 +50,6 @@ async def post_session_processing(
     commit_before: str | None,
     commit_count_before: int,
     recovery_manager: RecoveryManager,
-    linear_enabled: bool = False,
     status_manager: StatusManager | None = None,
     source_spec_dir: Path | None = None,
 ) -> bool:
@@ -71,7 +66,6 @@ async def post_session_processing(
         commit_before: Git commit hash before session
         commit_count_before: Number of commits before session
         recovery_manager: Recovery manager instance
-        linear_enabled: Whether Linear integration is enabled
         status_manager: Optional status manager for ccstatusline
         source_spec_dir: Original spec directory (for syncing back from worktree)
 
@@ -127,22 +121,44 @@ async def post_session_processing(
             approach=f"Implemented: {subtask.get('description', 'subtask')[:100]}",
         )
 
+        # Record successful recovery if there were previous failed attempts
+        attempt_count = recovery_manager.get_attempt_count(subtask_id)
+        if attempt_count > 1:
+            # This subtask succeeded after previous failures - learn from it!
+            subtask_history = recovery_manager.get_subtask_history(subtask_id)
+            attempts = subtask_history.get("attempts", [])
+
+            # Get the last failed attempt to determine failure type and strategy
+            last_failed = None
+            for attempt in reversed(attempts[:-1]):  # Exclude current success
+                if not attempt.get("success"):
+                    last_failed = attempt
+                    break
+
+            if last_failed:
+                error_msg = last_failed.get("error", "")
+                failure_type = recovery_manager.classify_failure(error_msg, subtask_id)
+
+                # Extract strategy from approach (simplified - can be enhanced)
+                approach = f"Implemented: {subtask.get('description', 'subtask')[:100]}"
+
+                try:
+                    recovery_manager.learner.record_successful_recovery(
+                        subtask_id=subtask_id,
+                        subtask_description=subtask.get("description", ""),
+                        failure_type=failure_type.value,
+                        strategy_used=approach,
+                        attempts_before_success=attempt_count,
+                        error_message=error_msg[:200] if error_msg else None,
+                    )
+                    print_status("Recorded recovery pattern for learning", "success")
+                except Exception as e:
+                    logger.debug(f"Failed to record recovery learning: {e}")
+
         # Record good commit for rollback safety
         if commit_after and commit_after != commit_before:
             recovery_manager.record_good_commit(commit_after, subtask_id)
             print_status(f"Recorded good commit: {commit_after[:8]}", "success")
-
-        # Record Linear session result (if enabled)
-        if linear_enabled:
-            # Get progress counts for the comment
-            subtasks_detail = count_subtasks_detailed(spec_dir)
-            await linear_subtask_completed(
-                spec_dir=spec_dir,
-                subtask_id=subtask_id,
-                completed_count=subtasks_detail["completed"],
-                total_count=subtasks_detail["total"],
-            )
-            print_status("Linear progress recorded", "success")
 
         # Extract rich insights from session (LLM-powered analysis)
         try:
@@ -212,16 +228,6 @@ async def post_session_processing(
                 f"Recorded partial progress commit: {commit_after[:8]}", "info"
             )
 
-        # Record Linear session result (if enabled)
-        if linear_enabled:
-            attempt_count = recovery_manager.get_attempt_count(subtask_id)
-            await linear_subtask_failed(
-                spec_dir=spec_dir,
-                subtask_id=subtask_id,
-                attempt=attempt_count,
-                error_summary="Session ended without completion",
-            )
-
         # Extract insights even from failed sessions (valuable for future attempts)
         try:
             extracted_insights = await extract_session_insights(
@@ -267,16 +273,6 @@ async def post_session_processing(
             approach="Session ended without progress",
             error=f"Subtask status is {subtask_status}",
         )
-
-        # Record Linear session result (if enabled)
-        if linear_enabled:
-            attempt_count = recovery_manager.get_attempt_count(subtask_id)
-            await linear_subtask_failed(
-                spec_dir=spec_dir,
-                subtask_id=subtask_id,
-                attempt=attempt_count,
-                error_summary=f"Subtask status: {subtask_status}",
-            )
 
         # Extract insights even from completely failed sessions
         try:

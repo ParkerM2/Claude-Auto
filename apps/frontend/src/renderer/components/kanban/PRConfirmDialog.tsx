@@ -73,13 +73,14 @@ export function PRConfirmDialog({
     switch (actionType) {
       case 'approve':
         return `${t('prReview.approve')} PR #${prNumber}: ${prTitle}`;
-      case 'merge':
+      case 'merge': {
         const methodLabel = mergeMethod === 'squash'
           ? t('prReview.actions.squashAndMerge')
           : mergeMethod === 'rebase'
           ? t('prReview.actions.rebaseAndMerge')
           : t('prReview.actions.createMergeCommit');
         return `${methodLabel} PR #${prNumber}: ${prTitle}`;
+      }
       case 'request_changes':
         return `${t('prReview.actions.requestChanges')} for PR #${prNumber}: ${prTitle}`;
       default:

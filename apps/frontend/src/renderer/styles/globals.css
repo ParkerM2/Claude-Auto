@@ -6,9 +6,10 @@
 
 /* Define custom theme colors for Tailwind CSS v4 */
 @theme {
-  /* Font families */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+  /* Font families - use CSS custom properties for dynamic override */
+  --font-sans: var(--app-font-sans, 'Inter'), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-serif: var(--app-font-serif, 'Georgia'), 'Times New Roman', serif;
+  --font-mono: var(--app-font-mono, 'JetBrains Mono'), 'Fira Code', 'SF Mono', monospace;
 
   /* Colors - using CSS variables for theme switching */
   --color-border: var(--border);
@@ -104,6 +105,23 @@
 
 .animate-indeterminate {
   animation: indeterminate 1.5s ease-in-out infinite;
+}
+
+/* Pulse border animation for active agents badge */
+@keyframes pulse-border {
+  0%, 100% {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 0 rgba(var(--primary-rgb, 214, 216, 118), 0.4);
+  }
+  50% {
+    border-color: var(--primary);
+    box-shadow: 0 0 8px rgba(var(--primary-rgb, 214, 216, 118), 0.3);
+  }
+}
+
+.animate-pulse-border {
+  animation: pulse-border 2s ease-in-out infinite;
+  border-width: 2px;
 }
 
 /* CSS variables for light mode (secondary consideration per design system) */
@@ -1037,6 +1055,7 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   font-feature-settings: "rlig" 1, "calt" 1;
+  letter-spacing: var(--app-letter-spacing, 0);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -1044,6 +1063,10 @@ body {
 /* Typography utilities */
 .font-mono {
   font-family: var(--font-mono);
+}
+
+.font-serif {
+  font-family: var(--font-serif);
 }
 
 /* Card styles - following design system card-based modularity */

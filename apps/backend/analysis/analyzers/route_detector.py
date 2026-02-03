@@ -14,6 +14,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from ..streaming_analyzer import stream_files_iter
 from .base import BaseAnalyzer
 
 
@@ -25,10 +26,6 @@ class RouteDetector(BaseAnalyzer):
 
     def __init__(self, path: Path):
         super().__init__(path)
-
-    def _should_include_file(self, file_path: Path) -> bool:
-        """Check if file should be included (not in excluded directories)."""
-        return not any(part in self.EXCLUDED_DIRS for part in file_path.parts)
 
     def detect_all_routes(self) -> list[dict]:
         """Detect all API routes across different frameworks."""
@@ -58,13 +55,14 @@ class RouteDetector(BaseAnalyzer):
         return routes
 
     def _detect_fastapi_routes(self) -> list[dict]:
-        """Detect FastAPI routes."""
+        """Detect FastAPI routes using streaming iteration."""
         routes = []
-        files_to_check = [
-            f for f in self.path.glob("**/*.py") if self._should_include_file(f)
-        ]
 
-        for file_path in files_to_check:
+        # Use streaming iterator for memory efficiency
+        for file_path in stream_files_iter(self.path, skip_dirs=self.EXCLUDED_DIRS):
+            # Filter for Python files
+            if file_path.suffix != ".py":
+                continue
             try:
                 content = file_path.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
@@ -122,13 +120,14 @@ class RouteDetector(BaseAnalyzer):
         return routes
 
     def _detect_flask_routes(self) -> list[dict]:
-        """Detect Flask routes."""
+        """Detect Flask routes using streaming iteration."""
         routes = []
-        files_to_check = [
-            f for f in self.path.glob("**/*.py") if self._should_include_file(f)
-        ]
 
-        for file_path in files_to_check:
+        # Use streaming iterator for memory efficiency
+        for file_path in stream_files_iter(self.path, skip_dirs=self.EXCLUDED_DIRS):
+            # Filter for Python files
+            if file_path.suffix != ".py":
+                continue
             try:
                 content = file_path.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
@@ -171,13 +170,14 @@ class RouteDetector(BaseAnalyzer):
         return routes
 
     def _detect_django_routes(self) -> list[dict]:
-        """Detect Django routes from urls.py files."""
+        """Detect Django routes from urls.py files using streaming iteration."""
         routes = []
-        url_files = [
-            f for f in self.path.glob("**/urls.py") if self._should_include_file(f)
-        ]
 
-        for file_path in url_files:
+        # Use streaming iterator for memory efficiency
+        for file_path in stream_files_iter(self.path, skip_dirs=self.EXCLUDED_DIRS):
+            # Filter for urls.py files specifically
+            if file_path.name != "urls.py":
+                continue
             try:
                 content = file_path.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
@@ -207,16 +207,14 @@ class RouteDetector(BaseAnalyzer):
         return routes
 
     def _detect_express_routes(self) -> list[dict]:
-        """Detect Express/Fastify/Koa routes."""
+        """Detect Express/Fastify/Koa routes using streaming iteration."""
         routes = []
-        js_files = [
-            f for f in self.path.glob("**/*.js") if self._should_include_file(f)
-        ]
-        ts_files = [
-            f for f in self.path.glob("**/*.ts") if self._should_include_file(f)
-        ]
-        files_to_check = js_files + ts_files
-        for file_path in files_to_check:
+
+        # Use streaming iterator for memory efficiency
+        for file_path in stream_files_iter(self.path, skip_dirs=self.EXCLUDED_DIRS):
+            # Filter for JavaScript and TypeScript files
+            if file_path.suffix not in {".js", ".ts"}:
+                continue
             try:
                 content = file_path.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
@@ -261,19 +259,20 @@ class RouteDetector(BaseAnalyzer):
         return routes
 
     def _detect_nextjs_routes(self) -> list[dict]:
-        """Detect Next.js file-based routes."""
+        """Detect Next.js file-based routes using streaming iteration."""
         routes = []
 
         # Next.js App Router (app directory)
         app_dir = self.path / "app"
         if app_dir.exists():
-            # Find all route.ts/js files
-            route_files = [
-                f
-                for f in app_dir.glob("**/route.{ts,js,tsx,jsx}")
-                if self._should_include_file(f)
-            ]
-            for route_file in route_files:
+            # Use streaming iterator for memory efficiency
+            for route_file in stream_files_iter(app_dir, skip_dirs=self.EXCLUDED_DIRS):
+                # Filter for route files with supported extensions
+                if not (
+                    route_file.name.startswith("route.")
+                    and route_file.suffix in {".ts", ".js", ".tsx", ".jsx"}
+                ):
+                    continue
                 # Convert file path to route path
                 # app/api/users/[id]/route.ts -> /api/users/:id
                 relative_path = route_file.parent.relative_to(app_dir)
@@ -306,12 +305,11 @@ class RouteDetector(BaseAnalyzer):
         # Next.js Pages Router (pages/api directory)
         pages_api = self.path / "pages" / "api"
         if pages_api.exists():
-            api_files = [
-                f
-                for f in pages_api.glob("**/*.{ts,js,tsx,jsx}")
-                if self._should_include_file(f)
-            ]
-            for api_file in api_files:
+            # Use streaming iterator for memory efficiency
+            for api_file in stream_files_iter(pages_api, skip_dirs=self.EXCLUDED_DIRS):
+                # Filter for TypeScript/JavaScript files
+                if api_file.suffix not in {".ts", ".js", ".tsx", ".jsx"}:
+                    continue
                 if api_file.name.startswith("_"):
                     continue
 
@@ -340,13 +338,14 @@ class RouteDetector(BaseAnalyzer):
         return routes
 
     def _detect_go_routes(self) -> list[dict]:
-        """Detect Go framework routes (Gin, Echo, Chi, Fiber)."""
+        """Detect Go framework routes (Gin, Echo, Chi, Fiber) using streaming iteration."""
         routes = []
-        go_files = [
-            f for f in self.path.glob("**/*.go") if self._should_include_file(f)
-        ]
 
-        for file_path in go_files:
+        # Use streaming iterator for memory efficiency
+        for file_path in stream_files_iter(self.path, skip_dirs=self.EXCLUDED_DIRS):
+            # Filter for Go files
+            if file_path.suffix != ".go":
+                continue
             try:
                 content = file_path.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
@@ -376,13 +375,14 @@ class RouteDetector(BaseAnalyzer):
         return routes
 
     def _detect_rust_routes(self) -> list[dict]:
-        """Detect Rust framework routes (Axum, Actix)."""
+        """Detect Rust framework routes (Axum, Actix) using streaming iteration."""
         routes = []
-        rust_files = [
-            f for f in self.path.glob("**/*.rs") if self._should_include_file(f)
-        ]
 
-        for file_path in rust_files:
+        # Use streaming iterator for memory efficiency
+        for file_path in stream_files_iter(self.path, skip_dirs=self.EXCLUDED_DIRS):
+            # Filter for Rust files
+            if file_path.suffix != ".rs":
+                continue
             try:
                 content = file_path.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):

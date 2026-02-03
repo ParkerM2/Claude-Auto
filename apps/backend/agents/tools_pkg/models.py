@@ -9,7 +9,7 @@ the Claude Agent SDK client. Tool lists are organized by category:
 
 - Base tools: Core file operations (Read, Write, Edit, etc.)
 - Web tools: Documentation and research (WebFetch, WebSearch)
-- MCP tools: External integrations (Context7, Linear, Graphiti, etc.)
+- MCP tools: External integrations (Context7, Graphiti, etc.)
 - Auto-Claude tools: Custom build management tools
 """
 
@@ -47,26 +47,6 @@ TOOL_UPDATE_QA_STATUS = "mcp__auto-claude__update_qa_status"
 CONTEXT7_TOOLS = [
     "mcp__context7__resolve-library-id",
     "mcp__context7__get-library-docs",
-]
-
-# Linear MCP tools for project management (when LINEAR_API_KEY is set)
-LINEAR_TOOLS = [
-    "mcp__linear-server__list_teams",
-    "mcp__linear-server__get_team",
-    "mcp__linear-server__list_projects",
-    "mcp__linear-server__get_project",
-    "mcp__linear-server__create_project",
-    "mcp__linear-server__update_project",
-    "mcp__linear-server__list_issues",
-    "mcp__linear-server__get_issue",
-    "mcp__linear-server__create_issue",
-    "mcp__linear-server__update_issue",
-    "mcp__linear-server__list_comments",
-    "mcp__linear-server__create_comment",
-    "mcp__linear-server__list_issue_statuses",
-    "mcp__linear-server__list_issue_labels",
-    "mcp__linear-server__list_users",
-    "mcp__linear-server__get_user",
 ]
 
 # Graphiti MCP tools for knowledge graph memory (when GRAPHITI_MCP_URL is set)
@@ -108,6 +88,39 @@ ELECTRON_TOOLS = [
     "mcp__electron__take_screenshot",  # Capture screenshot of Electron window
     "mcp__electron__send_command_to_electron",  # Send commands (click, fill, evaluate JS)
     "mcp__electron__read_electron_logs",  # Read console logs from Electron app
+]
+
+# Chrome DevTools MCP tools for browser automation (when CHROME_DEVTOOLS_MCP_ENABLED is set)
+# Uses Chrome DevTools Protocol for direct browser interaction with external web apps.
+# Connects to existing Chrome browser via --autoConnect flag (Chrome 144+ required).
+# These tools are only available to QA agents (qa_reviewer, qa_fixer), not Coder/Planner.
+# NOTE: Screenshots must be compressed to stay under Claude SDK's 1MB JSON message buffer limit.
+# The MCP server provides 20 tools across 4 categories: Navigation (7), Input (7), Debugging (4), Network (2)
+CHROME_DEVTOOLS_TOOLS = [
+    # Navigation tools (7)
+    "mcp__chrome-devtools__navigate_page",  # Navigate to URL
+    "mcp__chrome-devtools__new_page",  # Open new tab
+    "mcp__chrome-devtools__list_pages",  # List open tabs
+    "mcp__chrome-devtools__select_page",  # Switch to tab
+    "mcp__chrome-devtools__close_page",  # Close tab
+    "mcp__chrome-devtools__navigate_page_history",  # Back/forward navigation
+    "mcp__chrome-devtools__wait_for",  # Wait for selector/condition
+    # Input tools (7)
+    "mcp__chrome-devtools__click",  # Click element
+    "mcp__chrome-devtools__fill",  # Fill single input field
+    "mcp__chrome-devtools__fill_form",  # Fill multiple form fields
+    "mcp__chrome-devtools__hover",  # Hover over element
+    "mcp__chrome-devtools__drag",  # Drag element
+    "mcp__chrome-devtools__handle_dialog",  # Accept/dismiss dialogs
+    "mcp__chrome-devtools__upload_file",  # File upload
+    # Debugging tools (4)
+    "mcp__chrome-devtools__take_screenshot",  # Capture screenshot
+    "mcp__chrome-devtools__take_snapshot",  # DOM snapshot
+    "mcp__chrome-devtools__evaluate_script",  # Execute JavaScript
+    "mcp__chrome-devtools__list_console_messages",  # Console logs
+    # Network tools (2)
+    "mcp__chrome-devtools__list_network_requests",  # List network requests
+    "mcp__chrome-devtools__get_network_request",  # Get request details
 ]
 
 # =============================================================================
@@ -186,12 +199,11 @@ AGENT_CONFIGS = {
     },
     # ═══════════════════════════════════════════════════════════════════════
     # BUILD PHASES (Full tools + Graphiti memory)
-    # Note: "linear" is conditional on project setting "update_linear_with_tasks"
     # ═══════════════════════════════════════════════════════════════════════
     "planner": {
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7", "graphiti", "auto-claude"],
-        "mcp_servers_optional": ["linear"],  # Only if project setting enabled
+        "mcp_servers_optional": ["linear"],  # Linear can be enabled per-project
         "auto_claude_tools": [
             TOOL_GET_BUILD_PROGRESS,
             TOOL_GET_SESSION_CONTEXT,
@@ -202,7 +214,6 @@ AGENT_CONFIGS = {
     "coder": {
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7", "graphiti", "auto-claude"],
-        "mcp_servers_optional": ["linear"],
         "auto_claude_tools": [
             TOOL_UPDATE_SUBTASK_STATUS,
             TOOL_GET_BUILD_PROGRESS,
@@ -220,7 +231,6 @@ AGENT_CONFIGS = {
         # Note: Reviewer writes to spec directory only (qa_report.md, implementation_plan.json)
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7", "graphiti", "auto-claude", "browser"],
-        "mcp_servers_optional": ["linear"],  # For updating issue status
         "auto_claude_tools": [
             TOOL_GET_BUILD_PROGRESS,
             TOOL_UPDATE_QA_STATUS,
@@ -231,7 +241,6 @@ AGENT_CONFIGS = {
     "qa_fixer": {
         "tools": BASE_READ_TOOLS + BASE_WRITE_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7", "graphiti", "auto-claude", "browser"],
-        "mcp_servers_optional": ["linear"],
         "auto_claude_tools": [
             TOOL_UPDATE_SUBTASK_STATUS,
             TOOL_GET_BUILD_PROGRESS,
@@ -335,6 +344,17 @@ AGENT_CONFIGS = {
         "auto_claude_tools": [],
         "thinking_default": "none",  # Simple status checking, no extended thinking
     },
+    # ═══════════════════════════════════════════════════════════════════════
+    # DOCUMENTATION GENERATION
+    # ═══════════════════════════════════════════════════════════════════════
+    "claude_md_generator": {
+        # CLAUDE.md generator - text-only generation, no file system access needed
+        # Receives project context as input, outputs markdown content
+        "tools": [],  # Text-only generation
+        "mcp_servers": [],
+        "auto_claude_tools": [],
+        "thinking_default": "medium",  # Some thinking for quality documentation
+    },
 }
 
 
@@ -384,9 +404,9 @@ def _map_mcp_server_name(
         "context7": "context7",
         "graphiti-memory": "graphiti",
         "graphiti": "graphiti",
-        "linear": "linear",
         "electron": "electron",
         "puppeteer": "puppeteer",
+        "chrome-devtools": "chrome-devtools",
         "auto-claude": "auto-claude",
     }
     # Check if it's a known mapping
@@ -402,7 +422,6 @@ def _map_mcp_server_name(
 def get_required_mcp_servers(
     agent_type: str,
     project_capabilities: dict | None = None,
-    linear_enabled: bool = False,
     mcp_config: dict | None = None,
 ) -> list[str]:
     """
@@ -410,7 +429,6 @@ def get_required_mcp_servers(
 
     Handles dynamic server selection:
     - "browser" → electron (if is_electron) or puppeteer (if is_web_frontend)
-    - "linear" → only if in mcp_servers_optional AND linear_enabled is True
     - "graphiti" → only if GRAPHITI_MCP_URL is set
     - Respects per-project MCP config overrides from .auto-claude/.env
     - Applies per-agent ADD/REMOVE overrides from AGENT_MCP_<agent>_ADD/REMOVE
@@ -418,9 +436,8 @@ def get_required_mcp_servers(
     Args:
         agent_type: The agent type identifier
         project_capabilities: Dict from detect_project_capabilities() or None
-        linear_enabled: Whether Linear integration is enabled for this project
         mcp_config: Per-project MCP server toggles from .auto-claude/.env
-                   Keys: CONTEXT7_ENABLED, LINEAR_MCP_ENABLED, ELECTRON_MCP_ENABLED,
+                   Keys: CONTEXT7_ENABLED, ELECTRON_MCP_ENABLED,
                          PUPPETEER_MCP_ENABLED, AGENT_MCP_<agent>_ADD/REMOVE
 
     Returns:
@@ -441,21 +458,24 @@ def get_required_mcp_servers(
 
     # Handle optional servers (e.g., Linear if project setting enabled)
     optional = config.get("mcp_servers_optional", [])
-    if "linear" in optional and linear_enabled:
-        # Also check per-project LINEAR_MCP_ENABLED override
-        linear_mcp_enabled = mcp_config.get("LINEAR_MCP_ENABLED", "true")
-        if str(linear_mcp_enabled).lower() != "false":
+    if "linear" in optional:
+        # Check per-project LINEAR_MCP_ENABLED override
+        linear_mcp_enabled = mcp_config.get("LINEAR_MCP_ENABLED", "false")
+        if str(linear_mcp_enabled).lower() == "true":
             servers.append("linear")
 
-    # Handle dynamic "browser" → electron/puppeteer based on project type and config
+    # Handle dynamic "browser" → electron/chrome-devtools/puppeteer based on project type and config
     if "browser" in servers:
         servers = [s for s in servers if s != "browser"]
         if project_capabilities:
             is_electron = project_capabilities.get("is_electron", False)
             is_web_frontend = project_capabilities.get("is_web_frontend", False)
 
-            # Check per-project overrides (default false for both)
+            # Check per-project overrides (default false for all)
             electron_enabled = mcp_config.get("ELECTRON_MCP_ENABLED", "false")
+            chrome_devtools_enabled = mcp_config.get(
+                "CHROME_DEVTOOLS_MCP_ENABLED", "false"
+            )
             puppeteer_enabled = mcp_config.get("PUPPETEER_MCP_ENABLED", "false")
 
             # Electron: enabled by project config OR global env var
@@ -463,9 +483,11 @@ def get_required_mcp_servers(
                 str(electron_enabled).lower() == "true" or is_electron_mcp_enabled()
             ):
                 servers.append("electron")
-            # Puppeteer: enabled by project config (no global env var)
+            # Web frontend (non-Electron): chrome-devtools has priority over puppeteer
             elif is_web_frontend and not is_electron:
-                if str(puppeteer_enabled).lower() == "true":
+                if str(chrome_devtools_enabled).lower() == "true":
+                    servers.append("chrome-devtools")
+                elif str(puppeteer_enabled).lower() == "true":
                     servers.append("puppeteer")
 
     # Filter graphiti if not enabled

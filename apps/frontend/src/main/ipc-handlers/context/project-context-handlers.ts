@@ -3,7 +3,7 @@ import type { BrowserWindow } from 'electron';
 import path from 'path';
 import { existsSync, readFileSync } from 'fs';
 import { spawn } from 'child_process';
-import { IPC_CHANNELS, getSpecsDir, AUTO_BUILD_PATHS } from '../../../shared/constants';
+import { IPC_CHANNELS, getSpecsDir, getProjectIndexPath } from '../../../shared/constants';
 import type {
   IPCResult,
   ProjectContextData,
@@ -28,8 +28,8 @@ import { getAugmentedEnv } from '../../env-utils';
 /**
  * Load project index from file
  */
-function loadProjectIndex(projectPath: string): ProjectIndex | null {
-  const indexPath = path.join(projectPath, AUTO_BUILD_PATHS.PROJECT_INDEX);
+function loadProjectIndex(projectPath: string, autoBuildPath: string | undefined): ProjectIndex | null {
+  const indexPath = path.join(projectPath, getProjectIndexPath(autoBuildPath));
   if (!existsSync(indexPath)) {
     return null;
   }
@@ -97,7 +97,7 @@ export function registerProjectContextHandlers(
 
       try {
         // Load project index
-        const projectIndex = loadProjectIndex(project.path);
+        const projectIndex = loadProjectIndex(project.path, project.autoBuildPath);
 
         // Load graphiti state from most recent spec
         const memoryState = loadGraphitiStateFromSpecs(project.path, project.autoBuildPath);
@@ -158,7 +158,7 @@ export function registerProjectContextHandlers(
         }
 
         const analyzerPath = path.join(autoBuildSource, 'analyzer.py');
-        const indexOutputPath = path.join(project.path, AUTO_BUILD_PATHS.PROJECT_INDEX);
+        const indexOutputPath = path.join(project.path, getProjectIndexPath(project.autoBuildPath));
 
         // Get configured Python path (venv if ready, otherwise bundled/system)
         // This ensures we use the venv Python which has dependencies installed
@@ -209,7 +209,7 @@ export function registerProjectContextHandlers(
         });
 
         // Read the new index
-        const projectIndex = loadProjectIndex(project.path);
+        const projectIndex = loadProjectIndex(project.path, project.autoBuildPath);
         if (projectIndex) {
           return { success: true, data: projectIndex };
         }

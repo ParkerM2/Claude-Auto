@@ -251,9 +251,9 @@ export const TaskTableRow = memo(function TaskTableRow({
             </td>
 
             {/* Progress */}
-            <td className="px-3 py-3 min-w-[120px]">
+            <td className="px-3 py-3 min-w-[220px]">
               {(task.subtasks.length > 0 || hasActiveExecution || isRunning) && (
-                <div className="w-full max-w-[150px]">
+                <div className="w-full max-w-[240px]">
                   <PhaseProgressIndicator
                     phase={executionPhase}
                     subtasks={task.subtasks}

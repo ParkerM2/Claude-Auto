@@ -11,6 +11,7 @@ Usage:
     python query_memory.py search <db-path> <database> <query> [--limit N]
     python query_memory.py semantic-search <db-path> <database> <query> [--limit N]
     python query_memory.py get-entities <db-path> <database> [--limit N]
+    python query_memory.py pattern-insights <db-path> <database>
 
 Output:
     JSON to stdout with structure: {"success": bool, "data": ..., "error": ...}
@@ -621,6 +622,90 @@ def cmd_add_episode(args):
         output_error(f"Failed to add episode: {e}")
 
 
+def cmd_pattern_insights(args):
+    """
+    Get aggregated pattern insights from the memory database.
+
+    Returns top patterns, common gotchas, and improvement suggestions.
+    Uses the GraphitiMemory class to access pattern aggregation logic.
+    """
+    if not apply_monkeypatch():
+        output_error("Neither kuzu nor LadybugDB is installed")
+        return
+
+    try:
+        # Add auto-claude to path for imports
+        auto_claude_dir = Path(__file__).parent
+        if str(auto_claude_dir) not in sys.path:
+            sys.path.insert(0, str(auto_claude_dir))
+
+        # Run async pattern insights query
+        result = asyncio.run(_async_pattern_insights(args))
+        if result.get("success"):
+            output_json(True, data=result.get("data"))
+        else:
+            output_error(result.get("error", "Failed to get pattern insights"))
+
+    except Exception as e:
+        output_error(f"Pattern insights failed: {e}")
+
+
+async def _async_pattern_insights(args):
+    """Async implementation of pattern insights using GraphitiMemory."""
+    try:
+        # Import Graphiti components
+        from integrations.graphiti.config import GraphitiConfig
+        from integrations.graphiti.queries_pkg.client import GraphitiClient
+        from integrations.graphiti.queries_pkg.graphiti import GraphitiMemory
+
+        # Create config from environment
+        config = GraphitiConfig.from_env()
+
+        # Override database location from CLI args
+        config.db_path = args.db_path
+        config.database = args.database
+
+        # Initialize client
+        client = GraphitiClient(config)
+        initialized = await client.initialize()
+
+        if not initialized:
+            return {"success": False, "error": "Failed to initialize Graphiti client"}
+
+        try:
+            # Create GraphitiMemory instance
+            memory = GraphitiMemory(
+                spec_dir=Path(args.db_path).parent,  # Parent of db directory
+                project_dir=Path.cwd(),
+                client=client,
+            )
+
+            # Get pattern insights
+            insights = await memory.get_pattern_insights()
+
+            return {
+                "success": True,
+                "data": {
+                    "top_patterns": insights.get("top_patterns", []),
+                    "common_gotchas": insights.get("common_gotchas", []),
+                    "improvement_suggestions": insights.get(
+                        "improvement_suggestions", []
+                    ),
+                    "last_updated": insights.get(
+                        "last_updated", datetime.now().isoformat()
+                    ),
+                },
+            }
+
+        finally:
+            await client.close()
+
+    except ImportError as e:
+        return {"success": False, "error": f"Missing dependencies: {e}"}
+    except Exception as e:
+        return {"success": False, "error": f"Pattern insights failed: {e}"}
+
+
 def infer_episode_type(name: str, content: str = "") -> str:
     """Infer the episode type from its name and content."""
     name_lower = (name or "").lower()
@@ -734,6 +819,14 @@ def main():
         "--group-id", dest="group_id", help="Optional group ID for namespacing"
     )
 
+    # pattern-insights command
+    pattern_insights_parser = subparsers.add_parser(
+        "pattern-insights",
+        help="Get aggregated pattern insights (patterns, gotchas, improvements)",
+    )
+    pattern_insights_parser.add_argument("db_path", help="Path to database directory")
+    pattern_insights_parser.add_argument("database", help="Database name")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -749,6 +842,7 @@ def main():
         "semantic-search": cmd_semantic_search,
         "get-entities": cmd_get_entities,
         "add-episode": cmd_add_episode,
+        "pattern-insights": cmd_pattern_insights,
     }
 
     handler = commands.get(args.command)

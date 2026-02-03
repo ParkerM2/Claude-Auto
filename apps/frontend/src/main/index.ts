@@ -55,7 +55,8 @@ if (!app.isPackaged && process.env.DISABLE_DEV_SANDBOX !== 'true') {
   const devUserData = app.getPath('userData') + '-dev';
   app.setPath('userData', devUserData);
   console.warn('[DEV] Using isolated userData directory:', devUserData);
-  console.warn('[DEV] To use production data, run: npm run dev:production-data');
+  console.warn('[DEV] Project data directory: .auto-claude-dev (instead of .auto-claude)');
+  console.warn('[DEV] To use production data, set DISABLE_DEV_SANDBOX=true');
 }
 
 import { join } from 'path';

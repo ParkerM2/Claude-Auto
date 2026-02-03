@@ -32,8 +32,8 @@ MOCK_RESPONSES = {
                 "metadata": {
                     "location": "apps/backend/auth/",
                     "language": "Python",
-                    "framework": "FastAPI"
-                }
+                    "framework": "FastAPI",
+                },
             },
             {
                 "uuid": "node-002",
@@ -44,8 +44,8 @@ MOCK_RESPONSES = {
                 "updated_at": "2024-01-18T16:45:00Z",
                 "metadata": {
                     "location": "apps/backend/core/database.py",
-                    "max_connections": 20
-                }
+                    "max_connections": 20,
+                },
             },
             {
                 "uuid": "node-003",
@@ -56,14 +56,13 @@ MOCK_RESPONSES = {
                 "updated_at": "2024-01-22T09:30:00Z",
                 "metadata": {
                     "table_name": "users",
-                    "fields": ["id", "email", "username", "created_at"]
-                }
-            }
+                    "fields": ["id", "email", "username", "created_at"],
+                },
+            },
         ],
         "total_results": 3,
-        "query": "authentication database"
+        "query": "authentication database",
     },
-
     # Search for relationships (facts) between entities
     "search_facts": {
         "facts": [
@@ -77,8 +76,8 @@ MOCK_RESPONSES = {
                 "confidence": 0.95,
                 "metadata": {
                     "discovered_by": "code_analysis",
-                    "file_reference": "apps/backend/auth/session.py"
-                }
+                    "file_reference": "apps/backend/auth/session.py",
+                },
             },
             {
                 "uuid": "fact-002",
@@ -90,8 +89,8 @@ MOCK_RESPONSES = {
                 "confidence": 0.98,
                 "metadata": {
                     "discovered_by": "code_analysis",
-                    "pattern": "CRUD operations"
-                }
+                    "pattern": "CRUD operations",
+                },
             },
             {
                 "uuid": "fact-003",
@@ -101,15 +100,12 @@ MOCK_RESPONSES = {
                 "summary": "User Model data is stored in Database Connection Pool",
                 "created_at": "2024-01-12T09:00:00Z",
                 "confidence": 1.0,
-                "metadata": {
-                    "discovered_by": "schema_analysis"
-                }
-            }
+                "metadata": {"discovered_by": "schema_analysis"},
+            },
         ],
         "total_results": 3,
-        "query": "authentication relationships"
+        "query": "authentication relationships",
     },
-
     # Add a new episode to the knowledge graph
     "add_episode": {
         "success": True,
@@ -120,13 +116,9 @@ MOCK_RESPONSES = {
         "timestamp": "2024-01-31T16:00:00Z",
         "metadata": {
             "processing_time_ms": 45,
-            "graph_size": {
-                "total_nodes": 156,
-                "total_facts": 423
-            }
-        }
+            "graph_size": {"total_nodes": 156, "total_facts": 423},
+        },
     },
-
     # Retrieve recent episodes from the graph
     "get_episodes": {
         "episodes": [
@@ -138,8 +130,8 @@ MOCK_RESPONSES = {
                 "metadata": {
                     "spec_id": "001-user-authentication",
                     "agent": "coder",
-                    "subtask": "subtask-3-2"
-                }
+                    "subtask": "subtask-3-2",
+                },
             },
             {
                 "uuid": "episode-002",
@@ -149,8 +141,8 @@ MOCK_RESPONSES = {
                 "metadata": {
                     "spec_id": "005-db-connection-fix",
                     "agent": "qa_fixer",
-                    "issue_type": "bug_fix"
-                }
+                    "issue_type": "bug_fix",
+                },
             },
             {
                 "uuid": "episode-003",
@@ -160,15 +152,14 @@ MOCK_RESPONSES = {
                 "metadata": {
                     "spec_id": "007-user-validation",
                     "agent": "coder",
-                    "subtask": "subtask-2-1"
-                }
-            }
+                    "subtask": "subtask-2-1",
+                },
+            },
         ],
         "total_episodes": 3,
         "offset": 0,
-        "limit": 10
+        "limit": 10,
     },
-
     # Get details of a specific entity or edge (relationship)
     "get_entity_edge": {
         "type": "entity",
@@ -182,25 +173,25 @@ MOCK_RESPONSES = {
             "metadata": {
                 "location": "apps/backend/auth/",
                 "language": "Python",
-                "framework": "FastAPI"
+                "framework": "FastAPI",
             },
             "edges": [
                 {
                     "uuid": "fact-001",
                     "relationship": "uses",
                     "target_uuid": "node-002",
-                    "target_name": "Database Connection Pool"
+                    "target_name": "Database Connection Pool",
                 },
                 {
                     "uuid": "fact-002",
                     "relationship": "manages",
                     "target_uuid": "node-003",
-                    "target_name": "User Model"
-                }
+                    "target_name": "User Model",
+                },
             ],
-            "edge_count": 2
-        }
-    }
+            "edge_count": 2,
+        },
+    },
 }
 
 
@@ -213,26 +204,27 @@ MOCK_ERROR_RESPONSES = {
         "success": False,
         "error": "Entity or edge not found",
         "error_code": "NOT_FOUND",
-        "message": "The requested entity or relationship does not exist in the knowledge graph"
+        "message": "The requested entity or relationship does not exist in the knowledge graph",
     },
     "invalid_query": {
         "success": False,
         "error": "Invalid query parameters",
         "error_code": "INVALID_QUERY",
-        "message": "Query must include at least one search term"
+        "message": "Query must include at least one search term",
     },
     "server_error": {
         "success": False,
         "error": "Internal server error",
         "error_code": "SERVER_ERROR",
-        "message": "An unexpected error occurred while processing the request"
-    }
+        "message": "An unexpected error occurred while processing the request",
+    },
 }
 
 
 # =============================================================================
 # Helper Functions
 # =============================================================================
+
 
 def get_mock_response(tool_name: str, params: dict = None) -> dict:
     """

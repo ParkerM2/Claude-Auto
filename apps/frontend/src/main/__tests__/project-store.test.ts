@@ -18,7 +18,8 @@ vi.mock('electron', () => ({
     getPath: vi.fn((name: string) => {
       if (name === 'userData') return USER_DATA_PATH;
       return TEST_DIR;
-    })
+    }),
+    isPackaged: true  // Simulate production mode so getAutoClaudeDir returns '.auto-claude'
   }
 }));
 

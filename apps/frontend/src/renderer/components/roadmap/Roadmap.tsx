@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { RoadmapGenerationProgress } from './RoadmapGenerationProgress';
 import { CompetitorAnalysisDialog } from '../insights/CompetitorAnalysisDialog';
 import { ExistingCompetitorAnalysisDialog } from '../insights/ExistingCompetitorAnalysisDialog';
@@ -13,7 +13,7 @@ import { getCompetitorInsightsForFeature } from './utils';
 import type { RoadmapFeature } from '../../../shared/types';
 import type { RoadmapProps } from './types';
 
-export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
+export function Roadmap({ projectId, onGoToTask, registerRefresh }: RoadmapProps) {
   // State management
   const [selectedFeature, setSelectedFeature] = useState<RoadmapFeature | null>(null);
   const [activeTab, setActiveTab] = useState('kanban');
@@ -42,6 +42,12 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
     handleCompetitorDialogDecline,
     handleStop,
   } = useRoadmapGeneration(projectId);
+
+  // Register refresh function with parent
+  useEffect(() => {
+    registerRefresh?.(handleRefresh);
+    return () => registerRefresh?.(null);
+  }, [registerRefresh, handleRefresh]);
 
   // Event handlers
   const handleConvertToSpec = async (feature: RoadmapFeature) => {

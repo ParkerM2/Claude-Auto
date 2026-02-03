@@ -12,6 +12,16 @@ import type {
 import { createIpcListener, invokeIpc, sendIpc, IpcListenerCleanup } from './ipc-utils';
 
 /**
+ * Pattern insights data structure
+ */
+export interface PatternInsights {
+  top_patterns: Array<{ content: string; frequency: number; last_seen: string }>;
+  common_gotchas: Array<{ content: string; frequency: number; last_seen: string }>;
+  improvement_suggestions: Array<{ content: string; frequency: number; last_seen: string }>;
+  last_updated: string;
+}
+
+/**
  * Insights API operations
  */
 export interface InsightsAPI {
@@ -31,6 +41,7 @@ export interface InsightsAPI {
   deleteInsightsSession: (projectId: string, sessionId: string) => Promise<IPCResult>;
   renameInsightsSession: (projectId: string, sessionId: string, newTitle: string) => Promise<IPCResult>;
   updateInsightsModelConfig: (projectId: string, sessionId: string, modelConfig: InsightsModelConfig) => Promise<IPCResult>;
+  getPatternInsights: (projectId: string) => Promise<IPCResult<PatternInsights>>;
 
   // Event Listeners
   onInsightsStreamChunk: (
@@ -83,6 +94,9 @@ export const createInsightsAPI = (): InsightsAPI => ({
 
   updateInsightsModelConfig: (projectId: string, sessionId: string, modelConfig: InsightsModelConfig): Promise<IPCResult> =>
     invokeIpc(IPC_CHANNELS.INSIGHTS_UPDATE_MODEL_CONFIG, projectId, sessionId, modelConfig),
+
+  getPatternInsights: (projectId: string): Promise<IPCResult<PatternInsights>> =>
+    invokeIpc(IPC_CHANNELS.INSIGHTS_GET_PATTERN_INSIGHTS, projectId),
 
   // Event Listeners
   onInsightsStreamChunk: (

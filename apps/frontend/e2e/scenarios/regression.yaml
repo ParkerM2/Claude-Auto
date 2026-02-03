@@ -1,0 +1,118 @@
+# Regression Tests
+# Comprehensive feature verification
+#
+# These tests cover all major features to catch regressions.
+# Run with: python runners/e2e_test_runner.py --project apps/frontend --scenario regression
+
+name: Regression Tests
+description: Comprehensive feature verification to catch regressions
+
+scenarios:
+  - name: Project Management
+    description: Test project creation and management
+    steps:
+      - action: navigate_to_hash
+        route: "#/projects"
+        description: Navigate to projects view
+      - action: take_screenshot
+        name: projects-view
+      - action: get_page_structure
+        description: Identify project management elements
+      - action: check_logs
+        expect_no_errors: true
+
+  - name: Task Creation Flow
+    description: Test the task/spec creation workflow
+    steps:
+      - action: click_by_text
+        text: Create
+        fallback_text: New Task
+        description: Open task creation dialog
+      - action: take_screenshot
+        name: create-dialog
+      - action: get_page_structure
+        description: Identify form elements
+      - action: fill_input
+        placeholder: Task description
+        fallback_selector: "textarea"
+        value: Test task from E2E
+        description: Fill task description
+      - action: take_screenshot
+        name: filled-form
+      - action: send_keyboard_shortcut
+        text: Escape
+        description: Close dialog without saving
+      - action: check_logs
+        expect_no_errors: true
+
+  - name: Settings Persistence
+    description: Verify settings can be viewed and modified
+    steps:
+      - action: navigate_to_hash
+        route: "#/settings"
+        description: Navigate to settings
+      - action: take_screenshot
+        name: settings-initial
+      - action: get_page_structure
+        description: Identify settings controls
+      - action: check_logs
+        expect_no_errors: true
+
+  - name: Sidebar Navigation
+    description: Test sidebar navigation items
+    steps:
+      - action: get_page_structure
+        description: Get sidebar elements
+      - action: verify_sidebar_items
+        expected_items:
+          - Projects
+          - Tasks
+          - Settings
+        description: Verify expected navigation items exist
+      - action: take_screenshot
+        name: sidebar-state
+
+  - name: Keyboard Shortcuts
+    description: Test keyboard navigation
+    steps:
+      - action: send_keyboard_shortcut
+        text: Ctrl+,
+        description: Open settings via keyboard shortcut
+      - action: take_screenshot
+        name: shortcut-result
+      - action: send_keyboard_shortcut
+        text: Escape
+        description: Close any open dialogs
+      - action: check_logs
+        expect_no_errors: true
+
+  - name: Error Boundary
+    description: Verify error handling doesn't crash the app
+    steps:
+      - action: eval
+        code: |
+          // Check that error boundary is present
+          const errorBoundary = document.querySelector('[data-testid="error-boundary"]');
+          return { hasErrorBoundary: !!errorBoundary };
+        description: Verify error boundary component exists
+      - action: check_logs
+        filter: error
+        description: Check for any runtime errors
+
+  - name: Memory and Performance
+    description: Basic performance verification
+    steps:
+      - action: eval
+        code: |
+          // Get basic performance metrics
+          const timing = performance.timing;
+          const memory = performance.memory;
+          return {
+            loadTime: timing.loadEventEnd - timing.navigationStart,
+            domReady: timing.domContentLoadedEventEnd - timing.navigationStart,
+            heapUsed: memory ? memory.usedJSHeapSize : null,
+            heapTotal: memory ? memory.totalJSHeapSize : null
+          };
+        description: Collect performance metrics
+      - action: take_screenshot
+        name: performance-state

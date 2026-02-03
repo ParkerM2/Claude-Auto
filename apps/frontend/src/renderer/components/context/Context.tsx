@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FolderTree, Brain } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { useContextStore } from '../../stores/context-store';
@@ -7,7 +7,7 @@ import { ProjectIndexTab } from './ProjectIndexTab';
 import { MemoriesTab } from './MemoriesTab';
 import type { ContextProps } from './types';
 
-export function Context({ projectId }: ContextProps) {
+export function Context({ projectId, registerRefresh }: ContextProps) {
   const {
     projectIndex,
     indexLoading,
@@ -26,6 +26,12 @@ export function Context({ projectId }: ContextProps) {
   useProjectContext(projectId);
   const handleRefreshIndex = useRefreshIndex(projectId);
   const handleSearch = useMemorySearch(projectId);
+
+  // Register refresh function with parent
+  useEffect(() => {
+    registerRefresh?.(handleRefreshIndex);
+    return () => registerRefresh?.(null);
+  }, [registerRefresh, handleRefreshIndex]);
 
   return (
     <div className="flex h-full flex-col overflow-hidden">

@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from .models import JiraIssue
 from .spec_metadata import JiraSpecMetadata, save_jira_metadata
@@ -34,9 +33,7 @@ class JiraSpecImporter:
         """
         self.specs_dir = Path(specs_dir)
 
-    def import_issue(
-        self, issue: JiraIssue, spec_name: str | None = None
-    ) -> Path:
+    def import_issue(self, issue: JiraIssue, spec_name: str | None = None) -> Path:
         """
         Import a Jira issue as an Auto Claude spec.
 
@@ -121,14 +118,16 @@ class JiraSpecImporter:
         ]
 
         # Add issue metadata section
-        content_parts.extend([
-            "## Issue Details",
-            "",
-            f"- **Jira Issue:** [{issue.key}]({issue.url})",
-            f"- **Type:** {issue.issue_type}",
-            f"- **Status:** {issue.status.name}",
-            f"- **Priority:** {issue.priority.name if issue.priority else 'None'}",
-        ])
+        content_parts.extend(
+            [
+                "## Issue Details",
+                "",
+                f"- **Jira Issue:** [{issue.key}]({issue.url})",
+                f"- **Type:** {issue.issue_type}",
+                f"- **Status:** {issue.status.name}",
+                f"- **Priority:** {issue.priority.name if issue.priority else 'None'}",
+            ]
+        )
 
         if issue.story_points:
             content_parts.append(f"- **Story Points:** {issue.story_points}")
@@ -144,12 +143,14 @@ class JiraSpecImporter:
         # Extract acceptance criteria from description if present
         acceptance_criteria = self._extract_acceptance_criteria(issue)
         if acceptance_criteria:
-            content_parts.extend([
-                "## Acceptance Criteria",
-                "",
-                *acceptance_criteria,
-                "",
-            ])
+            content_parts.extend(
+                [
+                    "## Acceptance Criteria",
+                    "",
+                    *acceptance_criteria,
+                    "",
+                ]
+            )
 
         # Write spec file
         with open(spec_file, "w", encoding="utf-8") as f:

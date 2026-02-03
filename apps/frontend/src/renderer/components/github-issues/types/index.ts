@@ -7,6 +7,8 @@ export interface GitHubIssuesProps {
   onOpenSettings?: () => void;
   /** Navigate to view a task in the kanban board */
   onNavigateToTask?: (taskId: string) => void;
+  /** Register refresh function with parent */
+  registerRefresh?: (fn: (() => void | Promise<void>) | null) => void;
 }
 
 export interface IssueListItemProps {

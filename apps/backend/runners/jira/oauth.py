@@ -43,8 +43,7 @@ from typing import Any
 from urllib.parse import urlencode
 
 import aiohttp
-
-from core.platform import is_linux, is_macos, is_windows
+from core.platform import is_linux, is_macos
 
 logger = logging.getLogger(__name__)
 
@@ -475,7 +474,9 @@ class JiraOAuthClient:
             return None
 
         try:
-            token_data = json.loads(self._token_storage_path.read_text(encoding="utf-8"))
+            token_data = json.loads(
+                self._token_storage_path.read_text(encoding="utf-8")
+            )
             token = JiraOAuthToken.from_dict(token_data)
 
             logger.debug("Token loaded from storage")

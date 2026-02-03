@@ -14,8 +14,7 @@ import logging
 import os
 from pathlib import Path
 
-from runners.jira.jira_client import JiraClient, JiraApiError
-from runners.jira.models import JiraConfig
+from runners.jira.jira_client import JiraApiError, JiraClient, JiraConfig
 from runners.jira.pr_linker import JiraPRLinker
 from runners.jira.status_updater import JiraStatusUpdater
 

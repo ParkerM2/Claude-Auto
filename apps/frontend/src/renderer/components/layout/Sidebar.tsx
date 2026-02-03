@@ -47,6 +47,7 @@ import {
 } from '../../stores/project-store';
 import { useSettingsStore, saveSettings } from '../../stores/settings-store';
 import { AddProjectModal } from '../modals/AddProjectModal';
+import { ClaudeMdGenerationDialog } from '../modals/ClaudeMdGenerationDialog';
 import { GitSetupModal } from '../git/GitSetupModal';
 import { RateLimitIndicator } from '../rate-limit/RateLimitIndicator';
 import { ClaudeCodeStatusBadge } from '../status/ClaudeCodeStatusBadge';
@@ -107,6 +108,8 @@ export function Sidebar({
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
   const [showInitDialog, setShowInitDialog] = useState(false);
   const [showGitSetupModal, setShowGitSetupModal] = useState(false);
+  const [showClaudeMdDialog, setShowClaudeMdDialog] = useState(false);
+  const [claudeMdProjectPath, setClaudeMdProjectPath] = useState<string | null>(null);
   const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
   const [pendingProject, setPendingProject] = useState<Project | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
@@ -214,10 +217,23 @@ export function Sidebar({
     checkGit();
   }, [selectedProject]);
 
-  const handleProjectAdded = (project: Project, needsInit: boolean) => {
+  const handleProjectAdded = async (project: Project, needsInit: boolean) => {
     if (needsInit) {
       setPendingProject(project);
       setShowInitDialog(true);
+    }
+
+    // Check if CLAUDE.md exists and prompt to generate if not
+    try {
+      const result = await window.electronAPI.claudeMd.checkClaudeMd(project.path);
+      if (result.success && result.data && !result.data.exists) {
+        // CLAUDE.md doesn't exist - show generation dialog
+        setClaudeMdProjectPath(project.path);
+        setShowClaudeMdDialog(true);
+      }
+    } catch (error) {
+      console.error('Failed to check for CLAUDE.md:', error);
+      // Non-fatal - don't block project addition
     }
   };
 
@@ -324,49 +340,10 @@ export function Sidebar({
   return (
     <TooltipProvider>
       <div className={cn(
-        "flex h-full flex-col bg-sidebar border-r border-border transition-all duration-300",
+        "flex h-full flex-col bg-sidebar transition-all duration-300",
         isCollapsed ? "w-16" : "w-64"
       )}>
-        {/* Header with drag area - extra top padding for macOS traffic lights */}
-        <div className={cn(
-          "electron-drag flex h-14 items-center pt-6 transition-all duration-300",
-          isCollapsed ? "justify-center px-2" : "px-4"
-        )}>
-          {!isCollapsed && (
-            <span className="electron-no-drag text-lg font-bold text-primary">Auto Claude</span>
-          )}
-        </div>
 
-        <Separator className="mt-2" />
-
-        {/* Toggle button */}
-        <div className={cn(
-          "flex py-2 transition-all duration-300",
-          isCollapsed ? "justify-center px-2" : "justify-end px-3"
-        )}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={toggleSidebar}
-                aria-label={isCollapsed ? t('actions.expandSidebar') : t('actions.collapseSidebar')}
-              >
-                {isCollapsed ? (
-                  <PanelLeft className="h-4 w-4" />
-                ) : (
-                  <PanelLeftClose className="h-4 w-4" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              {isCollapsed ? t('actions.expandSidebar') : t('actions.collapseSidebar')}
-            </TooltipContent>
-          </Tooltip>
-        </div>
-
-        <Separator />
 
         {/* Navigation */}
         <ScrollArea className="flex-1">
@@ -374,15 +351,67 @@ export function Sidebar({
             {/* Project Section */}
             <div>
               {!isCollapsed && (
+                <div className="flex flex-row items-center justify-between">
                 <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {t('sections.project')}
                 </h3>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={toggleSidebar}
+                          aria-label={isCollapsed ? t('actions.expandSidebar') : t('actions.collapseSidebar')}
+                        >
+                          {isCollapsed ? (
+                            <PanelLeft className="h-4 w-4" />
+                          ) : (
+                            <PanelLeftClose className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
+                        {isCollapsed ? t('actions.expandSidebar') : t('actions.collapseSidebar')}
+                      </TooltipContent>
+                    </Tooltip>
+                </div>
               )}
+              {isCollapsed && (
+                <div className="flex flex-row items-center justify-center w-full">
+                    <Tooltip key="toggle-sidebar">
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={toggleSidebar}
+                          aria-label={isCollapsed ? t('actions.expandSidebar') : t('actions.collapseSidebar')}
+                        >
+                          {isCollapsed ? (
+                            <PanelLeft className="h-4 w-4" />
+                          ) : (
+                            <PanelLeftClose className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
+                        {isCollapsed ? t('actions.expandSidebar') : t('actions.collapseSidebar')}
+                      </TooltipContent>
+                    </Tooltip>
+                    </div>
+                    )}
               <nav className="space-y-1">
                 {visibleNavItems.map(renderNavItem)}
               </nav>
             </div>
           </div>
+                  {/* Toggle button */}
+                  <div className={cn(
+                    "flex py-2 transition-all duration-300",
+                    isCollapsed ? "justify-center px-2" : "justify-end px-3"
+                  )}>
+                  </div>
         </ScrollArea>
 
         <Separator />
@@ -536,6 +565,17 @@ export function Sidebar({
         gitStatus={gitStatus}
         onGitInitialized={handleGitInitialized}
       />
+
+      {/* CLAUDE.md Generation Dialog */}
+      {claudeMdProjectPath && (
+        <ClaudeMdGenerationDialog
+          open={showClaudeMdDialog}
+          onOpenChange={setShowClaudeMdDialog}
+          projectPath={claudeMdProjectPath}
+          onSkip={() => setClaudeMdProjectPath(null)}
+          onRemindLater={() => setClaudeMdProjectPath(null)}
+        />
+      )}
     </TooltipProvider>
   );
 }

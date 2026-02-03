@@ -14,11 +14,19 @@ Key Features:
 """
 
 import json
+import logging
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
+
+from .pattern_detector import PatternDetector
+from .recovery_config import RecoveryConfig, load_config
+from .recovery_learner import RecoveryLearner
+from .recovery_strategies import StrategyRegistry, suggest_strategies
+
+logger = logging.getLogger(__name__)
 
 
 class FailureType(Enum):
@@ -52,19 +60,45 @@ class RecoveryManager:
     - Escalate stuck subtasks for human intervention
     """
 
-    def __init__(self, spec_dir: Path, project_dir: Path):
+    def __init__(
+        self,
+        spec_dir: Path,
+        project_dir: Path,
+        config: RecoveryConfig | None = None,
+    ):
         """
         Initialize recovery manager.
 
         Args:
             spec_dir: Spec directory containing memory/
             project_dir: Root project directory for git operations
+            config: Optional RecoveryConfig instance (defaults to load_config())
         """
         self.spec_dir = spec_dir
         self.project_dir = project_dir
         self.memory_dir = spec_dir / "memory"
         self.attempt_history_file = self.memory_dir / "attempt_history.json"
         self.build_commits_file = self.memory_dir / "build_commits.json"
+
+        # Load or use provided config
+        self.config = config if config is not None else load_config()
+
+        # Initialize pattern detector if enabled
+        self.pattern_detector = None
+        if self.config.enable_pattern_detection:
+            self.pattern_detector = PatternDetector(
+                loop_threshold=self.config.circular_fix_threshold,
+                thrashing_threshold=4,  # Use reasonable default
+                repeated_failure_threshold=self.config.circular_fix_threshold,
+                timeout_minutes=self.config.recovery_timeout
+                // 60,  # Convert seconds to minutes
+            )
+
+        # Initialize strategy registry
+        self.strategy_registry = StrategyRegistry()
+
+        # Initialize recovery learner
+        self.learner = RecoveryLearner(spec_dir=spec_dir, project_dir=project_dir)
 
         # Ensure memory directory exists
         self.memory_dir.mkdir(parents=True, exist_ok=True)
@@ -257,9 +291,12 @@ class RecoveryManager:
         if len(attempts) < 2:
             return False
 
-        # Check if last 3 attempts used similar approaches
+        # Check if last N attempts used similar approaches (where N = circular_fix_threshold)
         # Simple similarity check: look for repeated keywords
-        recent_attempts = attempts[-3:] if len(attempts) >= 3 else attempts
+        threshold = self.config.circular_fix_threshold
+        recent_attempts = (
+            attempts[-threshold:] if len(attempts) >= threshold else attempts
+        )
 
         # Extract key terms from current approach (ignore common words)
         stop_words = {
@@ -302,8 +339,10 @@ class RecoveryManager:
                 if similarity > 0.3:
                     similar_count += 1
 
-        # If 2+ recent attempts were similar to current approach, it's circular
-        return similar_count >= 2
+        # If threshold-1 or more recent attempts were similar to current approach, it's circular
+        # (e.g., if threshold is 3, need 2+ similar attempts)
+        min_similar = max(2, self.config.circular_fix_threshold - 1)
+        return similar_count >= min_similar
 
     def determine_recovery_action(
         self, failure_type: FailureType, subtask_id: str
@@ -337,12 +376,13 @@ class RecoveryManager:
                 )
 
         elif failure_type == FailureType.VERIFICATION_FAILED:
-            # Verification failed: retry with different approach if < 3 attempts
-            if attempt_count < 3:
+            # Verification failed: retry with different approach if < max_retry_attempts
+            max_attempts = self.config.max_retry_attempts
+            if attempt_count < max_attempts:
                 return RecoveryAction(
                     action="retry",
                     target=subtask_id,
-                    reason=f"Verification failed, retry with different approach (attempt {attempt_count + 1}/3)",
+                    reason=f"Verification failed, retry with different approach (attempt {attempt_count + 1}/{max_attempts})",
                 )
             else:
                 return RecoveryAction(
@@ -368,12 +408,13 @@ class RecoveryManager:
             )
 
         else:  # UNKNOWN
-            # Unknown error: retry once, then escalate
-            if attempt_count < 2:
+            # Unknown error: retry based on config, then escalate
+            max_attempts = self.config.max_retry_attempts_unknown
+            if attempt_count < max_attempts:
                 return RecoveryAction(
                     action="retry",
                     target=subtask_id,
-                    reason=f"Unknown error, retrying (attempt {attempt_count + 1}/2)",
+                    reason=f"Unknown error, retrying (attempt {attempt_count + 1}/{max_attempts})",
                 )
             else:
                 return RecoveryAction(
@@ -527,6 +568,48 @@ class RecoveryManager:
             hints.append(
                 "Consider: different library, different pattern, or simpler implementation"
             )
+
+        # Add strategy suggestions based on failure patterns
+        last_attempt = attempts[-1]
+        if not last_attempt.get("success"):
+            error = last_attempt.get("error", "")
+            failure_type = self.classify_failure(error, subtask_id)
+
+            # Get strategy suggestions
+            strategy_suggestions = suggest_strategies(
+                failure_type=failure_type.value,
+                error=error,
+                subtask_id=subtask_id,
+                attempt_count=len(attempts),
+                last_good_commit=self.get_last_good_commit(),
+            )
+
+            if strategy_suggestions:
+                hints.append("\n📋 Recommended Recovery Strategies:")
+                hints.extend(strategy_suggestions)
+
+            # Add learned insights from RecoveryLearner
+            try:
+                # Get the subtask description from the plan if available
+                from .utils import find_subtask_in_plan, load_implementation_plan
+
+                plan = load_implementation_plan(self.spec_dir)
+                subtask = find_subtask_in_plan(plan, subtask_id) if plan else None
+                subtask_description = (
+                    subtask.get("description", "") if subtask else None
+                )
+
+                learned_insights = self.learner.get_learned_insights(
+                    failure_type=failure_type.value,
+                    subtask_description=subtask_description,
+                    limit=5,
+                )
+
+                if learned_insights:
+                    hints.extend(learned_insights)
+            except Exception as e:
+                # Don't fail if learner insights fail
+                logger.debug(f"Failed to get learned insights: {e}")
 
         return hints
 

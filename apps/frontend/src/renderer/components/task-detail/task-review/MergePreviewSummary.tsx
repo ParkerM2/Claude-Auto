@@ -1,6 +1,7 @@
 import { CheckCircle, AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../ui/button';
+import { Badge } from '../../ui/badge';
 import { cn } from '../../../lib/utils';
 import type { MergeConflict, MergeStats, GitConflictInfo } from '../../../../shared/types';
 
@@ -54,7 +55,10 @@ export function MergePreviewSummary({
           ) : (
             <>
               <AlertTriangle className="h-4 w-4 text-warning" />
-              {mergePreview.conflicts.length} Conflict{mergePreview.conflicts.length !== 1 ? 's' : ''} Found
+              Conflict{mergePreview.conflicts.length !== 1 ? 's' : ''} Found
+              <Badge variant={hasHighSeverity ? "destructive" : "warning"}>
+                {mergePreview.conflicts.length}
+              </Badge>
             </>
           )}
         </span>

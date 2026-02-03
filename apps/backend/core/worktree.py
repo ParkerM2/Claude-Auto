@@ -24,8 +24,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import TypedDict, TypeVar
+from typing import Any, TypedDict, TypeVar
 
+from analysis.diff_analyzer import DiffAnalyzer
 from core.gh_executable import get_gh_executable, invalidate_gh_cache
 from core.git_executable import get_git_executable, get_isolated_git_env, run_git
 from debug import debug_warning
@@ -235,7 +236,9 @@ class WorktreeManager:
 
         # 4. Fall back to current branch with warning
         current = self._get_current_branch()
-        print("Warning: Could not find 'feature', 'develop', 'main', or 'master' branch.")
+        print(
+            "Warning: Could not find 'feature', 'develop', 'main', or 'master' branch."
+        )
         print(f"Warning: Using current branch '{current}' as base for worktree.")
         print("Tip: Set FEATURE_BRANCH=your-branch in .env for three-tier strategy.")
         return current
@@ -398,6 +401,50 @@ class WorktreeManager:
             is_active=True,
             **stats,
         )
+
+    def get_detailed_diff(self, spec_name: str) -> dict[str, Any]:
+        """
+        Get detailed line-by-line diff for a spec's worktree.
+
+        This method uses DiffAnalyzer to extract structured diff data including
+        file-level stats, hunks, and individual line changes for visualization.
+
+        Args:
+            spec_name: Name of the spec to get diff for
+
+        Returns:
+            Dictionary containing:
+            - files: List of file diffs with hunks and line-by-line changes
+            - total_additions: Total lines added across all files
+            - total_deletions: Total lines deleted across all files
+            - files_changed: Number of files changed
+            - base_ref: Base branch reference
+            - head_ref: Worktree branch reference
+            - errors: List of any errors encountered
+
+        Raises:
+            WorktreeError: If worktree doesn't exist for the spec
+        """
+        worktree_path = self.get_worktree_path(spec_name)
+        if not worktree_path.exists():
+            raise WorktreeError(f"Worktree does not exist for spec: {spec_name}")
+
+        # Get the worktree branch name
+        branch_name = self.get_branch_name(spec_name)
+
+        # Create diff analyzer for the worktree directory
+        analyzer = DiffAnalyzer(worktree_path)
+
+        # Get detailed diff between base branch and worktree branch
+        # The diff is run from within the worktree, so HEAD is the worktree branch
+        diff_result = analyzer.get_diff(
+            base_ref=self.base_branch,
+            head_ref="HEAD",
+            context_lines=3,
+        )
+
+        # Convert to dictionary for serialization
+        return diff_result.to_dict()
 
     def _check_branch_namespace_conflict(self) -> str | None:
         """
@@ -626,6 +673,116 @@ class WorktreeManager:
             print(f"Deleted branch: {branch_name}")
 
         self._run_git(["worktree", "prune"])
+
+    def preview_merge(self, spec_name: str) -> dict[str, Any]:
+        """
+        Preview a merge without actually performing it, detecting potential conflicts.
+
+        This runs a dry-run merge to identify conflicts before the actual merge,
+        allowing users to see what conflicts would occur and prepare resolution strategies.
+
+        Args:
+            spec_name: The spec folder name
+
+        Returns:
+            Dictionary containing:
+                - success: bool - Whether the preview succeeded
+                - has_conflicts: bool - Whether conflicts were detected
+                - conflicts: list - List of conflicted files (if any)
+                - error: str - Error message (if preview failed)
+        """
+        info = self.get_worktree_info(spec_name)
+        if not info:
+            return {
+                "success": False,
+                "has_conflicts": False,
+                "conflicts": [],
+                "error": f"No worktree found for spec: {spec_name}",
+            }
+
+        # Save current branch to restore later
+        current_branch = self._get_current_branch()
+
+        try:
+            # Switch to base branch if needed
+            if current_branch != self.base_branch:
+                result = self._run_git(["checkout", self.base_branch])
+                if result.returncode != 0:
+                    new_branch = self._get_current_branch()
+                    if new_branch != self.base_branch:
+                        return {
+                            "success": False,
+                            "has_conflicts": False,
+                            "conflicts": [],
+                            "error": f"Could not checkout base branch: {result.stderr[:100]}",
+                        }
+
+            # Perform a test merge with --no-commit --no-ff
+            # This stages the merge but doesn't commit, allowing us to detect conflicts
+            merge_args = ["merge", "--no-commit", "--no-ff", info.branch]
+            result = self._run_git(merge_args)
+
+            # Parse the merge result
+            output = (result.stdout + result.stderr).lower()
+
+            if result.returncode != 0:
+                # Check if it's "already up to date"
+                if "already up to date" in output or "already up-to-date" in output:
+                    return {
+                        "success": True,
+                        "has_conflicts": False,
+                        "conflicts": [],
+                        "message": "Branch is already up to date",
+                    }
+
+                # Check for conflicts
+                if "conflict" in output:
+                    # Get list of conflicted files
+                    status_result = self._run_git(["status", "--porcelain"])
+                    conflicts = []
+                    for line in status_result.stdout.strip().split("\n"):
+                        if (
+                            line.startswith("UU ")
+                            or line.startswith("AA ")
+                            or line.startswith("DD ")
+                        ):
+                            # Extract filename (skip status prefix)
+                            conflicts.append(line[3:].strip())
+
+                    # Abort the merge to clean up
+                    self._run_git(["merge", "--abort"])
+
+                    return {
+                        "success": True,
+                        "has_conflicts": True,
+                        "conflicts": conflicts,
+                        "message": f"Found {len(conflicts)} conflicted file(s)",
+                    }
+
+                # Other error
+                self._run_git(["merge", "--abort"])
+                return {
+                    "success": False,
+                    "has_conflicts": False,
+                    "conflicts": [],
+                    "error": f"Merge preview failed: {result.stderr[:200]}",
+                }
+
+            # No conflicts - merge succeeded
+            # Abort the merge since this is just a preview
+            self._run_git(["merge", "--abort"])
+
+            return {
+                "success": True,
+                "has_conflicts": False,
+                "conflicts": [],
+                "message": "No conflicts detected - merge can proceed safely",
+            }
+
+        finally:
+            # Always restore original branch
+            if current_branch != self.base_branch:
+                self._run_git(["checkout", current_branch])
 
     def merge_worktree(
         self, spec_name: str, delete_after: bool = False, no_commit: bool = False

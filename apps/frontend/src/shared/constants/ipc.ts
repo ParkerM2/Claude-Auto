@@ -32,9 +32,12 @@ export const IPC_CHANNELS = {
   // Per-spec architecture: Each spec has its own worktree at .worktrees/{spec-name}/
   TASK_WORKTREE_STATUS: 'task:worktreeStatus',
   TASK_WORKTREE_DIFF: 'task:worktreeDiff',
+  TASK_WORKTREE_DETAILED_DIFF: 'task:worktreeDetailedDiff',  // Get detailed line-by-line diff for visualization
   TASK_WORKTREE_MERGE: 'task:worktreeMerge',
   TASK_WORKTREE_MERGE_PREVIEW: 'task:worktreeMergePreview',  // Preview merge conflicts before merging
+  TASK_WORKTREE_PREVIEW_CONFLICTS: 'task:worktreePreviewConflicts',  // Preview conflicts with AI-suggested resolution strategies
   TASK_WORKTREE_DISCARD: 'task:worktreeDiscard',
+  TASK_WORKTREE_DISCARD_DIRECT: 'task:worktreeDiscardDirect',  // Direct worktree deletion bypassing spec lifecycle
   TASK_WORKTREE_CREATE_PR: 'task:worktreeCreatePR',
   TASK_WORKTREE_OPEN_IN_IDE: 'task:worktreeOpenInIDE',
   TASK_WORKTREE_OPEN_IN_TERMINAL: 'task:worktreeOpenInTerminal',
@@ -390,6 +393,7 @@ export const IPC_CHANNELS = {
   INSIGHTS_DELETE_SESSION: 'insights:deleteSession',
   INSIGHTS_RENAME_SESSION: 'insights:renameSession',
   INSIGHTS_UPDATE_MODEL_CONFIG: 'insights:updateModelConfig',
+  INSIGHTS_GET_PATTERN_INSIGHTS: 'insights:getPatternInsights',
 
   // Insights events (main -> renderer)
   INSIGHTS_STREAM_CHUNK: 'insights:streamChunk',
@@ -404,6 +408,7 @@ export const IPC_CHANNELS = {
   GIT_GET_BRANCHES: 'git:getBranches',
   GIT_GET_CURRENT_BRANCH: 'git:getCurrentBranch',
   GIT_DETECT_MAIN_BRANCH: 'git:detectMainBranch',
+  GIT_CREATE_BRANCH: 'git:createBranch',
   GIT_CHECK_STATUS: 'git:checkStatus',
   GIT_INITIALIZE: 'git:initialize',
 
@@ -479,5 +484,18 @@ export const IPC_CHANNELS = {
   REVIEW_UPDATE_CHECKLIST: 'review:updateChecklist',
   REVIEW_GET_REVIEWER_ASSIGNMENT: 'review:getReviewerAssignment',
   REVIEW_UPDATE_REVIEWER_ASSIGNMENT: 'review:updateReviewerAssignment',
-  REVIEW_GET_METRICS: 'review:getMetrics'
+  REVIEW_GET_METRICS: 'review:getMetrics',
+
+  // CLAUDE.md generation operations
+  CLAUDE_MD_CHECK: 'claudeMd:check',         // Check if CLAUDE.md exists in project
+  CLAUDE_MD_GENERATE: 'claudeMd:generate',   // Start CLAUDE.md generation
+
+  // CLAUDE.md events (main -> renderer)
+  CLAUDE_MD_PROGRESS: 'claudeMd:progress',   // Progress updates during generation
+  CLAUDE_MD_COMPLETE: 'claudeMd:complete',   // Generation complete
+  CLAUDE_MD_ERROR: 'claudeMd:error',         // Generation failed
+
+  // E2E Testing credential operations (secure storage via Electron safeStorage API)
+  E2E_STORE_CREDENTIAL: 'e2e:store-credential',
+  E2E_RETRIEVE_CREDENTIAL: 'e2e:retrieve-credential'
 } as const;

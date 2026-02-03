@@ -15,9 +15,8 @@ from __future__ import annotations
 import logging
 from enum import Enum
 from pathlib import Path
-from typing import Any
 
-from .jira_client import JiraClient, JiraApiError
+from .jira_client import JiraApiError, JiraClient
 
 # Configure logger
 logger = logging.getLogger(__name__)
