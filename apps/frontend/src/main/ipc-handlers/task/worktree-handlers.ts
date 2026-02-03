@@ -16,6 +16,7 @@ import { getToolPath } from '../../cli-tool-manager';
 import { promisify } from 'util';
 import {
   getTaskWorktreeDir,
+  getTaskWorktreePath,
   findTaskWorktree,
 } from '../../worktree-paths';
 import { persistPlanStatus, updateTaskMetadataPrUrl } from './plan-file-utils';
@@ -1338,8 +1339,8 @@ function getEffectiveBaseBranch(projectPath: string, specId: string, projectMain
     return projectMainBranch;
   }
 
-  // 3. Try to detect main/master branch
-  for (const branch of ['main', 'master']) {
+  // 3. Try to detect develop/main/master branch
+  for (const branch of ['develop', 'main', 'master']) {
     try {
       execFileSync(getToolPath('git'), ['rev-parse', '--verify', branch], {
         cwd: projectPath,
@@ -1352,8 +1353,8 @@ function getEffectiveBaseBranch(projectPath: string, specId: string, projectMain
     }
   }
 
-  // 4. Fallback to 'main'
-  return 'main';
+  // 4. Fallback to 'develop' (modern default)
+  return 'develop';
 }
 
 /**
@@ -1887,11 +1888,121 @@ export function registerWorktreeHandlers(
   );
 
   /**
+   * Get detailed line-by-line diff for worktree visualization
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_WORKTREE_DETAILED_DIFF,
+    async (_, taskId: string): Promise<IPCResult<any>> => {
+      try {
+        const { task, project } = findTaskAndProject(taskId);
+        if (!task || !project) {
+          return { success: false, error: 'Task not found' };
+        }
+
+        // Find worktree at .auto-claude/worktrees/tasks/{spec-name}/
+        const worktreePath = findTaskWorktree(project.path, task.specId);
+
+        if (!worktreePath) {
+          return { success: false, error: 'No worktree found for this task' };
+        }
+
+        // Get effective source path for run.py
+        const sourcePath = getEffectiveSourcePath();
+        if (!sourcePath) {
+          return { success: false, error: 'Auto Claude source not found' };
+        }
+
+        const runScript = path.join(sourcePath, 'run.py');
+        const args = [
+          runScript,
+          '--spec', task.specId,
+          '--project-dir', project.path,
+          '--get-detailed-diff'
+        ];
+
+        // Use configured Python path
+        const pythonPath = getConfiguredPythonPath();
+        console.warn('[IPC] Running detailed diff:', pythonPath, args.join(' '));
+
+        // Get Python environment for bundled packages
+        const pythonEnv = pythonEnvManagerSingleton.getPythonEnv();
+        const profileEnv = getProfileEnv();
+
+        return new Promise((resolve) => {
+          // Parse Python command to handle space-separated commands like "py -3"
+          const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
+          const diffProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
+            cwd: sourcePath,
+            env: {
+              ...getIsolatedGitEnv(),
+              ...pythonEnv,
+              ...profileEnv,
+              PYTHONUNBUFFERED: '1',
+              PYTHONUTF8: '1'
+            },
+            stdio: ['ignore', 'pipe', 'pipe']
+          });
+
+          let stdout = '';
+          let stderr = '';
+
+          diffProcess.stdout.on('data', (data: Buffer) => {
+            stdout += data.toString();
+          });
+
+          diffProcess.stderr.on('data', (data: Buffer) => {
+            stderr += data.toString();
+          });
+
+          diffProcess.on('close', (code: number) => {
+            if (code === 0) {
+              try {
+                const result = JSON.parse(stdout);
+                if (result.success) {
+                  resolve({ success: true, data: result });
+                } else {
+                  resolve({ success: false, error: result.error || 'Failed to get detailed diff' });
+                }
+              } catch (parseError) {
+                console.error('[IPC] Failed to parse detailed diff output:', stdout);
+                resolve({
+                  success: false,
+                  error: `Failed to parse diff output: ${parseError instanceof Error ? parseError.message : String(parseError)}`
+                });
+              }
+            } else {
+              console.error('[IPC] Detailed diff process failed:', stderr);
+              resolve({
+                success: false,
+                error: `Detailed diff failed with code ${code}: ${stderr || 'Unknown error'}`
+              });
+            }
+          });
+
+          diffProcess.on('error', (error: Error) => {
+            console.error('[IPC] Failed to spawn detailed diff process:', error);
+            resolve({
+              success: false,
+              error: `Failed to spawn process: ${error.message}`
+            });
+          });
+        });
+      } catch (error) {
+        console.error('Failed to get detailed worktree diff:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get detailed worktree diff'
+        };
+      }
+    }
+  );
+
+  /**
    * Merge the worktree changes into the main branch
    */
   ipcMain.handle(
     IPC_CHANNELS.TASK_WORKTREE_MERGE,
-    async (_, taskId: string, options?: { noCommit?: boolean }): Promise<IPCResult<WorktreeMergeResult>> => {
+    async (_, taskId: string, options?: { noCommit?: boolean; conflictResolutions?: Record<string, string> }): Promise<IPCResult<WorktreeMergeResult>> => {
       const isDebugMode = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development';
       const debug = (...args: unknown[]) => {
         if (isDebugMode) {
@@ -2011,6 +2122,13 @@ export function registerWorktreeHandlers(
           args.push('--base-branch', effectiveBaseBranch);
           debug('Using base branch:', effectiveBaseBranch,
             `(source: ${taskBaseBranch ? 'task metadata' : 'project settings'})`);
+        }
+
+        // Add --conflict-resolutions if user has selected custom strategies
+        if (options?.conflictResolutions) {
+          const resolutionsJson = JSON.stringify(options.conflictResolutions);
+          args.push('--conflict-resolutions', resolutionsJson);
+          debug('Using conflict resolutions:', resolutionsJson);
         }
 
         // Use configured Python path (venv if ready, otherwise bundled/system)
@@ -2612,6 +2730,197 @@ export function registerWorktreeHandlers(
   );
 
   /**
+   * Preview merge conflicts with AI-suggested resolution strategies
+   * This is the new endpoint for the merge conflict analysis feature.
+   * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_WORKTREE_PREVIEW_CONFLICTS,
+    async (_, taskId: string): Promise<IPCResult<WorktreeMergeResult>> => {
+      console.warn('[IPC] TASK_WORKTREE_PREVIEW_CONFLICTS called with taskId:', taskId);
+      try {
+        // Ensure Python environment is ready
+        if (!pythonEnvManager.isEnvReady()) {
+          console.warn('[IPC] Python environment not ready, initializing...');
+          const autoBuildSource = getEffectiveSourcePath();
+          if (autoBuildSource) {
+            const status = await pythonEnvManager.initialize(autoBuildSource);
+            if (!status.ready) {
+              console.error('[IPC] Python environment failed to initialize:', status.error);
+              return { success: false, error: `Python environment not ready: ${status.error || 'Unknown error'}` };
+            }
+          } else {
+            console.error('[IPC] Auto Claude source not found');
+            return { success: false, error: 'Python environment not ready and Auto Claude source not found' };
+          }
+        }
+
+        const { task, project } = findTaskAndProject(taskId);
+        if (!task || !project) {
+          console.error('[IPC] Task not found:', taskId);
+          return { success: false, error: 'Task not found' };
+        }
+        console.warn('[IPC] Found task:', task.specId, 'project:', project.name);
+
+        // Check for uncommitted changes in the main project (only if not a bare repo)
+        let hasUncommittedChanges = false;
+        let uncommittedFiles: string[] = [];
+        if (isGitWorkTree(project.path)) {
+          try {
+            const gitStatus = execFileSync(getToolPath('git'), ['status', '--porcelain'], {
+              cwd: project.path,
+              encoding: 'utf-8'
+            });
+
+            if (gitStatus && gitStatus.trim()) {
+              // Parse the status output to get file names
+              // Format: XY filename (where X and Y are status chars, then space, then filename)
+              uncommittedFiles = gitStatus
+                .split('\n')
+                .filter(line => line.trim())
+                .map(line => line.substring(3).trim()); // Skip 2 status chars + 1 space, trim any trailing whitespace
+
+              hasUncommittedChanges = uncommittedFiles.length > 0;
+            }
+          } catch (e) {
+            console.error('[IPC] Failed to check git status:', e);
+          }
+        } else {
+          console.warn('[IPC] Project is a bare repository - skipping uncommitted changes check');
+        }
+
+        const sourcePath = getEffectiveSourcePath();
+        if (!sourcePath) {
+          console.error('[IPC] Auto Claude source not found');
+          return { success: false, error: 'Auto Claude source not found' };
+        }
+
+        const runScript = path.join(sourcePath, 'run.py');
+        const specDir = path.join(project.path, project.autoBuildPath || '.auto-claude', 'specs', task.specId);
+        const args = [
+          runScript,
+          '--spec', task.specId,
+          '--project-dir', project.path,
+          '--merge-preview'
+        ];
+
+        // Add --base-branch with proper priority:
+        // 1. Task metadata baseBranch (explicit task-level override)
+        // 2. Project settings mainBranch (project-level default)
+        // This matches the logic in execution-handlers.ts
+        const taskBaseBranch = getTaskBaseBranch(specDir);
+        const projectMainBranch = project.settings?.mainBranch;
+        const effectiveBaseBranch = taskBaseBranch || projectMainBranch;
+
+        if (effectiveBaseBranch) {
+          args.push('--base-branch', effectiveBaseBranch);
+          console.warn('[IPC] Using base branch for preview:', effectiveBaseBranch,
+            `(source: ${taskBaseBranch ? 'task metadata' : 'project settings'})`);
+        }
+
+        // Use configured Python path (venv if ready, otherwise bundled/system)
+        const pythonPath = getConfiguredPythonPath();
+        console.warn('[IPC] Running merge preview:', pythonPath, args.join(' '));
+
+        // Get profile environment for consistency
+        const previewProfileEnv = getProfileEnv();
+        // Get Python environment for bundled packages
+        const previewPythonEnv = pythonEnvManagerSingleton.getPythonEnv();
+
+        return new Promise((resolve) => {
+          // Parse Python command to handle space-separated commands like "py -3"
+          const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
+          const previewProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
+            cwd: sourcePath,
+            env: { ...getIsolatedGitEnv(), ...previewPythonEnv, ...previewProfileEnv, PYTHONUNBUFFERED: '1', PYTHONUTF8: '1', DEBUG: 'true' }
+          });
+
+          let stdout = '';
+          let stderr = '';
+
+          previewProcess.stdout.on('data', (data: Buffer) => {
+            const chunk = data.toString();
+            stdout += chunk;
+            console.warn('[IPC] preview-conflicts stdout:', chunk);
+          });
+
+          previewProcess.stderr.on('data', (data: Buffer) => {
+            const chunk = data.toString();
+            stderr += chunk;
+            console.warn('[IPC] preview-conflicts stderr:', chunk);
+          });
+
+          previewProcess.on('close', (code: number) => {
+            console.warn('[IPC] preview-conflicts process exited with code:', code);
+            if (code === 0) {
+              try {
+                // Parse JSON output from Python
+                const result = JSON.parse(stdout.trim());
+                console.warn('[IPC] preview-conflicts result:', JSON.stringify(result, null, 2));
+                resolve({
+                  success: true,
+                  data: {
+                    success: result.success,
+                    message: result.error || 'Preview completed',
+                    preview: {
+                      files: result.files || [],
+                      conflicts: result.conflicts || [],
+                      summary: result.summary || {
+                        totalFiles: 0,
+                        conflictFiles: 0,
+                        totalConflicts: 0,
+                        autoMergeable: 0,
+                        hasGitConflicts: false
+                      },
+                      gitConflicts: result.gitConflicts || null,
+                      // Include uncommitted changes info for the frontend
+                      uncommittedChanges: hasUncommittedChanges ? {
+                        hasChanges: true,
+                        files: uncommittedFiles,
+                        count: uncommittedFiles.length
+                      } : null
+                    }
+                  }
+                });
+              } catch (parseError) {
+                console.error('[IPC] Failed to parse preview result:', parseError);
+                console.error('[IPC] stdout:', stdout);
+                console.error('[IPC] stderr:', stderr);
+                resolve({
+                  success: false,
+                  error: `Failed to parse preview result: ${stderr || stdout}`
+                });
+              }
+            } else {
+              console.error('[IPC] Preview failed with exit code:', code);
+              console.error('[IPC] stderr:', stderr);
+              console.error('[IPC] stdout:', stdout);
+              resolve({
+                success: false,
+                error: `Preview failed: ${stderr || stdout}`
+              });
+            }
+          });
+
+          previewProcess.on('error', (err: Error) => {
+            console.error('[IPC] preview-conflicts spawn error:', err);
+            resolve({
+              success: false,
+              error: `Failed to run preview: ${err.message}`
+            });
+          });
+        });
+      } catch (error) {
+        console.error('[IPC] TASK_WORKTREE_PREVIEW_CONFLICTS error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to preview merge'
+        };
+      }
+    }
+  );
+
+  /**
    * Discard the worktree changes
    * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
    */
@@ -2622,6 +2931,18 @@ export function registerWorktreeHandlers(
         const { task, project } = findTaskAndProject(taskId);
         if (!task || !project) {
           return { success: false, error: 'Task not found' };
+        }
+
+        // Prune stale worktree registrations first to clean up any phantom entries
+        try {
+          execFileSync(getToolPath('git'), ['worktree', 'prune'], {
+            cwd: project.path,
+            encoding: 'utf-8',
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: getIsolatedGitEnv(),
+          });
+        } catch {
+          // Ignore prune errors - not critical
         }
 
         // Find worktree at .auto-claude/worktrees/tasks/{spec-name}/
@@ -2637,27 +2958,68 @@ export function registerWorktreeHandlers(
           };
         }
 
-        try {
-          // Get the branch name before removing
-          const branch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
-            cwd: worktreePath,
-            encoding: 'utf-8'
-          }).trim();
-
-          // Remove the worktree
-          execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
-            cwd: project.path,
-            encoding: 'utf-8'
-          });
-
-          // Delete the branch
+        // Check if worktree exists on disk - if not, it may have been deleted externally
+        if (!existsSync(worktreePath)) {
+          // Run prune again to clean git registry, then return success
           try {
-            execFileSync(getToolPath('git'), ['branch', '-D', branch], {
+            execFileSync(getToolPath('git'), ['worktree', 'prune'], {
               cwd: project.path,
-              encoding: 'utf-8'
+              encoding: 'utf-8',
+              stdio: ['pipe', 'pipe', 'pipe'],
+              env: getIsolatedGitEnv(),
             });
           } catch {
-            // Branch might already be deleted or not exist
+            // Ignore prune errors
+          }
+
+          // Only send status change to backlog if not skipped
+          if (!skipStatusChange) {
+            const mainWindow = getMainWindow();
+            if (mainWindow) {
+              mainWindow.webContents.send(IPC_CHANNELS.TASK_STATUS_CHANGE, taskId, 'backlog');
+            }
+          }
+
+          return {
+            success: true,
+            data: {
+              success: true,
+              message: 'Worktree already removed'
+            }
+          };
+        }
+
+        try {
+          // Get the branch name before removing (may fail for detached HEAD or corrupt worktree)
+          let branch: string | null = null;
+          try {
+            branch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
+              cwd: worktreePath,
+              encoding: 'utf-8',
+              env: getIsolatedGitEnv(),
+            }).trim();
+          } catch {
+            // Branch detection can fail - continue with worktree removal
+          }
+
+          // Remove the worktree with force flag to handle edge cases
+          execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
+            cwd: project.path,
+            encoding: 'utf-8',
+            env: getIsolatedGitEnv(),
+          });
+
+          // Delete the branch if we found one (catch and ignore if already deleted)
+          if (branch && branch !== 'HEAD') {
+            try {
+              execFileSync(getToolPath('git'), ['branch', '-D', branch], {
+                cwd: project.path,
+                encoding: 'utf-8',
+                env: getIsolatedGitEnv(),
+              });
+            } catch {
+              // Branch might already be deleted, merged, or protected
+            }
           }
 
           // Only send status change to backlog if not skipped
@@ -2694,6 +3056,110 @@ export function registerWorktreeHandlers(
   );
 
   /**
+   * Direct worktree deletion bypassing spec lifecycle
+   * Used for orphan worktree cleanup when task reference no longer exists
+   * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_WORKTREE_DISCARD_DIRECT,
+    async (_, projectPath: string, specName: string): Promise<IPCResult<WorktreeDiscardResult>> => {
+      try {
+        // Validate projectPath against registered projects (security)
+        const project = projectStore.getProjects().find(p => p.path === projectPath);
+        if (!project) {
+          return { success: false, error: 'Invalid project path' };
+        }
+
+        // Validate specName - basic sanitization to prevent path traversal
+        if (!specName || specName.includes('..') || specName.includes('/') || specName.includes('\\')) {
+          return { success: false, error: 'Invalid spec name' };
+        }
+
+        // Prune stale worktree registrations first
+        try {
+          execFileSync(getToolPath('git'), ['worktree', 'prune'], {
+            cwd: projectPath,
+            encoding: 'utf-8',
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: getIsolatedGitEnv(),
+          });
+        } catch {
+          // Ignore prune errors - not critical
+        }
+
+        // Find or construct the worktree path
+        const worktreePath = findTaskWorktree(projectPath, specName) || getTaskWorktreePath(projectPath, specName);
+
+        // Check if worktree exists on disk
+        if (!existsSync(worktreePath)) {
+          // Worktree already gone - success (cleanup is idempotent)
+          return {
+            success: true,
+            data: {
+              success: true,
+              message: 'Worktree already removed'
+            }
+          };
+        }
+
+        try {
+          // Get the branch name before removing
+          let branch: string | null = null;
+          try {
+            branch = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
+              cwd: worktreePath,
+              encoding: 'utf-8',
+              env: getIsolatedGitEnv(),
+            }).trim();
+          } catch {
+            // Branch detection can fail for detached HEAD or corrupt worktree
+          }
+
+          // Remove the worktree with force flag to handle edge cases
+          execFileSync(getToolPath('git'), ['worktree', 'remove', '--force', worktreePath], {
+            cwd: projectPath,
+            encoding: 'utf-8',
+            env: getIsolatedGitEnv(),
+          });
+
+          // Delete the branch if we found one (catch and ignore if already deleted)
+          if (branch && branch !== 'HEAD') {
+            try {
+              execFileSync(getToolPath('git'), ['branch', '-D', branch], {
+                cwd: projectPath,
+                encoding: 'utf-8',
+                env: getIsolatedGitEnv(),
+              });
+            } catch {
+              // Branch might already be deleted, merged, or protected
+            }
+          }
+
+          return {
+            success: true,
+            data: {
+              success: true,
+              message: 'Worktree discarded successfully'
+            }
+          };
+        } catch (gitError) {
+          console.error('Git error discarding worktree directly:', gitError);
+          return {
+            success: false,
+            error: `Failed to discard worktree: ${gitError instanceof Error ? gitError.message : 'Unknown error'}`
+          };
+        }
+      } catch (error) {
+        console.error('Failed to discard worktree directly:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to discard worktree'
+        };
+      }
+    }
+  );
+
+  /**
    * List all spec worktrees for a project
    * Per-spec architecture: Each spec has its own worktree at .auto-claude/worktrees/tasks/{spec-name}/
    */
@@ -2708,6 +3174,19 @@ export function registerWorktreeHandlers(
 
         const worktrees: WorktreeListItem[] = [];
         const worktreesDir = getTaskWorktreeDir(project.path);
+
+        // Prune stale worktree registrations before listing
+        // This cleans up entries pointing to non-existent directories (phantom worktrees)
+        try {
+          execFileSync(getToolPath('git'), ['worktree', 'prune'], {
+            cwd: project.path,
+            encoding: 'utf-8',
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: getIsolatedGitEnv(),
+          });
+        } catch {
+          // Ignore prune errors - not critical for listing operation
+        }
 
         // Helper to process a single worktree entry
         const processWorktreeEntry = (entry: string, entryPath: string) => {

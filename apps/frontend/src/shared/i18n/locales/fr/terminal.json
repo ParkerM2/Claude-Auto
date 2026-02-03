@@ -31,6 +31,8 @@
     "noBranchFound": "Aucune branche trouvee",
     "useProjectDefault": "Utiliser la valeur par defaut du projet ({{branch}})",
     "baseBranchHelp": "La branche a partir de laquelle creer le worktree",
+    "noDevelopBranch": "Aucune branche develop trouvée. En créer une pour les worktrees?",
+    "createDevelop": "Créer develop",
     "openInIDE": "Ouvrir dans IDE",
     "maxReached": "Maximum de 12 worktrees terminal atteint",
     "alreadyExists": "Un worktree avec ce nom existe deja",

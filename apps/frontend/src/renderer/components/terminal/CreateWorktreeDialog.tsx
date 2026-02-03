@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GitBranch, Loader2, FolderGit, ListTodo } from 'lucide-react';
+import { GitBranch, Loader2, FolderGit, ListTodo, Info } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -100,6 +100,10 @@ export function CreateWorktreeDialog({
   const [baseBranch, setBaseBranch] = useState<string>(PROJECT_DEFAULT_BRANCH);
   const [projectDefaultBranch, setProjectDefaultBranch] = useState<string>('');
 
+  // State for missing develop branch scenario
+  const [showCreateDevelopPrompt, setShowCreateDevelopPrompt] = useState(false);
+  const [isCreatingDevelop, setIsCreatingDevelop] = useState(false);
+
   // Sanitized name for validation (without display fallback)
   const sanitizedName = useMemo(() => sanitizeWorktreeName(name, undefined, true), [name]);
 
@@ -114,12 +118,24 @@ export function CreateWorktreeDialog({
 
     const fetchBranches = async () => {
       setIsLoadingBranches(true);
+      setShowCreateDevelopPrompt(false);
       try {
         const result = await window.electronAPI.getGitBranches(projectPath);
         if (!isMounted) return;
 
         if (result.success && result.data) {
           setBranches(result.data);
+
+          // Check if develop branch is missing but main exists
+          // This helps fresh repos that only have main
+          const hasDevelop = result.data.some(b => b === 'develop' || b === 'origin/develop');
+          const hasMain = result.data.some(b => b === 'main' || b === 'origin/main');
+          const hasMaster = result.data.some(b => b === 'master' || b === 'origin/master');
+
+          // Show prompt if only main/master exists without develop
+          if (!hasDevelop && (hasMain || hasMaster)) {
+            setShowCreateDevelopPrompt(true);
+          }
         }
 
         // Use project settings mainBranch if available, otherwise auto-detect
@@ -176,6 +192,36 @@ export function CreateWorktreeDialog({
     }
   }, [backlogTasks, name]);
 
+  // Handle creating the develop branch
+  const handleCreateDevelop = async () => {
+    setIsCreatingDevelop(true);
+    setError(null);
+
+    try {
+      // Determine source branch (main or master)
+      const sourceBranch = branches.find(b => b === 'main') || branches.find(b => b === 'master') || 'main';
+
+      const result = await window.electronAPI.createGitBranch(projectPath, 'develop', sourceBranch);
+
+      if (result.success) {
+        // Refresh branches list
+        const branchResult = await window.electronAPI.getGitBranches(projectPath);
+        if (branchResult.success && branchResult.data) {
+          setBranches(branchResult.data);
+        }
+        setShowCreateDevelopPrompt(false);
+        // Auto-select develop as base branch
+        setBaseBranch('develop');
+      } else {
+        setError(result.error || t('common:errors.generic'));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('common:errors.generic'));
+    } finally {
+      setIsCreatingDevelop(false);
+    }
+  };
+
   const handleCreate = async () => {
     // Final sanitization: trim trailing hyphens/underscores for submission
     const finalName = sanitizeWorktreeName(name, undefined, true);
@@ -231,6 +277,8 @@ export function CreateWorktreeDialog({
       setCreateGitBranch(true);
       setBaseBranch(PROJECT_DEFAULT_BRANCH);
       setError(null);
+      setShowCreateDevelopPrompt(false);
+      setIsCreatingDevelop(false);
     }
     onOpenChange(newOpen);
   };
@@ -271,6 +319,32 @@ export function CreateWorktreeDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Alert for missing develop branch */}
+          {showCreateDevelopPrompt && (
+            <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/50">
+              <Info className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="text-sm text-muted-foreground flex-1">
+                {t('terminal:worktree.noDevelopBranch', 'No develop branch found. Create one to use for worktrees?')}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCreateDevelop}
+                disabled={isCreatingDevelop}
+                className="shrink-0"
+              >
+                {isCreatingDevelop ? (
+                  <>
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    {t('common:labels.creating')}
+                  </>
+                ) : (
+                  t('terminal:worktree.createDevelop', 'Create develop')
+                )}
+              </Button>
+            </div>
+          )}
+
           {/* Worktree Name */}
           <div className="space-y-2">
             <Label htmlFor="worktree-name">{t('terminal:worktree.name')}</Label>

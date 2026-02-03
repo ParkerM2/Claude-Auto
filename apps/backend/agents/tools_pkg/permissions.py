@@ -16,10 +16,10 @@ for backwards compatibility.
 
 from .models import (
     AGENT_CONFIGS,
+    CHROME_DEVTOOLS_TOOLS,
     CONTEXT7_TOOLS,
     ELECTRON_TOOLS,
     GRAPHITI_MCP_TOOLS,
-    LINEAR_TOOLS,
     PUPPETEER_TOOLS,
     get_agent_config,
     get_required_mcp_servers,
@@ -30,7 +30,6 @@ from .registry import is_tools_available
 def get_allowed_tools(
     agent_type: str,
     project_capabilities: dict | None = None,
-    linear_enabled: bool = False,
     mcp_config: dict | None = None,
 ) -> list[str]:
     """
@@ -46,7 +45,6 @@ def get_allowed_tools(
         agent_type: Agent type identifier (e.g., 'coder', 'planner', 'qa_reviewer')
         project_capabilities: Optional dict from detect_project_capabilities()
                             containing flags like is_electron, is_web_frontend, etc.
-        linear_enabled: Whether Linear integration is enabled for this project
         mcp_config: Per-project MCP server toggles from .auto-claude/.env
 
     Returns:
@@ -65,7 +63,6 @@ def get_allowed_tools(
     required_servers = get_required_mcp_servers(
         agent_type,
         project_capabilities,
-        linear_enabled,
         mcp_config,
     )
 
@@ -97,14 +94,14 @@ def _get_mcp_tools_for_servers(servers: list[str]) -> list[str]:
     for server in servers:
         if server == "context7":
             tools.extend(CONTEXT7_TOOLS)
-        elif server == "linear":
-            tools.extend(LINEAR_TOOLS)
         elif server == "graphiti":
             tools.extend(GRAPHITI_MCP_TOOLS)
         elif server == "electron":
             tools.extend(ELECTRON_TOOLS)
         elif server == "puppeteer":
             tools.extend(PUPPETEER_TOOLS)
+        elif server == "chrome-devtools":
+            tools.extend(CHROME_DEVTOOLS_TOOLS)
         # auto-claude tools are already added via config["auto_claude_tools"]
 
     return tools

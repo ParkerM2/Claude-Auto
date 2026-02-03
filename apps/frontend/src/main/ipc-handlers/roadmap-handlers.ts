@@ -4,6 +4,7 @@ import {
   IPC_CHANNELS,
   AUTO_BUILD_PATHS,
   getSpecsDir,
+  getRoadmapDir,
   DEFAULT_APP_SETTINGS,
   DEFAULT_FEATURE_MODELS,
   DEFAULT_FEATURE_THINKING,
@@ -77,9 +78,10 @@ export function registerRoadmapHandlers(
         return { success: false, error: "Project not found" };
       }
 
+      const roadmapDir = getRoadmapDir(project.autoBuildPath);
       const roadmapPath = path.join(
         project.path,
-        AUTO_BUILD_PATHS.ROADMAP_DIR,
+        roadmapDir,
         AUTO_BUILD_PATHS.ROADMAP_FILE
       );
 
@@ -94,7 +96,7 @@ export function registerRoadmapHandlers(
         // Load competitor analysis if available (competitor_analysis.json)
         const competitorAnalysisPath = path.join(
           project.path,
-          AUTO_BUILD_PATHS.ROADMAP_DIR,
+          roadmapDir,
           AUTO_BUILD_PATHS.COMPETITOR_ANALYSIS
         );
         let competitorAnalysis: CompetitorAnalysis | undefined;
@@ -373,7 +375,7 @@ export function registerRoadmapHandlers(
 
       const roadmapPath = path.join(
         project.path,
-        AUTO_BUILD_PATHS.ROADMAP_DIR,
+        getRoadmapDir(project.autoBuildPath),
         AUTO_BUILD_PATHS.ROADMAP_FILE
       );
 
@@ -434,7 +436,7 @@ export function registerRoadmapHandlers(
 
       const roadmapPath = path.join(
         project.path,
-        AUTO_BUILD_PATHS.ROADMAP_DIR,
+        getRoadmapDir(project.autoBuildPath),
         AUTO_BUILD_PATHS.ROADMAP_FILE
       );
 
@@ -478,7 +480,7 @@ export function registerRoadmapHandlers(
 
       const roadmapPath = path.join(
         project.path,
-        AUTO_BUILD_PATHS.ROADMAP_DIR,
+        getRoadmapDir(project.autoBuildPath),
         AUTO_BUILD_PATHS.ROADMAP_FILE
       );
 

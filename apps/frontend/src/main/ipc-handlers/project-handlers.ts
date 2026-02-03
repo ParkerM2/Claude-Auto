@@ -468,6 +468,52 @@ export function registerProjectHandlers(
     }
   );
 
+  // Create a new branch from a source branch
+  ipcMain.handle(
+    IPC_CHANNELS.GIT_CREATE_BRANCH,
+    async (_, projectPath: string, branchName: string, sourceBranch: string): Promise<IPCResult<string>> => {
+      try {
+        if (!existsSync(projectPath)) {
+          return { success: false, error: 'Directory does not exist' };
+        }
+
+        // Validate branch name (alphanumeric, dots, slashes, dashes, underscores)
+        const GIT_BRANCH_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/;
+        if (!GIT_BRANCH_REGEX.test(branchName)) {
+          return { success: false, error: 'Invalid branch name' };
+        }
+        if (!GIT_BRANCH_REGEX.test(sourceBranch)) {
+          return { success: false, error: 'Invalid source branch name' };
+        }
+
+        // Check if branch already exists
+        const branches = getGitBranches(projectPath);
+        if (branches.includes(branchName)) {
+          return { success: false, error: `Branch '${branchName}' already exists` };
+        }
+
+        // Check if source branch exists
+        if (!branches.includes(sourceBranch) && !branches.includes(`origin/${sourceBranch}`)) {
+          return { success: false, error: `Source branch '${sourceBranch}' does not exist` };
+        }
+
+        // Create the branch
+        execFileSync(getToolPath('git'), ['branch', branchName, sourceBranch], {
+          cwd: projectPath,
+          encoding: 'utf-8',
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+
+        return { success: true, data: branchName };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to create branch'
+        };
+      }
+    }
+  );
+
   // Check git status for a project (is it a repo? has commits?)
   ipcMain.handle(
     IPC_CHANNELS.GIT_CHECK_STATUS,

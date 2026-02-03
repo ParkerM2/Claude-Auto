@@ -175,6 +175,11 @@ Environment Variables:
         action="store_true",
         help="Push branch and create a GitHub Pull Request",
     )
+    build_group.add_argument(
+        "--preview-merge",
+        action="store_true",
+        help="Analyze potential merge conflicts before merging",
+    )
 
     # PR options
     parser.add_argument(
@@ -205,6 +210,17 @@ Environment Variables:
         "--merge-preview",
         action="store_true",
         help="Preview merge conflicts without actually merging (returns JSON)",
+    )
+    parser.add_argument(
+        "--get-detailed-diff",
+        action="store_true",
+        help="Get detailed line-by-line diff for worktree (returns JSON)",
+    )
+    parser.add_argument(
+        "--conflict-resolutions",
+        type=str,
+        metavar="JSON",
+        help="With --merge: JSON string with user-selected conflict resolution strategies",
     )
 
     # QA options
@@ -423,12 +439,23 @@ def _run_cli() -> None:
         print(json.dumps(result))
         return
 
+    if args.get_detailed_diff:
+        from cli.workspace_commands import handle_detailed_diff_command
+
+        result = handle_detailed_diff_command(project_dir, spec_dir.name)
+        # Output as JSON for the UI to parse
+        import json
+
+        print(json.dumps(result))
+        return
+
     if args.merge:
         success = handle_merge_command(
             project_dir,
             spec_dir.name,
             no_commit=args.no_commit,
             base_branch=args.base_branch,
+            conflict_resolutions=args.conflict_resolutions,
         )
         if not success:
             sys.exit(1)

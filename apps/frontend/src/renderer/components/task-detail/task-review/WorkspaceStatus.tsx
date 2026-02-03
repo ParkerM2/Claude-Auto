@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import {
   GitBranch,
   FileCode,
@@ -19,6 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '../../ui/button';
 import { Checkbox } from '../../ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../ui/tooltip';
+import { Badge } from '../../ui/badge';
 import { cn } from '../../../lib/utils';
 import type { WorktreeStatus, MergeConflict, MergeStats, GitConflictInfo, SupportedIDE, SupportedTerminal } from '../../../../shared/types';
 import { useSettingsStore } from '../../../stores/settings-store';
@@ -36,12 +38,13 @@ interface WorkspaceStatusProps {
     canMerge: boolean;
     blockingReasons: string[];
   };
+  selectedConflictStrategies?: Record<string, string>;
   onShowDiffDialog: (show: boolean) => void;
   onShowDiscardDialog: (show: boolean) => void;
   onShowConflictDialog: (show: boolean) => void;
   onLoadMergePreview: () => void;
   onStageOnlyChange: (value: boolean) => void;
-  onMerge: () => void;
+  onMerge: (conflictResolutions?: Record<string, string>) => void;
   onShowPRDialog?: (show: boolean) => void;
   onClose?: () => void;
   onSwitchToTerminals?: () => void;
@@ -95,6 +98,7 @@ export function WorkspaceStatus({
   isDiscarding,
   isCreatingPR,
   approvalGate,
+  selectedConflictStrategies,
   onShowDiffDialog,
   onShowDiscardDialog,
   onShowConflictDialog,
@@ -110,6 +114,13 @@ export function WorkspaceStatus({
   const { settings } = useSettingsStore();
   const preferredIDE = settings.preferredIDE || 'vscode';
   const preferredTerminal = settings.preferredTerminal || 'system';
+
+  // Auto-load merge preview when component mounts (review tab opens)
+  useEffect(() => {
+    if (!mergePreview && !isLoadingPreview) {
+      onLoadMergePreview();
+    }
+  }, [mergePreview, isLoadingPreview, onLoadMergePreview]);
 
   const handleOpenInIDE = async () => {
     if (!worktreeStatus.worktreePath) return;
@@ -157,6 +168,11 @@ export function WorkspaceStatus({
 
   // Has path-mapped files that need AI merge
   const hasPathMappedMerges = pathMappedAIMergeCount > 0;
+
+  // Calculate total conflict count for badge
+  const gitConflictCount = mergePreview?.gitConflicts?.conflictingFiles.length || 0;
+  const aiConflictCount = mergePreview?.conflicts.length || 0;
+  const totalConflictCount = gitConflictCount + aiConflictCount;
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -445,7 +461,7 @@ export function WorkspaceStatus({
               <TooltipTrigger asChild>
                 <Button
                   variant={hasGitConflicts || isBranchBehind || hasPathMappedMerges ? "warning" : "success"}
-                  onClick={onMerge}
+                  onClick={() => onMerge(selectedConflictStrategies)}
                   disabled={isMerging || isDiscarding || (approvalGate && !approvalGate.canMerge)}
                   className="flex-1"
                 >
@@ -466,6 +482,11 @@ export function WorkspaceStatus({
                         : (stageOnly
                             ? t('taskReview:merge.buttons.stageTo', { branch: worktreeStatus.currentProjectBranch || worktreeStatus.baseBranch || 'main' })
                             : t('taskReview:merge.buttons.mergeTo', { branch: worktreeStatus.currentProjectBranch || worktreeStatus.baseBranch || 'main' }))}
+                      {totalConflictCount > 0 && (
+                        <Badge variant="destructive" className="ml-2">
+                          {totalConflictCount}
+                        </Badge>
+                      )}
                     </>
                   )}
                 </Button>

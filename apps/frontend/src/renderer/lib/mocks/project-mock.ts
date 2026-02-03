@@ -98,6 +98,11 @@ export const projectMock = {
     data: 'main'
   }),
 
+  createGitBranch: async (_projectPath: string, branchName: string) => ({
+    success: true,
+    data: branchName
+  }),
+
   checkGitStatus: async () => ({
     success: true,
     data: {

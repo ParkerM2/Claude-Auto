@@ -5,7 +5,7 @@
 import path from 'path';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import type { IpcMainInvokeEvent } from 'electron';
-import { AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
+import { AUTO_BUILD_PATHS, getSpecsDir, getIdeationDir } from '../../../shared/constants';
 import type {
   IPCResult,
   Task,
@@ -190,7 +190,7 @@ export async function convertIdeaToTask(
 
   const ideationPath = path.join(
     project.path,
-    AUTO_BUILD_PATHS.IDEATION_DIR,
+    getIdeationDir(project.autoBuildPath),
     AUTO_BUILD_PATHS.IDEATION_FILE
   );
 

@@ -31,6 +31,7 @@ interface ThemeSelectorProps {
 export function ThemeSelector({ settings, onSettingsChange }: ThemeSelectorProps) {
   const { t } = useTranslation(['settings', 'common']);
   const updateStoreSettings = useSettingsStore((state) => state.updateSettings);
+  const updateAndPersist = useSettingsStore((state) => state.updateAndPersist);
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newThemeName, setNewThemeName] = useState('');
@@ -107,7 +108,8 @@ export function ThemeSelector({ settings, onSettingsChange }: ThemeSelectorProps
       colorTheme: themeId,
     };
     onSettingsChange(updatedSettings);
-    updateStoreSettings({ customThemes: updatedThemes, colorTheme: themeId });
+    // Persist immediately so themes survive HMR/refresh
+    updateAndPersist({ customThemes: updatedThemes, colorTheme: themeId });
 
     // Reset dialog state
     setNewThemeName('');
@@ -133,7 +135,8 @@ export function ThemeSelector({ settings, onSettingsChange }: ThemeSelectorProps
       colorTheme: newColorTheme,
     };
     onSettingsChange(updatedSettings);
-    updateStoreSettings({ customThemes: updatedThemes, colorTheme: newColorTheme });
+    // Persist immediately so deletion survives HMR/refresh
+    updateAndPersist({ customThemes: updatedThemes, colorTheme: newColorTheme });
   };
 
   const getModeIcon = (mode: string) => {

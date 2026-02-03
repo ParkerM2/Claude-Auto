@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download, RefreshCw, AlertCircle } from 'lucide-react';
 import { debugLog } from '../shared/utils/debug-logger';
@@ -64,23 +64,28 @@ import { GlobalDownloadIndicator } from './components/status/GlobalDownloadIndic
 import { useIpcListeners } from './hooks/useIpc';
 import { useGlobalTerminalListeners } from './hooks/useGlobalTerminalListeners';
 import { useTerminalProfileChange } from './hooks/useTerminalProfileChange';
+import { useGlobalRefresh } from './hooks/useGlobalRefresh';
+import { useFontSettings } from './hooks/useFontSettings';
 import { COLOR_THEMES, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT } from '../shared/constants';
 import type { Task, Project, ColorTheme } from '../shared/types';
 import { ProjectTabBar } from './components/layout/ProjectTabBar';
-import { AddProjectModal } from './components/modals/AddProjectModal';
-import { ViewStateProvider } from './contexts/ViewStateContext';
+import { AddProjectModal, ClaudeMdGenerationDialog } from './components/modals';
+import { ViewStateProvider, useViewState } from './contexts/ViewStateContext';
 
 // Version constant for version-specific warnings (e.g., reauthentication notices)
 const VERSION_WARNING_275 = '2.7.5';
 
-// Wrapper component for ProjectTabBar
+// Wrapper component for ProjectTabBar that accesses ViewStateContext
 interface ProjectTabBarWithContextProps {
   projects: Project[];
   activeProjectId: string | null;
   onProjectSelect: (projectId: string) => void;
   onProjectClose: (projectId: string) => void;
   onAddProject: () => void;
-  onSettingsClick: () => void;
+  projectGitHubStatus?: Record<string, boolean>;
+  activeView: SidebarView;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 function ProjectTabBarWithContext({
@@ -89,8 +94,14 @@ function ProjectTabBarWithContext({
   onProjectSelect,
   onProjectClose,
   onAddProject,
-  onSettingsClick
+  projectGitHubStatus,
+  activeView,
+  onRefresh,
+  isRefreshing
 }: ProjectTabBarWithContextProps) {
+  // Access view state context for kanban view mode
+  const { viewMode, setViewMode } = useViewState();
+
   return (
     <ProjectTabBar
       projects={projects}
@@ -98,7 +109,12 @@ function ProjectTabBarWithContext({
       onProjectSelect={onProjectSelect}
       onProjectClose={onProjectClose}
       onAddProject={onAddProject}
-      onSettingsClick={onSettingsClick}
+      projectGitHubStatus={projectGitHubStatus}
+      activeView={activeView}
+      viewMode={viewMode}
+      onViewModeChange={setViewMode}
+      onRefresh={onRefresh}
+      isRefreshing={isRefreshing}
     />
   );
 }
@@ -113,6 +129,9 @@ export function App() {
 
   // Handle terminal profile change events (recreate terminals on profile switch)
   useTerminalProfileChange();
+
+  // Apply font settings to document
+  useFontSettings();
 
   // Stores
   const projects = useProjectStore((state) => state.projects);
@@ -142,7 +161,6 @@ export function App() {
   const [activeView, setActiveView] = useState<SidebarView>('kanban');
   const [isOnboardingWizardOpen, setIsOnboardingWizardOpen] = useState(false);
   const [isVersionWarningModalOpen, setIsVersionWarningModalOpen] = useState(false);
-  const [isRefreshingTasks, setIsRefreshingTasks] = useState(false);
 
   // Initialize dialog state
   const [showInitDialog, setShowInitDialog] = useState(false);
@@ -153,6 +171,10 @@ export function App() {
   const [skippedInitProjectId, setSkippedInitProjectId] = useState<string | null>(null);
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
 
+  // CLAUDE.md generation dialog state
+  const [showClaudeMdDialog, setShowClaudeMdDialog] = useState(false);
+  const [claudeMdProjectPath, setClaudeMdProjectPath] = useState<string | null>(null);
+
   // GitHub setup state (shown after Auto Claude init)
   const [showGitHubSetup, setShowGitHubSetup] = useState(false);
   const [gitHubSetupProject, setGitHubSetupProject] = useState<Project | null>(null);
@@ -161,6 +183,46 @@ export function App() {
   const [showRemoveProjectDialog, setShowRemoveProjectDialog] = useState(false);
   const [removeProjectError, setRemoveProjectError] = useState<string | null>(null);
   const [projectToRemove, setProjectToRemove] = useState<Project | null>(null);
+
+  // GitHub status per project (for tab icons)
+  const [projectGitHubStatus, setProjectGitHubStatus] = useState<Record<string, boolean>>({});
+
+  // Refresh registry - views register their refresh functions here
+  const refreshRegistryRef = useRef<Partial<Record<SidebarView, () => void | Promise<void>>>>({});
+
+  // Callback for views to register their refresh function
+  const registerRefresh = useCallback((view: SidebarView, refreshFn: (() => void | Promise<void>) | null) => {
+    if (refreshFn) {
+      refreshRegistryRef.current[view] = refreshFn;
+    } else {
+      delete refreshRegistryRef.current[view];
+    }
+  }, []);
+
+  // Refresh function for kanban tasks
+  const refreshTasks = useCallback(async () => {
+    const currentProjectId = activeProjectId || selectedProjectId;
+    if (!currentProjectId) return;
+    await loadTasks(currentProjectId, { forceRefresh: true });
+  }, [activeProjectId, selectedProjectId]);
+
+  // Map of refresh functions for each view - combines static functions with registry
+  const refreshFunctions = useMemo(() => ({
+    kanban: refreshTasks,
+    // Dynamic functions from registry are accessed via the ref
+    'github-issues': () => refreshRegistryRef.current['github-issues']?.(),
+    'github-prs': () => refreshRegistryRef.current['github-prs']?.(),
+    roadmap: () => refreshRegistryRef.current.roadmap?.(),
+    context: () => refreshRegistryRef.current.context?.(),
+    changelog: () => refreshRegistryRef.current.changelog?.(),
+    worktrees: () => refreshRegistryRef.current.worktrees?.(),
+  }), [refreshTasks]);
+
+  // Global refresh hook - manages refresh across different views
+  const { isRefreshing, refresh } = useGlobalRefresh({
+    activeView,
+    refreshFunctions,
+  });
 
   // Setup drag sensors
   const sensors = useSensors(
@@ -242,6 +304,31 @@ export function App() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- projectTabs is intentionally omitted to avoid infinite re-render (computed array creates new reference each render)
   }, [projects, activeProjectId, selectedProjectId, openProjectIds, openProjectTab, setActiveProject]);
+
+  // Load GitHub connection status for open project tabs
+  useEffect(() => {
+    const loadGitHubStatus = async () => {
+      const statusMap: Record<string, boolean> = {};
+
+      // Check GitHub connection for each open project
+      await Promise.all(
+        openProjectIds.map(async (projectId) => {
+          try {
+            const result = await window.electronAPI.github.checkGitHubConnection(projectId);
+            statusMap[projectId] = result.success && result.data?.connected === true;
+          } catch {
+            statusMap[projectId] = false;
+          }
+        })
+      );
+
+      setProjectGitHubStatus(statusMap);
+    };
+
+    if (openProjectIds.length > 0) {
+      loadGitHubStatus();
+    }
+  }, [openProjectIds]);
 
   // Track if settings have been loaded at least once
   const [settingsHaveLoaded, setSettingsHaveLoaded] = useState(false);
@@ -329,6 +416,28 @@ export function App() {
       window.removeEventListener('open-app-settings', handleOpenAppSettings);
     };
   }, []);
+
+  // Listen for open-github-setup events (e.g., from project settings)
+  useEffect(() => {
+    const handleOpenGitHubSetup = (event: Event) => {
+      const customEvent = event as CustomEvent<{ projectId: string }>;
+      const projectId = customEvent.detail?.projectId;
+      if (projectId) {
+        const project = projects.find(p => p.id === projectId);
+        if (project) {
+          setGitHubSetupProject(project);
+          setShowGitHubSetup(true);
+          // Close settings dialog when opening setup wizard
+          setIsSettingsDialogOpen(false);
+        }
+      }
+    };
+
+    window.addEventListener('open-github-setup', handleOpenGitHubSetup);
+    return () => {
+      window.removeEventListener('open-github-setup', handleOpenGitHubSetup);
+    };
+  }, [projects]);
 
   // Listen for app updates - auto-open settings to 'updates' section when update is ready
   useEffect(() => {
@@ -665,19 +774,6 @@ export function App() {
     setSelectedTask(task);
   };
 
-  const handleRefreshTasks = async () => {
-    const currentProjectId = activeProjectId || selectedProjectId;
-    if (!currentProjectId) return;
-    setIsRefreshingTasks(true);
-    try {
-      // Pass forceRefresh: true to invalidate cache and get fresh data from disk
-      // This ensures the refresh button always shows the latest task state
-      await loadTasks(currentProjectId, { forceRefresh: true });
-    } finally {
-      setIsRefreshingTasks(false);
-    }
-  };
-
   const handleCloseTaskDetail = () => {
     setSelectedTask(null);
   };
@@ -709,13 +805,26 @@ export function App() {
     setShowAddProjectModal(true);
   };
 
-  const handleProjectAdded = (project: Project, needsInit: boolean) => {
+  const handleProjectAdded = async (project: Project, needsInit: boolean) => {
     openProjectTab(project.id);
     if (needsInit) {
       setPendingProject(project);
       setInitError(null);
       setInitSuccess(false);
       setShowInitDialog(true);
+    }
+
+    // Check if CLAUDE.md exists and prompt to generate if not
+    try {
+      const result = await window.electronAPI.claudeMd.checkClaudeMd(project.path);
+      if (result.success && result.data && !result.data.exists) {
+        // CLAUDE.md doesn't exist - show generation dialog
+        setClaudeMdProjectPath(project.path);
+        setShowClaudeMdDialog(true);
+      }
+    } catch (error) {
+      console.error('Failed to check for CLAUDE.md:', error);
+      // Non-fatal - don't block project addition
     }
   };
 
@@ -898,7 +1007,7 @@ export function App() {
     <ViewStateProvider>
       <TooltipProvider>
         <ProactiveSwapListener />
-      <div className="flex h-screen bg-background">
+      <div className="flex h-screen bg-sidebar">
         {/* Sidebar */}
         <Sidebar
           onSettingsClick={() => setIsSettingsDialogOpen(true)}
@@ -907,9 +1016,9 @@ export function App() {
           onViewChange={setActiveView}
         />
 
-        {/* Main content */}
-        <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Project Tabs */}
+        {/* Main content wrapper with gap */}
+        <div className="flex flex-1 flex-col overflow-hidden py-2 pr-2 gap-2">
+          {/* Project Tabs - Pill bar */}
           {projectTabs.length > 0 && (
             <DndContext
               sensors={sensors}
@@ -924,14 +1033,17 @@ export function App() {
                   onProjectSelect={handleProjectTabSelect}
                   onProjectClose={handleProjectTabClose}
                   onAddProject={handleAddProject}
-                  onSettingsClick={() => setIsSettingsDialogOpen(true)}
+                  projectGitHubStatus={projectGitHubStatus}
+                  activeView={activeView}
+                  onRefresh={refresh}
+                  isRefreshing={isRefreshing}
                 />
               </SortableContext>
 
               {/* Drag overlay - shows what's being dragged */}
               <DragOverlay>
                 {activeDragProject && (
-                  <div className="flex items-center gap-2 bg-card border border-border rounded-md px-4 py-2.5 shadow-lg max-w-[200px]">
+                  <div className="flex items-center gap-2 bg-card border border-border rounded-full px-4 py-2 shadow-lg max-w-[200px]">
                     <div className="w-1 h-4 bg-muted-foreground rounded-full" />
                     <span className="truncate font-medium text-sm">
                       {activeDragProject.name}
@@ -942,8 +1054,8 @@ export function App() {
             </DndContext>
           )}
 
-          {/* Main content area */}
-          <main className="flex-1 overflow-hidden">
+          {/* Main content area - distinct container */}
+          <main className="flex-1 overflow-hidden bg-background rounded-xl border border-border">
             {selectedProject ? (
               <>
                 {activeView === 'kanban' && (
@@ -951,8 +1063,6 @@ export function App() {
                     tasks={tasks}
                     onTaskClick={handleTaskClick}
                     onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
-                    onRefresh={handleRefreshTasks}
-                    isRefreshing={isRefreshingTasks}
                   />
                 )}
                 {/* TerminalGrid is always mounted but hidden when not active to preserve terminal state */}
@@ -964,10 +1074,17 @@ export function App() {
                   />
                 </div>
                 {activeView === 'roadmap' && (activeProjectId || selectedProjectId) && (
-                  <Roadmap projectId={activeProjectId || selectedProjectId!} onGoToTask={handleGoToTask} />
+                  <Roadmap
+                    projectId={activeProjectId || selectedProjectId!}
+                    onGoToTask={handleGoToTask}
+                    registerRefresh={(fn) => registerRefresh('roadmap', fn)}
+                  />
                 )}
                 {activeView === 'context' && (activeProjectId || selectedProjectId) && (
-                  <Context projectId={activeProjectId || selectedProjectId!} />
+                  <Context
+                    projectId={activeProjectId || selectedProjectId!}
+                    registerRefresh={(fn) => registerRefresh('context', fn)}
+                  />
                 )}
                 {activeView === 'ideation' && (activeProjectId || selectedProjectId) && (
                   <Ideation projectId={activeProjectId || selectedProjectId!} onGoToTask={handleGoToTask} />
@@ -982,6 +1099,7 @@ export function App() {
                       setIsSettingsDialogOpen(true);
                     }}
                     onNavigateToTask={handleGoToTask}
+                    registerRefresh={(fn) => registerRefresh('github-issues', fn)}
                   />
                 )}
                 {/* GitHubPRs is always mounted but hidden when not active to preserve review state */}
@@ -993,6 +1111,7 @@ export function App() {
                         setIsSettingsDialogOpen(true);
                       }}
                       isActive={activeView === 'github-prs'}
+                      registerRefresh={(fn) => registerRefresh('github-prs', fn)}
                     />
                   </div>
                 )}
@@ -1006,10 +1125,13 @@ export function App() {
                   />
                 )}
                 {activeView === 'changelog' && (activeProjectId || selectedProjectId) && (
-                  <Changelog />
+                  <Changelog registerRefresh={(fn) => registerRefresh('changelog', fn)} />
                 )}
                 {activeView === 'worktrees' && (activeProjectId || selectedProjectId) && (
-                  <Worktrees projectId={activeProjectId || selectedProjectId!} />
+                  <Worktrees
+                    projectId={activeProjectId || selectedProjectId!}
+                    registerRefresh={(fn) => registerRefresh('worktrees', fn)}
+                  />
                 )}
                 {activeView === 'agent-tools' && <AgentTools />}
               </>
@@ -1072,6 +1194,17 @@ export function App() {
           onOpenChange={setShowAddProjectModal}
           onProjectAdded={handleProjectAdded}
         />
+
+        {/* CLAUDE.md Generation Dialog */}
+        {claudeMdProjectPath && (
+          <ClaudeMdGenerationDialog
+            open={showClaudeMdDialog}
+            onOpenChange={setShowClaudeMdDialog}
+            projectPath={claudeMdProjectPath}
+            onSkip={() => setClaudeMdProjectPath(null)}
+            onRemindLater={() => setClaudeMdProjectPath(null)}
+          />
+        )}
 
         {/* Initialize Auto Claude Dialog */}
         <Dialog open={showInitDialog} onOpenChange={(open) => {

@@ -59,8 +59,6 @@ load_dotenv = import_dotenv()
 # NOTE: graphiti_config is imported lazily in validate_environment() to avoid
 # triggering graphiti_core -> real_ladybug -> pywintypes import chain before
 # platform dependency validation can run. See ACS-253.
-from linear_integration import LinearManager
-from linear_updater import is_linear_enabled
 from spec.pipeline import get_specs_dir
 from ui import (
     Icons,
@@ -186,25 +184,6 @@ def validate_environment(spec_dir: Path) -> bool:
     if not spec_file.exists():
         print(f"\nError: spec.md not found in {spec_dir}")
         valid = False
-
-    # Check Linear integration (optional but show status)
-    if is_linear_enabled():
-        print("Linear integration: ENABLED")
-        # Show Linear project status if initialized
-        project_dir = (
-            spec_dir.parent.parent
-        )  # auto-claude/specs/001-name -> project root
-        linear_manager = LinearManager(spec_dir, project_dir)
-        if linear_manager.is_initialized:
-            summary = linear_manager.get_progress_summary()
-            print(f"  Project: {summary.get('project_name', 'Unknown')}")
-            print(
-                f"  Issues: {summary.get('mapped_subtasks', 0)}/{summary.get('total_subtasks', 0)} mapped"
-            )
-        else:
-            print("  Status: Will be initialized during planner session")
-    else:
-        print("Linear integration: DISABLED (set LINEAR_API_KEY to enable)")
 
     # Check Graphiti integration (optional but show status)
     # Lazy import to avoid triggering pywintypes import before validation (ACS-253)

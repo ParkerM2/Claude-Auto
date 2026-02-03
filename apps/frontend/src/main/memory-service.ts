@@ -588,6 +588,43 @@ export class MemoryService {
   }
 
   /**
+   * Get pattern insights (recurring patterns, gotchas, improvement suggestions)
+   *
+   * Queries the backend for aggregated insights from memory history.
+   *
+   * @returns Pattern insights with top patterns, gotchas, and suggestions
+   */
+  async getPatternInsights(): Promise<{
+    top_patterns: Array<{ content: string; frequency: number; last_seen: string }>;
+    common_gotchas: Array<{ content: string; frequency: number; last_seen: string }>;
+    improvement_suggestions: Array<{ content: string; frequency: number; last_seen: string }>;
+    last_updated: string;
+  }> {
+    const result = await executeQuery('pattern-insights', [
+      this.config.dbPath,
+      this.config.database,
+    ]);
+
+    if (!result.success || !result.data) {
+      console.error('Failed to get pattern insights:', result.error);
+      // Return empty insights on error
+      return {
+        top_patterns: [],
+        common_gotchas: [],
+        improvement_suggestions: [],
+        last_updated: new Date().toISOString(),
+      };
+    }
+
+    return result.data as {
+      top_patterns: Array<{ content: string; frequency: number; last_seen: string }>;
+      common_gotchas: Array<{ content: string; frequency: number; last_seen: string }>;
+      improvement_suggestions: Array<{ content: string; frequency: number; last_seen: string }>;
+      last_updated: string;
+    };
+  }
+
+  /**
    * Test connection to the database
    */
   async testConnection(): Promise<{ success: boolean; message: string }> {

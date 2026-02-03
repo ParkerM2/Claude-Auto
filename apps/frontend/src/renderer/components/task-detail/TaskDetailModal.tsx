@@ -142,11 +142,14 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
     state.setIsDeleting(false);
   };
 
-  const handleMerge = async () => {
+  const handleMerge = async (conflictResolutions?: Record<string, string>) => {
     state.setIsMerging(true);
     state.setWorkspaceError(null);
     try {
-      const result = await window.electronAPI.mergeWorktree(task.id, { noCommit: state.stageOnly });
+      const result = await window.electronAPI.mergeWorktree(task.id, {
+        noCommit: state.stageOnly,
+        conflictResolutions
+      });
       if (result.success && result.data?.success) {
         if (state.stageOnly && result.data.staged) {
           state.setWorkspaceError(null);
@@ -515,6 +518,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                             mergePreview={state.mergePreview}
                             isLoadingPreview={state.isLoadingPreview}
                             showConflictDialog={state.showConflictDialog}
+                            selectedConflictStrategies={state.selectedConflictStrategies}
                             onFeedbackChange={state.setFeedback}
                             onReject={handleReject}
                             images={state.feedbackImages}
@@ -530,6 +534,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                             onSwitchToTerminals={onSwitchToTerminals}
                             onOpenInbuiltTerminal={onOpenInbuiltTerminal}
                             onReviewAgain={state.handleReviewAgain}
+                            onSelectedConflictStrategiesChange={state.setSelectedConflictStrategies}
                             showPRDialog={state.showPRDialog}
                             isCreatingPR={state.isCreatingPR}
                             onShowPRDialog={state.setShowPRDialog}

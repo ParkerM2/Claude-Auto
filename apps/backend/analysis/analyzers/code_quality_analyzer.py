@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from .base import SKIP_DIRS, BaseAnalyzer
+from ..streaming_analyzer import stream_files_iter
 
 try:
     from radon.complexity import cc_visit, cc_rank
@@ -393,22 +394,15 @@ class CodeQualityAnalyzer(BaseAnalyzer):
 
     def _find_code_files(self) -> list[Path]:
         """
-        Find all code files to analyze.
+        Find all code files to analyze using streaming iteration.
 
         Returns:
             List of file paths
         """
         code_files = []
 
-        for file_path in self.path.rglob("*"):
-            # Skip directories
-            if file_path.is_dir():
-                continue
-
-            # Skip files in excluded directories
-            if any(skip_dir in file_path.parts for skip_dir in SKIP_DIRS):
-                continue
-
+        # Use streaming iterator for memory efficiency
+        for file_path in stream_files_iter(self.path, skip_dirs=SKIP_DIRS):
             # Check if file has a supported extension
             if file_path.suffix in self.SUPPORTED_EXTENSIONS:
                 code_files.append(file_path)

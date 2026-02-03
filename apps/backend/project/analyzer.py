@@ -10,6 +10,7 @@ import hashlib
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .command_registry import (
     BASE_COMMANDS,
@@ -27,6 +28,9 @@ from .framework_detector import FrameworkDetector
 from .models import SecurityProfile
 from .stack_detector import StackDetector
 from .structure_analyzer import StructureAnalyzer
+
+if TYPE_CHECKING:
+    from ..analysis.incremental_indexer import IncrementalIndexer
 
 
 class ProjectAnalyzer:
@@ -55,6 +59,16 @@ class ProjectAnalyzer:
         self.spec_dir = Path(spec_dir).resolve() if spec_dir else None
         self.profile = SecurityProfile()
         self.parser = ConfigParser(project_dir)
+        self._indexer = None  # Lazy initialization to avoid circular imports
+
+    @property
+    def indexer(self) -> "IncrementalIndexer":
+        """Lazy-load the incremental indexer to avoid circular imports."""
+        if self._indexer is None:
+            from ..analysis.incremental_indexer import IncrementalIndexer
+
+            self._indexer = IncrementalIndexer(self.project_dir)
+        return self._indexer
 
     def get_profile_path(self) -> Path:
         """Get the path where profile should be stored."""
@@ -220,9 +234,60 @@ class ProjectAnalyzer:
         except ValueError:
             return False
 
+    def has_file_changes(self) -> bool:
+        """
+        Check if any tracked files have changed using incremental indexing.
+
+        Returns:
+            True if files have been added, modified, or deleted
+        """
+        try:
+            changes = self.indexer.detect_changes()
+            return changes.has_changes()
+        except Exception as e:
+            # If incremental indexing fails, fall back to assuming changes
+            print(f"Warning: Incremental indexing failed: {e}")
+            return True
+
+    def get_file_changes(self) -> dict:
+        """
+        Get detailed file changes using incremental indexing.
+
+        Returns:
+            Dictionary with added, modified, deleted, and unchanged file lists
+        """
+        try:
+            changes = self.indexer.detect_changes()
+            return changes.to_dict()
+        except Exception as e:
+            print(f"Warning: Failed to detect file changes: {e}")
+            return {
+                "added": [],
+                "modified": [],
+                "deleted": [],
+                "unchanged": [],
+                "total_changed": 0,
+            }
+
+    def update_file_index(self) -> int:
+        """
+        Update the file index with current filesystem state.
+
+        Returns:
+            Number of files updated in the index
+        """
+        try:
+            return self.indexer.update_index()
+        except Exception as e:
+            print(f"Warning: Failed to update file index: {e}")
+            return 0
+
     def analyze(self, force: bool = False) -> SecurityProfile:
         """
         Perform full project analysis.
+
+        Uses incremental indexing to detect file changes and avoid
+        unnecessary re-analysis on large codebases.
 
         Args:
             force: Force re-analysis even if profile exists
@@ -232,14 +297,32 @@ class ProjectAnalyzer:
         """
         # Check for existing profile
         existing = self.load_profile()
-        if existing and not force and not self.should_reanalyze(existing):
-            if existing.inherited_from:
-                print("Using inherited security profile from parent project")
-            else:
+        if existing and not force:
+            # Use incremental indexing to check for file changes
+            has_changes = self.has_file_changes()
+            should_reanalyze = self.should_reanalyze(existing)
+
+            # Skip re-analysis if no changes detected
+            if not has_changes and not should_reanalyze:
+                if existing.inherited_from:
+                    print("Using inherited security profile from parent project")
+                else:
+                    print(
+                        f"Using cached security profile (hash: {existing.project_hash[:8]})"
+                    )
+                    changes = self.get_file_changes()
+                    print(
+                        f"  No file changes detected (tracked: {len(changes['unchanged'])} files)"
+                    )
+                return existing
+
+            # If changes detected, show what changed
+            if has_changes:
+                changes = self.get_file_changes()
                 print(
-                    f"Using cached security profile (hash: {existing.project_hash[:8]})"
+                    f"File changes detected: +{len(changes['added'])} "
+                    f"~{len(changes['modified'])} -{len(changes['deleted'])}"
                 )
-            return existing
 
         print("Analyzing project structure for security profile...")
 
@@ -262,6 +345,11 @@ class ProjectAnalyzer:
 
         # Save
         self.save_profile(self.profile)
+
+        # Update file index with current state
+        updated_count = self.update_file_index()
+        if updated_count > 0:
+            print(f"Updated file index ({updated_count} files)")
 
         # Print summary
         self._print_summary()

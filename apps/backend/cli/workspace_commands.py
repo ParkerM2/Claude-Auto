@@ -373,6 +373,7 @@ def handle_merge_command(
     spec_name: str,
     no_commit: bool = False,
     base_branch: str | None = None,
+    conflict_resolutions: str | None = None,
 ) -> bool:
     """
     Handle the --merge command.
@@ -382,12 +383,17 @@ def handle_merge_command(
         spec_name: Name of the spec
         no_commit: If True, stage changes but don't commit
         base_branch: Branch to compare against (default: auto-detect)
+        conflict_resolutions: JSON string with user-selected conflict resolution strategies
 
     Returns:
         True if merge succeeded, False otherwise
     """
     success = merge_existing_build(
-        project_dir, spec_name, no_commit=no_commit, base_branch=base_branch
+        project_dir,
+        spec_name,
+        no_commit=no_commit,
+        base_branch=base_branch,
+        conflict_resolutions=conflict_resolutions,
     )
 
     # Generate commit message suggestion if staging succeeded (no_commit mode)
@@ -1228,4 +1234,39 @@ def worktree_summary_command(project_dir: Path) -> dict:
             "total_worktrees": 0,
             "categories": {},
             "warning": None,
+        }
+
+
+def handle_detailed_diff_command(
+    project_dir: Path,
+    spec_name: str,
+) -> dict:
+    """
+    Handle the --get-detailed-diff command.
+
+    Returns detailed line-by-line diff data for the worktree, including
+    file-level stats, hunks, and individual line changes for visualization.
+
+    Args:
+        project_dir: Project root directory
+        spec_name: Name of the spec
+
+    Returns:
+        Dictionary with detailed diff information
+    """
+    try:
+        from core.worktree import WorktreeManager
+
+        manager = WorktreeManager(project_dir)
+        result = manager.get_detailed_diff(spec_name)
+
+        return {
+            "success": True,
+            **result,
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
         }

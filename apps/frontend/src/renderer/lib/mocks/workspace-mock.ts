@@ -18,6 +18,14 @@ export const workspaceMock = {
     }
   }),
 
+  getDetailedWorktreeDiff: async () => ({
+    success: true,
+    data: {
+      files: [],
+      summary: 'No changes'
+    }
+  }),
+
   mergeWorktree: async () => ({
     success: true,
     data: {
@@ -54,6 +62,39 @@ export const workspaceMock = {
     }
   }),
 
+  previewMergeConflicts: async () => ({
+    success: true,
+    data: {
+      success: true,
+      message: 'Conflict analysis complete',
+      preview: {
+        files: ['src/index.ts', 'src/utils.ts'],
+        conflicts: [
+          {
+            file: 'src/utils.ts',
+            location: 'lines 10-15',
+            tasks: ['task-001'],
+            severity: 'low' as const,
+            canAutoMerge: true,
+            strategy: 'append',
+            reason: 'Non-overlapping additions',
+            resolutionStrategies: [
+              'Accept both changes (append)',
+              'Use AI-assisted merge',
+              'Manual resolution required'
+            ]
+          }
+        ],
+        summary: {
+          totalFiles: 2,
+          conflictFiles: 1,
+          totalConflicts: 1,
+          autoMergeable: 1
+        }
+      }
+    }
+  }),
+
   createWorktreePR: async () => ({
     success: true,
     data: {
@@ -67,6 +108,14 @@ export const workspaceMock = {
     data: {
       success: true,
       message: 'Worktree discarded successfully'
+    }
+  }),
+
+  discardWorktreeDirect: async (_projectPath: string, _specName: string) => ({
+    success: true,
+    data: {
+      success: true,
+      message: 'Worktree discarded directly (no task reference)'
     }
   }),
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Github, RefreshCw, KeyRound, Loader2, CheckCircle2, AlertCircle, User, Lock, Globe, ChevronDown, GitBranch } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Github, RefreshCw, KeyRound, Loader2, CheckCircle2, AlertCircle, User, Lock, Globe, ChevronDown, GitBranch, Wand2 } from 'lucide-react';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Switch } from '../../ui/switch';
@@ -38,6 +39,7 @@ interface GitHubIntegrationProps {
   // Project settings for mainBranch (used by kanban tasks and terminal worktrees)
   settings?: ProjectSettings;
   setSettings?: React.Dispatch<React.SetStateAction<ProjectSettings>>;
+  projectId?: string; // Project ID for triggering setup wizard
 }
 
 /**
@@ -53,8 +55,10 @@ export function GitHubIntegration({
   isCheckingGitHub,
   projectPath,
   settings,
-  setSettings
+  setSettings,
+  projectId
 }: GitHubIntegrationProps) {
+  const { t } = useTranslation('settings');
   const [authMode, setAuthMode] = useState<'manual' | 'oauth' | 'oauth-success'>('manual');
   const [oauthUsername, setOauthUsername] = useState<string | null>(null);
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
@@ -221,6 +225,33 @@ export function GitHubIntegration({
 
       {envConfig.githubEnabled && (
         <>
+          {/* Quick Setup - shown when GitHub enabled but not fully configured */}
+          {(!envConfig.githubToken || !envConfig.githubRepo) && projectId && (
+            <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{t('projectSections.github.quickSetup')}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t('projectSections.github.quickSetupDescription')}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    window.dispatchEvent(
+                      new CustomEvent('open-github-setup', { detail: { projectId } })
+                    );
+                  }}
+                  className="shrink-0"
+                >
+                  <Wand2 className="mr-2 h-4 w-4" />
+                  {t('projectSections.github.setupWizard')}
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* OAuth Success State */}
           {authMode === 'oauth-success' && (
             <div className="space-y-4">

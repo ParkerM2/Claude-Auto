@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSettingsStore, saveSettings as saveSettingsToStore, loadSettings as loadSettingsFromStore } from '../../../stores/settings-store';
-import type { AppSettings } from '../../../../shared/types';
+import type { AppSettings, CustomThemeEntry, FontSettings } from '../../../../shared/types';
 import { UI_SCALE_DEFAULT } from '../../../../shared/constants';
 
 /**
@@ -17,15 +17,19 @@ export function useSettings() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Store the original theme settings when the hook mounts (dialog opens)
+  // Store the original visual settings when the hook mounts (dialog opens)
   // This allows us to revert if the user cancels
-  const originalThemeRef = useRef<{
+  const originalSettingsRef = useRef<{
     theme: AppSettings['theme'];
     colorTheme: AppSettings['colorTheme'];
+    customThemes: CustomThemeEntry[] | undefined;
+    fontSettings: FontSettings | undefined;
     uiScale: number;
   }>({
     theme: currentSettings.theme,
     colorTheme: currentSettings.colorTheme,
+    customThemes: currentSettings.customThemes,
+    fontSettings: currentSettings.fontSettings,
     uiScale: currentSettings.uiScale ?? UI_SCALE_DEFAULT
   });
 
@@ -34,13 +38,15 @@ export function useSettings() {
     setSettings(currentSettings);
   }, [currentSettings]);
 
-  // Load settings on mount and capture original theme
+  // Load settings on mount and capture original settings
   useEffect(() => {
     loadSettingsFromStore();
-    // Update the original theme ref when settings load
-    originalThemeRef.current = {
+    // Update the original settings ref when settings load
+    originalSettingsRef.current = {
       theme: currentSettings.theme,
       colorTheme: currentSettings.colorTheme,
+      customThemes: currentSettings.customThemes,
+      fontSettings: currentSettings.fontSettings,
       uiScale: currentSettings.uiScale ?? UI_SCALE_DEFAULT
     };
   }, []);
@@ -87,29 +93,33 @@ export function useSettings() {
   };
 
   /**
-   * Revert theme to the original values (before any preview changes).
+   * Revert all visual settings to the original values (before any preview changes).
    * Call this when the user cancels the settings dialog without saving.
    */
   const revertTheme = useCallback(() => {
-    const original = originalThemeRef.current;
+    const original = originalSettingsRef.current;
     updateStoreSettings({
       theme: original.theme,
       colorTheme: original.colorTheme,
+      customThemes: original.customThemes,
+      fontSettings: original.fontSettings,
       uiScale: original.uiScale
     });
   }, [updateStoreSettings]);
 
   /**
-   * Capture the current theme as the new "original" after successful save.
+   * Capture the current settings as the new "original" after successful save.
    * This updates the reference point for future reverts.
    */
   const commitTheme = useCallback(() => {
-    originalThemeRef.current = {
+    originalSettingsRef.current = {
       theme: settings.theme,
       colorTheme: settings.colorTheme,
+      customThemes: settings.customThemes,
+      fontSettings: settings.fontSettings,
       uiScale: settings.uiScale ?? UI_SCALE_DEFAULT
     };
-  }, [settings.theme, settings.colorTheme, settings.uiScale]);
+  }, [settings.theme, settings.colorTheme, settings.customThemes, settings.fontSettings, settings.uiScale]);
 
   return {
     settings,

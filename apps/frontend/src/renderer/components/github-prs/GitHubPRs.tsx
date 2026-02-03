@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { GitPullRequest, RefreshCw, ExternalLink, Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useProjectStore } from "../../stores/project-store";
@@ -10,6 +10,8 @@ import { ResizablePanels } from "../ui/resizable-panels";
 interface GitHubPRsProps {
   onOpenSettings?: () => void;
   isActive?: boolean;
+  /** Register refresh function with parent */
+  registerRefresh?: (fn: (() => void | Promise<void>) | null) => void;
 }
 
 function NotConnectedState({
@@ -49,7 +51,7 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
-export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) {
+export function GitHubPRs({ onOpenSettings, isActive = false, registerRefresh }: GitHubPRsProps) {
   const { t } = useTranslation("common");
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
@@ -178,6 +180,12 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
   const handleMarkReviewPosted = useCallback(async (prNumber: number) => {
     await markReviewPosted(prNumber);
   }, [markReviewPosted]);
+
+  // Register refresh function with parent
+  useEffect(() => {
+    registerRefresh?.(refresh);
+    return () => registerRefresh?.(null);
+  }, [registerRefresh, refresh]);
 
   // Not connected state
   if (!isConnected) {

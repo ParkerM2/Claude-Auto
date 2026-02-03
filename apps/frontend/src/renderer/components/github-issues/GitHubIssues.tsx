@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useProjectStore } from "../../stores/project-store";
 import { useTaskStore } from "../../stores/task-store";
 import {
@@ -21,7 +21,7 @@ import { GitHubSetupModal } from "../git/GitHubSetupModal";
 import type { GitHubIssue } from "../../../shared/types";
 import type { GitHubIssuesProps } from "./types";
 
-export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesProps) {
+export function GitHubIssues({ onOpenSettings, onNavigateToTask, registerRefresh }: GitHubIssuesProps) {
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
@@ -115,6 +115,12 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
       checkForNewIssues();
     }
   }, [handleRefresh, autoFixConfig?.enabled, checkForNewIssues]);
+
+  // Register refresh function with parent
+  useEffect(() => {
+    registerRefresh?.(handleRefreshWithAutoFix);
+    return () => registerRefresh?.(null);
+  }, [registerRefresh, handleRefreshWithAutoFix]);
 
   const handleInvestigate = useCallback((issue: GitHubIssue) => {
     setSelectedIssueForInvestigation(issue);

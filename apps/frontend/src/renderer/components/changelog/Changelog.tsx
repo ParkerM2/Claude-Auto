@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { FileText } from 'lucide-react';
 import { TooltipProvider } from '../ui/tooltip';
 import { ChangelogHeader } from './ChangelogHeader';
@@ -6,7 +7,12 @@ import { ChangelogList } from './ChangelogList';
 import { Step2ConfigureGenerate, Step3ReleaseArchive } from './ChangelogDetails';
 import { useChangelog } from './hooks/useChangelog';
 
-export function Changelog() {
+interface ChangelogProps {
+  /** Register refresh function with parent */
+  registerRefresh?: (fn: (() => void | Promise<void>) | null) => void;
+}
+
+export function Changelog({ registerRefresh }: ChangelogProps = {}) {
   const {
     // State
     selectedProjectId,
@@ -79,6 +85,14 @@ export function Changelog() {
     handleDone,
     handleRefresh
   } = useChangelog();
+
+  // Register refresh function with parent
+  useEffect(() => {
+    // Wrap handleRefresh to ensure void return type (it can return "" when no project selected)
+    const wrappedRefresh = () => { handleRefresh(); };
+    registerRefresh?.(wrappedRefresh);
+    return () => registerRefresh?.(null);
+  }, [registerRefresh, handleRefresh]);
 
   if (!selectedProjectId) {
     return (

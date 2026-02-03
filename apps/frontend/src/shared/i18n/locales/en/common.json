@@ -110,7 +110,8 @@
     "justNow": "Just now",
     "minutesAgo": "{{count}}m ago",
     "hoursAgo": "{{count}}h ago",
-    "daysAgo": "{{count}}d ago"
+    "daysAgo": "{{count}}d ago",
+    "lastSeen": "Last seen"
   },
   "errors": {
     "generic": "An error occurred",
@@ -123,7 +124,8 @@
     "taskNotFoundForWorktree": "Task not found for worktree: {{specName}}",
     "failedToDeleteTaskWorktree": "Failed to delete task worktree: {{specName}}",
     "terminalWorktreeNotFound": "Terminal worktree not found: {{name}}",
-    "failedToDeleteTerminalWorktree": "Failed to delete terminal worktree: {{name}}"
+    "failedToDeleteTerminalWorktree": "Failed to delete terminal worktree: {{name}}",
+    "failedToDeleteWorktree": "Failed to delete worktree"
   },
   "notification": {
     "accountSwitched": "Account Switched",
@@ -460,6 +462,12 @@
     "conversionFailedDescription": "Failed to convert idea to task",
     "conversionError": "Conversion error",
     "conversionErrorDescription": "An error occurred while converting the idea"
+  },
+  "insights": {
+    "tabs": {
+      "chat": "Chat",
+      "patterns": "Patterns"
+    }
   },
   "issues": {
     "loadingMore": "Loading more...",

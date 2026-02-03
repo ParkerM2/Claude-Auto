@@ -1,0 +1,178 @@
+# E2E MCP Tests Workflow
+#
+# Runs end-to-end tests using the MCP Electron server.
+# Tests the Electron app UI via Chrome DevTools Protocol.
+#
+# Triggered on:
+# - Pull requests affecting frontend code
+# - Manual dispatch for on-demand testing
+
+name: E2E MCP Tests
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'apps/frontend/**'
+      - '.github/workflows/e2e-mcp.yml'
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: 'Test scenario to run'
+        required: false
+        default: 'smoke'
+        type: choice
+        options:
+          - smoke
+          - regression
+          - all
+
+concurrency:
+  group: e2e-mcp-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  e2e-mcp:
+    name: E2E MCP Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    # Only run on Linux for now as it has the most reliable Xvfb support
+    # Can expand to other platforms later if needed
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        node-version: ['24']
+        python-version: ['3.12']
+
+    env:
+      ELECTRON_MCP_ENABLED: 'true'
+      ELECTRON_DEBUG_PORT: '9222'
+      NODE_ENV: test
+      # Disable GPU for headless testing
+      ELECTRON_DISABLE_GPU: '1'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            apps/frontend/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: |
+            apps/backend/requirements.txt
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            xvfb \
+            libnss3 \
+            libatk-bridge2.0-0 \
+            libdrm2 \
+            libxkbcommon0 \
+            libgbm1 \
+            libasound2
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        working-directory: apps/frontend
+        run: npm ci
+
+      - name: Install Python dependencies
+        working-directory: apps/backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyyaml
+
+      - name: Build Electron app
+        working-directory: apps/frontend
+        run: npm run build
+
+      - name: Start virtual display (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 &
+          echo "DISPLAY=:99" >> $GITHUB_ENV
+
+      - name: Run MCP E2E tests
+        working-directory: apps/frontend
+        run: |
+          # Start Electron app in background with MCP debugging
+          npm run test:e2e:start &
+          ELECTRON_PID=$!
+
+          # Wait for app to start
+          sleep 10
+
+          # Check if app is running
+          if ! kill -0 $ELECTRON_PID 2>/dev/null; then
+            echo "Electron app failed to start"
+            exit 1
+          fi
+
+          # Run the orchestrator tests
+          node scripts/run-mcp-tests.js --scenario ${{ github.event.inputs.scenario || 'smoke' }} --verbose
+          TEST_EXIT_CODE=$?
+
+          # Cleanup
+          kill $ELECTRON_PID 2>/dev/null || true
+
+          exit $TEST_EXIT_CODE
+        env:
+          DISPLAY: ':99'
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-mcp-results-${{ matrix.os }}
+          path: |
+            apps/frontend/e2e/reports/
+            apps/frontend/e2e/screenshots/
+          retention-days: 7
+
+      - name: Upload test report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-mcp-report-${{ matrix.os }}
+          path: apps/frontend/e2e/reports/*.html
+          retention-days: 30
+
+  # Summary job that reports overall status
+  e2e-mcp-summary:
+    name: E2E MCP Summary
+    needs: [e2e-mcp]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check test results
+        run: |
+          if [ "${{ needs.e2e-mcp.result }}" == "success" ]; then
+            echo "All E2E MCP tests passed!"
+            exit 0
+          else
+            echo "E2E MCP tests failed or were skipped"
+            exit 1
+          fi

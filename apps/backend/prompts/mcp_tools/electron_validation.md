@@ -7,6 +7,18 @@ For Electron/desktop applications, use the electron-mcp-server tools to validate
 - Electron app running with `--remote-debugging-port=9222`
 - Start with: `pnpm run dev:mcp` or `pnpm run start:mcp`
 
+### Feature-Specific Test Plan
+
+**IMPORTANT**: If a "FEATURE-SPECIFIC E2E TEST PLAN" section appears earlier in this prompt,
+follow those instructions FIRST. That plan contains the exact steps to test the newly
+implemented feature, including:
+- How to navigate to the feature
+- What buttons/inputs to interact with
+- What outcomes to verify
+- What console errors to check for
+
+The generic validation flow below is for general app health checks.
+
 ### Available Tools
 
 | Tool | Purpose |

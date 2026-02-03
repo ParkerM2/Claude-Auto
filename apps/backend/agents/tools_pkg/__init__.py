@@ -36,10 +36,10 @@ from .models import (
     BASE_READ_TOOLS,
     BASE_WRITE_TOOLS,
     # MCP tool lists
+    CHROME_DEVTOOLS_TOOLS,
     CONTEXT7_TOOLS,
     ELECTRON_TOOLS,
     GRAPHITI_MCP_TOOLS,
-    LINEAR_TOOLS,
     PUPPETEER_TOOLS,
     # Auto-Claude tool names
     TOOL_GET_BUILD_PROGRESS,
@@ -74,6 +74,7 @@ __all__ = [
     "BASE_WRITE_TOOLS",
     "WEB_TOOLS",
     # MCP tool lists
+    "CHROME_DEVTOOLS_TOOLS",
     "CONTEXT7_TOOLS",
     "LINEAR_TOOLS",
     "GRAPHITI_MCP_TOOLS",

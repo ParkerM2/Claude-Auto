@@ -95,6 +95,7 @@ export interface ProjectAPI {
   getGitBranches: (projectPath: string) => Promise<IPCResult<string[]>>;
   getCurrentGitBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
   detectMainBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
+  createGitBranch: (projectPath: string, branchName: string, sourceBranch: string) => Promise<IPCResult<string>>;
   checkGitStatus: (projectPath: string) => Promise<IPCResult<GitStatus>>;
   initializeGit: (projectPath: string) => Promise<IPCResult<InitializationResult>>;
 
@@ -270,6 +271,9 @@ export const createProjectAPI = (): ProjectAPI => ({
 
   detectMainBranch: (projectPath: string): Promise<IPCResult<string | null>> =>
     ipcRenderer.invoke(IPC_CHANNELS.GIT_DETECT_MAIN_BRANCH, projectPath),
+
+  createGitBranch: (projectPath: string, branchName: string, sourceBranch: string): Promise<IPCResult<string>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GIT_CREATE_BRANCH, projectPath, branchName, sourceBranch),
 
   checkGitStatus: (projectPath: string): Promise<IPCResult<GitStatus>> =>
     ipcRenderer.invoke(IPC_CHANNELS.GIT_CHECK_STATUS, projectPath),

@@ -28,6 +28,7 @@ interface SettingsState {
   // Actions
   setSettings: (settings: AppSettings) => void;
   updateSettings: (updates: Partial<AppSettings>) => void;
+  updateAndPersist: (updates: Partial<AppSettings>) => Promise<void>;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 
@@ -69,6 +70,23 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     set((state) => ({
       settings: { ...state.settings, ...updates }
     })),
+
+  /**
+   * Update settings AND immediately persist to disk.
+   * Use this for visual settings (themes, fonts) that should survive HMR/refresh.
+   */
+  updateAndPersist: async (updates) => {
+    // Update store immediately for live preview
+    set((state) => ({
+      settings: { ...state.settings, ...updates }
+    }));
+    // Persist to disk
+    try {
+      await window.electronAPI.saveSettings(updates);
+    } catch (error) {
+      console.error('[settings-store] Failed to persist settings:', error);
+    }
+  },
 
   setLoading: (isLoading) => set({ isLoading }),
 
