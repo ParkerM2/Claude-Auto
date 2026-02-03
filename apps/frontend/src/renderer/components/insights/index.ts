@@ -5,3 +5,4 @@ export { CompetitorAnalysisViewer } from './CompetitorAnalysisViewer';
 export { ExistingCompetitorAnalysisDialog } from './ExistingCompetitorAnalysisDialog';
 export { PatternCard } from './PatternCard';
 export { GotchaCard } from './GotchaCard';
+export { PatternsDashboard } from './PatternsDashboard';
