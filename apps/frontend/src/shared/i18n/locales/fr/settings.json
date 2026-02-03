@@ -816,6 +816,67 @@
       "inspection": "Inspecter la structure de la page et l'état des formulaires"
     },
     "learnMore": "En savoir plus sur les tests E2E",
-    "notAvailable": "Tests E2E non disponibles pour ce projet"
+    "notAvailable": "Tests E2E non disponibles pour ce projet",
+    "browserMode": {
+      "label": "Mode navigateur",
+      "description": "Sélectionner la méthode d'automatisation du navigateur pour les tests E2E",
+      "options": {
+        "auto": "Auto (préférer Chrome DevTools)",
+        "chromeDevtools": "Chrome DevTools",
+        "puppeteer": "Puppeteer"
+      }
+    },
+    "authentication": {
+      "title": "Authentification",
+      "description": "Configurer les identifiants du compte de test pour la connexion automatisée",
+      "loginUrl": {
+        "label": "URL de connexion",
+        "placeholder": "https://app.example.com/login",
+        "description": "URL complète de la page de connexion"
+      },
+      "username": {
+        "label": "Nom d'utilisateur",
+        "placeholder": "test@example.com",
+        "description": "Nom d'utilisateur ou email du compte de test"
+      },
+      "password": {
+        "label": "Mot de passe",
+        "placeholder": "Entrez le mot de passe",
+        "description": "Mot de passe stocké de manière sécurisée via le trousseau système"
+      }
+    },
+    "navigation": {
+      "title": "Navigation",
+      "description": "Configurer les URLs de base et la navigation post-connexion",
+      "baseUrl": {
+        "label": "URL de base",
+        "placeholder": "https://app.example.com",
+        "description": "URL de base de l'application"
+      },
+      "postLoginUrl": {
+        "label": "URL post-connexion",
+        "placeholder": "/dashboard",
+        "description": "Chemin vers lequel naviguer après une connexion réussie"
+      }
+    },
+    "selectors": {
+      "title": "Sélecteurs de formulaire",
+      "description": "Sélecteurs CSS pour les éléments du formulaire de connexion (optionnel)",
+      "usernameSelector": {
+        "label": "Sélecteur nom d'utilisateur",
+        "placeholder": "input[name='email']",
+        "description": "Sélecteur CSS pour le champ nom d'utilisateur/email"
+      },
+      "passwordSelector": {
+        "label": "Sélecteur mot de passe",
+        "placeholder": "input[name='password']",
+        "description": "Sélecteur CSS pour le champ mot de passe"
+      },
+      "submitSelector": {
+        "label": "Sélecteur soumission",
+        "placeholder": "button[type='submit']",
+        "description": "Sélecteur CSS pour le bouton de soumission"
+      }
+    }
   }
 }

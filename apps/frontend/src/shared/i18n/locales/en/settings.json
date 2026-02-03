@@ -816,6 +816,67 @@
       "inspection": "Inspect page structure and form state"
     },
     "learnMore": "Learn more about E2E testing",
-    "notAvailable": "E2E testing not available for this project"
+    "notAvailable": "E2E testing not available for this project",
+    "browserMode": {
+      "label": "Browser Mode",
+      "description": "Select browser automation method for E2E testing",
+      "options": {
+        "auto": "Auto (prefer Chrome DevTools)",
+        "chromeDevtools": "Chrome DevTools",
+        "puppeteer": "Puppeteer"
+      }
+    },
+    "authentication": {
+      "title": "Authentication",
+      "description": "Configure test account credentials for automated login",
+      "loginUrl": {
+        "label": "Login URL",
+        "placeholder": "https://app.example.com/login",
+        "description": "Full URL of the login page"
+      },
+      "username": {
+        "label": "Username",
+        "placeholder": "test@example.com",
+        "description": "Username or email for test account"
+      },
+      "password": {
+        "label": "Password",
+        "placeholder": "Enter password",
+        "description": "Password stored securely via system keychain"
+      }
+    },
+    "navigation": {
+      "title": "Navigation",
+      "description": "Configure base URLs and post-login navigation",
+      "baseUrl": {
+        "label": "Base URL",
+        "placeholder": "https://app.example.com",
+        "description": "Base URL of the application"
+      },
+      "postLoginUrl": {
+        "label": "Post-Login URL",
+        "placeholder": "/dashboard",
+        "description": "Path to navigate to after successful login"
+      }
+    },
+    "selectors": {
+      "title": "Form Selectors",
+      "description": "CSS selectors for login form elements (optional)",
+      "usernameSelector": {
+        "label": "Username Selector",
+        "placeholder": "input[name='email']",
+        "description": "CSS selector for username/email input"
+      },
+      "passwordSelector": {
+        "label": "Password Selector",
+        "placeholder": "input[name='password']",
+        "description": "CSS selector for password input"
+      },
+      "submitSelector": {
+        "label": "Submit Selector",
+        "placeholder": "button[type='submit']",
+        "description": "CSS selector for login submit button"
+      }
+    }
   }
 }
