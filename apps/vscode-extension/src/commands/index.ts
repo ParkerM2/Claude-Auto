@@ -54,7 +54,7 @@ export function registerCommands(
   // Command: Review Changes
   disposables.push(
     vscode.commands.registerCommand('autoClaude.reviewChanges', async () => {
-      await reviewChangesCommand(cliClient);
+      await reviewChangesCommand(context, cliClient);
     })
   );
 

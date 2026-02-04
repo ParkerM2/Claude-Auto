@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { CLIClient } from '../backend/cli-client';
 import { SpecListItem } from '../types';
+import { showDiffView } from '../webviews/diff-view';
 
 /**
  * Workspace Command Handlers
@@ -75,9 +76,13 @@ export async function runSpecCommand(cliClient: CLIClient): Promise<void> {
  * Handle Review Changes command
  * Opens diff view for worktree changes
  *
+ * @param context - Extension context for resource management
  * @param cliClient - Backend CLI client for command execution
  */
-export async function reviewChangesCommand(cliClient: CLIClient): Promise<void> {
+export async function reviewChangesCommand(
+  context: vscode.ExtensionContext,
+  cliClient: CLIClient
+): Promise<void> {
   try {
     const spec = await selectSpec(cliClient, 'Select a spec to review');
     if (!spec) {
@@ -101,11 +106,8 @@ export async function reviewChangesCommand(cliClient: CLIClient): Promise<void> 
       return;
     }
 
-    // TODO: Open diff view WebView (will be implemented in phase 5)
-    void vscode.window.showInformationMessage(
-      `Review changes for spec "${spec.name}": ${status.filesChanged} files changed`
-    );
-    cliClient.showOutput();
+    // Open diff view WebView
+    showDiffView(context, status);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     void vscode.window.showErrorMessage(`Failed to review changes: ${errorMessage}`);
