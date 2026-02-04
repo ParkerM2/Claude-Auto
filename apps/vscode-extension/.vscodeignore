@@ -1,0 +1,55 @@
+# Source files
+src/**
+.vscode/**
+.vscode-test/**
+
+# Build config
+tsconfig.json
+.gitignore
+
+# Development dependencies
+node_modules/**
+
+# Test files
+**/*.test.ts
+**/*.spec.ts
+test/**
+tests/**
+
+# Source maps (include for debugging, exclude for production)
+**/*.map
+
+# Markdown files (keep README.md)
+.eslintrc.json
+.prettierrc
+*.md
+!README.md
+
+# CI/CD files
+.github/**
+.gitlab-ci.yml
+azure-pipelines.yml
+
+# Environment files
+.env
+.env.*
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Package manager files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Editor files
+*.swp
+*.swo
+*~

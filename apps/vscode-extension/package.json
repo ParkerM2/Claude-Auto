@@ -1,0 +1,154 @@
+{
+  "name": "auto-claude-vscode",
+  "displayName": "Auto Claude",
+  "description": "Autonomous multi-agent coding framework integration for VS Code",
+  "version": "2.7.6",
+  "publisher": "auto-claude",
+  "license": "AGPL-3.0",
+  "author": {
+    "name": "Auto Claude Team"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ParkerM2/Claude-Auto.git"
+  },
+  "engines": {
+    "vscode": "^1.95.0",
+    "node": ">=24.0.0"
+  },
+  "categories": [
+    "Other",
+    "Programming Languages",
+    "Machine Learning"
+  ],
+  "keywords": [
+    "ai",
+    "claude",
+    "autonomous",
+    "coding",
+    "agents"
+  ],
+  "icon": "resources/icon.svg",
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onCommand:autoClaude.createSpec",
+    "onCommand:autoClaude.createSpecFromSelection",
+    "onCommand:autoClaude.runSpec",
+    "onCommand:autoClaude.reviewChanges",
+    "onCommand:autoClaude.mergeWorktree",
+    "onCommand:autoClaude.discardWorktree",
+    "onCommand:autoClaude.viewQAReport",
+    "onView:autoClaude.taskTree"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "autoClaude",
+          "title": "Auto Claude",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "autoClaude": [
+        {
+          "id": "autoClaude.taskTree",
+          "name": "Tasks & Specs"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "autoClaude.createSpec",
+        "title": "Auto Claude: Create Spec",
+        "category": "Auto Claude",
+        "icon": "$(add)"
+      },
+      {
+        "command": "autoClaude.createSpecFromSelection",
+        "title": "Auto Claude: Create Spec from Selection",
+        "category": "Auto Claude",
+        "icon": "$(add)"
+      },
+      {
+        "command": "autoClaude.runSpec",
+        "title": "Auto Claude: Run Spec",
+        "category": "Auto Claude",
+        "icon": "$(play)"
+      },
+      {
+        "command": "autoClaude.reviewChanges",
+        "title": "Auto Claude: Review Changes",
+        "category": "Auto Claude",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "autoClaude.mergeWorktree",
+        "title": "Auto Claude: Merge Worktree",
+        "category": "Auto Claude",
+        "icon": "$(git-merge)"
+      },
+      {
+        "command": "autoClaude.discardWorktree",
+        "title": "Auto Claude: Discard Changes",
+        "category": "Auto Claude",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "autoClaude.viewQAReport",
+        "title": "Auto Claude: View QA Report",
+        "category": "Auto Claude",
+        "icon": "$(checklist)"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "autoClaude.createSpec"
+        },
+        {
+          "command": "autoClaude.createSpecFromSelection",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "autoClaude.runSpec"
+        },
+        {
+          "command": "autoClaude.reviewChanges"
+        },
+        {
+          "command": "autoClaude.mergeWorktree"
+        },
+        {
+          "command": "autoClaude.discardWorktree"
+        },
+        {
+          "command": "autoClaude.viewQAReport"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "autoClaude.createSpecFromSelection",
+          "group": "autoClaude",
+          "when": "editorHasSelection"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.0",
+    "@types/vscode": "^1.95.0",
+    "typescript": "^5.9.3",
+    "@vscode/vsce": "^3.2.3"
+  },
+  "dependencies": {}
+}
