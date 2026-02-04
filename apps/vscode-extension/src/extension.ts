@@ -1,4 +1,7 @@
 import * as vscode from 'vscode';
+import { CLIClient } from './backend/cli-client';
+import { TaskTreeProvider } from './views/task-tree-provider';
+import { ProgressView } from './views/progress-view';
 
 /**
  * Extension activation function
@@ -8,15 +11,46 @@ export function activate(context: vscode.ExtensionContext): void {
     // Log extension activation
     const startTime = Date.now();
 
-    // Register disposables for cleanup on deactivation
-    const disposables: vscode.Disposable[] = [];
+    // Initialize backend CLI client
+    const cliClient = new CLIClient();
 
-    // TODO: Register commands (will be implemented in phase 4)
-    // TODO: Register tree data providers (will be implemented in phase 3)
-    // TODO: Initialize backend CLI client (will be implemented in phase 2)
+    // Initialize task tree provider for sidebar
+    const taskTreeProvider = new TaskTreeProvider(cliClient);
+    const treeView = vscode.window.createTreeView('autoClaude.taskTree', {
+        treeDataProvider: taskTreeProvider,
+        showCollapseAll: true,
+    });
+
+    // Initialize progress view for real-time updates
+    const progressView = new ProgressView(cliClient);
+
+    // Register command to show CLI output channel
+    const showOutputCommand = vscode.commands.registerCommand(
+        'autoClaude.showOutput',
+        () => {
+            cliClient.showOutput();
+        }
+    );
+
+    // Register command to refresh task tree
+    const refreshTasksCommand = vscode.commands.registerCommand(
+        'autoClaude.refreshTasks',
+        () => {
+            taskTreeProvider.refresh();
+        }
+    );
+
+    // TODO: Register additional commands (will be implemented in phase 4)
 
     // Add all disposables to context subscriptions for automatic cleanup
-    context.subscriptions.push(...disposables);
+    context.subscriptions.push(
+        cliClient,
+        taskTreeProvider,
+        progressView,
+        treeView,
+        showOutputCommand,
+        refreshTasksCommand
+    );
 
     const activationTime = Date.now() - startTime;
     void vscode.window.showInformationMessage(
