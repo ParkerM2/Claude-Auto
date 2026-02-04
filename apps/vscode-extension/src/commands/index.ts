@@ -75,7 +75,7 @@ export function registerCommands(
   // Command: View QA Report
   disposables.push(
     vscode.commands.registerCommand('autoClaude.viewQAReport', async () => {
-      await viewQAReportCommand(cliClient);
+      await viewQAReportCommand(context, cliClient);
     })
   );
 

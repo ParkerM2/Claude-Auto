@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { CLIClient } from '../backend/cli-client';
 import { SpecListItem } from '../types';
 import { showDiffView } from '../webviews/diff-view';
+import { showQAReport } from '../webviews/qa-report';
 
 /**
  * Workspace Command Handlers
@@ -208,9 +209,13 @@ export async function discardWorktreeCommand(cliClient: CLIClient): Promise<void
  * Handle View QA Report command
  * Opens QA report in WebView
  *
+ * @param context - Extension context for resource management
  * @param cliClient - Backend CLI client for command execution
  */
-export async function viewQAReportCommand(cliClient: CLIClient): Promise<void> {
+export async function viewQAReportCommand(
+  context: vscode.ExtensionContext,
+  cliClient: CLIClient
+): Promise<void> {
   try {
     const spec = await selectSpec(cliClient, 'Select a spec to view QA report');
     if (!spec) {
@@ -227,11 +232,8 @@ export async function viewQAReportCommand(cliClient: CLIClient): Promise<void> {
       return;
     }
 
-    // TODO: Open QA report WebView (will be implemented in phase 5)
-    void vscode.window.showInformationMessage(
-      `QA Report for "${spec.name}": Status = ${qaReport.status}`
-    );
-    cliClient.showOutput();
+    // Open QA report WebView
+    showQAReport(context, qaReport);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     void vscode.window.showErrorMessage(`Failed to view QA report: ${errorMessage}`);
