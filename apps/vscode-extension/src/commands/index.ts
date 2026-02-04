@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { CLIClient } from '../backend/cli-client';
 import { SpecListItem } from '../types';
+import { createSpecCommand, createSpecFromSelectionCommand } from './create-spec';
 
 /**
  * Command Handlers Module
@@ -23,10 +24,17 @@ export function registerCommands(
 ): vscode.Disposable[] {
   const disposables: vscode.Disposable[] = [];
 
-  // Command: Create Spec from Selection
+  // Command: Create Spec
   disposables.push(
     vscode.commands.registerCommand('autoClaude.createSpec', async () => {
-      await handleCreateSpec(cliClient);
+      await createSpecCommand(cliClient);
+    })
+  );
+
+  // Command: Create Spec from Selection (explicit variant)
+  disposables.push(
+    vscode.commands.registerCommand('autoClaude.createSpecFromSelection', async () => {
+      await createSpecFromSelectionCommand(cliClient);
     })
   );
 
@@ -68,66 +76,6 @@ export function registerCommands(
   return disposables;
 }
 
-/**
- * Handle Create Spec command
- * Creates a new spec from selected code or current file
- */
-async function handleCreateSpec(cliClient: CLIClient): Promise<void> {
-  const editor = vscode.window.activeTextEditor;
-
-  if (!editor) {
-    void vscode.window.showErrorMessage('No active editor found');
-    return;
-  }
-
-  // Get selected text or entire document
-  const selection = editor.selection;
-  const selectedText = editor.document.getText(selection);
-  const hasSelection = !selection.isEmpty;
-
-  // Prompt user for task description
-  const taskDescription = await vscode.window.showInputBox({
-    prompt: 'Describe the task or feature to create a spec for',
-    placeHolder: 'e.g., Add authentication to the application',
-    validateInput: (value) => {
-      return value.trim().length > 0 ? null : 'Task description cannot be empty';
-    },
-  });
-
-  if (!taskDescription) {
-    return; // User cancelled
-  }
-
-  // Show progress notification
-  await vscode.window.withProgress(
-    {
-      location: vscode.ProgressLocation.Notification,
-      title: 'Creating spec...',
-      cancellable: false,
-    },
-    async (progress) => {
-      try {
-        // TODO: Implement spec creation with backend CLI
-        // This will be implemented in subtask-4-2
-        progress.report({ message: 'Analyzing code context...' });
-
-        const context = hasSelection
-          ? `File: ${editor.document.fileName}\nSelected code:\n${selectedText}`
-          : `File: ${editor.document.fileName}`;
-
-        void vscode.window.showInformationMessage(
-          `Spec creation initiated: ${taskDescription}`
-        );
-
-        // For now, show what would be passed to backend
-        cliClient.showOutput();
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        void vscode.window.showErrorMessage(`Failed to create spec: ${errorMessage}`);
-      }
-    }
-  );
-}
 
 /**
  * Handle Run Spec command

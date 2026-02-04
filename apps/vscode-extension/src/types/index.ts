@@ -272,7 +272,8 @@ export type BackendCommand =
   | 'qa'
   | 'qa-status'
   | 'review-status'
-  | 'create-pr';
+  | 'create-pr'
+  | 'create-spec';
 
 /**
  * Backend command options
@@ -288,4 +289,9 @@ export interface BackendCommandOptions {
   prTarget?: string;
   prTitle?: string;
   prDraft?: boolean;
+  // Spec creation options
+  task?: string;
+  contextFile?: string;
+  complexity?: 'simple' | 'standard' | 'complex';
+  interactive?: boolean;
 }

@@ -56,44 +56,51 @@ export class CLIClient extends EventEmitter {
    * Build command arguments for backend CLI
    */
   private buildCommandArgs(command: BackendCommand, options: BackendCommandOptions = {}): string[] {
-    const args: string[] = [this.backendPath];
+    const args: string[] = [];
 
     // Add command-specific flags
     switch (command) {
       case 'list':
-        args.push('--list');
+        args.push(this.backendPath, '--list');
         break;
       case 'run':
+        args.push(this.backendPath);
         if (options.spec) {
           args.push('--spec', options.spec);
         }
         break;
       case 'review':
+        args.push(this.backendPath);
         if (options.spec) {
           args.push('--spec', options.spec, '--review');
         }
         break;
       case 'merge':
+        args.push(this.backendPath);
         if (options.spec) {
           args.push('--spec', options.spec, '--merge');
         }
         break;
       case 'discard':
+        args.push(this.backendPath);
         if (options.spec) {
           args.push('--spec', options.spec, '--discard');
         }
         break;
       case 'qa':
+        args.push(this.backendPath);
         if (options.spec) {
           args.push('--spec', options.spec, '--qa');
         }
         break;
       case 'qa-status':
+        args.push(this.backendPath);
         if (options.spec) {
           args.push('--spec', options.spec, '--qa-status');
         }
         break;
       case 'create-pr':
+        args.push(this.backendPath);
         if (options.spec) {
           args.push('--spec', options.spec, '--create-pr');
           if (options.prTarget) {
@@ -105,6 +112,24 @@ export class CLIClient extends EventEmitter {
           if (options.prDraft) {
             args.push('--draft');
           }
+        }
+        break;
+      case 'create-spec':
+        // Use spec_runner.py instead of run.py for spec creation
+        const specRunnerPath = this.backendPath.replace('run.py', 'runners/spec_runner.py');
+        args.push(specRunnerPath);
+
+        if (options.task) {
+          args.push('--task', options.task);
+        }
+        if (options.contextFile) {
+          args.push('--task-file', options.contextFile);
+        }
+        if (options.complexity) {
+          args.push('--complexity', options.complexity);
+        }
+        if (options.interactive) {
+          args.push('--interactive');
         }
         break;
     }
@@ -405,6 +430,54 @@ export class CLIClient extends EventEmitter {
       vscode.window.showErrorMessage(`Failed to create PR for ${specId}: ${error}`);
       throw error;
     }
+  }
+
+  /**
+   * Create a new spec using the spec_runner
+   */
+  async createSpec(taskDescription: string, options: BackendCommandOptions = {}): Promise<string> {
+    try {
+      this.outputChannel.appendLine(`[CLI] Creating spec: ${taskDescription}`);
+      const output = await this.spawnProcess('create-spec', {
+        ...options,
+        task: taskDescription,
+      });
+
+      // Parse the output to get the created spec ID
+      // The spec_runner prints the spec directory at the end
+      const lines = output.split('\n');
+      let specId = '';
+
+      for (const line of lines) {
+        // Look for spec directory pattern (e.g., "001-feature-name")
+        const match = line.match(/(\d{3}-[\w-]+)/);
+        if (match) {
+          specId = match[1];
+        }
+      }
+
+      if (!specId) {
+        // Fallback: try to parse from "Spec created at:" line
+        const specDirMatch = output.match(/Spec created at:.*?(\d{3}-[\w-]+)/);
+        if (specDirMatch) {
+          specId = specDirMatch[1];
+        }
+      }
+
+      this.outputChannel.appendLine(`[CLI] Spec created successfully: ${specId || 'unknown'}`);
+      return specId || 'unknown';
+    } catch (error) {
+      this.outputChannel.appendLine(`[CLI] Failed to create spec: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Generic method to run any backend command
+   * Used by command handlers that need custom command execution
+   */
+  async runCommand(command: BackendCommand, options: BackendCommandOptions = {}): Promise<string> {
+    return this.spawnProcess(command, options);
   }
 
   /**

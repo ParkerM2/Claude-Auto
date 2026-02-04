@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { CLIClient } from './backend/cli-client';
 import { TaskTreeProvider } from './views/task-tree-provider';
 import { ProgressView } from './views/progress-view';
+import { registerCommands } from './commands';
 
 /**
  * Extension activation function
@@ -40,7 +41,8 @@ export function activate(context: vscode.ExtensionContext): void {
         }
     );
 
-    // TODO: Register additional commands (will be implemented in phase 4)
+    // Register all command palette commands (Phase 4)
+    const commandDisposables = registerCommands(context, cliClient);
 
     // Add all disposables to context subscriptions for automatic cleanup
     context.subscriptions.push(
@@ -49,7 +51,8 @@ export function activate(context: vscode.ExtensionContext): void {
         progressView,
         treeView,
         showOutputCommand,
-        refreshTasksCommand
+        refreshTasksCommand,
+        ...commandDisposables
     );
 
     const activationTime = Date.now() - startTime;
