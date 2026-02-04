@@ -32,6 +32,7 @@
   "main": "./out/extension.js",
   "activationEvents": [
     "onCommand:autoClaude.createSpec",
+    "onCommand:autoClaude.createSpecFromSelection",
     "onCommand:autoClaude.runSpec",
     "onCommand:autoClaude.reviewChanges",
     "onCommand:autoClaude.mergeWorktree",
@@ -60,6 +61,12 @@
     "commands": [
       {
         "command": "autoClaude.createSpec",
+        "title": "Auto Claude: Create Spec",
+        "category": "Auto Claude",
+        "icon": "$(add)"
+      },
+      {
+        "command": "autoClaude.createSpecFromSelection",
         "title": "Auto Claude: Create Spec from Selection",
         "category": "Auto Claude",
         "icon": "$(add)"
@@ -101,6 +108,10 @@
           "command": "autoClaude.createSpec"
         },
         {
+          "command": "autoClaude.createSpecFromSelection",
+          "when": "editorHasSelection"
+        },
+        {
           "command": "autoClaude.runSpec"
         },
         {
@@ -118,7 +129,7 @@
       ],
       "editor/context": [
         {
-          "command": "autoClaude.createSpec",
+          "command": "autoClaude.createSpecFromSelection",
           "group": "autoClaude",
           "when": "editorHasSelection"
         }
