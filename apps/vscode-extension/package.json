@@ -28,7 +28,7 @@
     "coding",
     "agents"
   ],
-  "icon": "resources/icon.png",
+  "icon": "resources/icon.svg",
   "main": "./out/extension.js",
   "activationEvents": [
     "onCommand:autoClaude.createSpec",
